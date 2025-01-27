@@ -1,51 +1,84 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 
-export default function CreateTournamentScreen() {
+export default function EditTournamentScreen() {
   const { user } = useAuth();
   const navigation = useNavigation();
+  const route = useRoute();
+  const { id } = route.params as { id: string };
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [startDate, setStartDate] = useState('');
-  const [maxPlayers, setMaxPlayers] = useState('');
-  const [maxRounds, setMaxRounds] = useState('');
+  const [maxPlayers, setMaxPlayers] = useState('illimitato');
+  const [maxRounds, setMaxRounds] = useState('illimitato');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchTournament = async () => {
+      if (!id) return;
+      try {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from('tournaments')
+          .select('*')
+          .eq('id', id)
+          .single();
+        if (error) throw error;
+        setName(data.name);
+        setDescription(data.description || '');
+        setStartDate(data.start_date ? data.start_date.slice(0, 10) : '');
+        setMaxPlayers(data.max_players === null ? 'illimitato' : String(data.max_players));
+        setMaxRounds(data.max_rounds === null ? 'illimitato' : String(data.max_rounds));
+      } catch (error: any) {
+        setError(error.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTournament();
+  }, [id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const maxPlayersValue = maxPlayers === '' ? null : parseInt(maxPlayers, 10);
+      const maxPlayersValue = maxPlayers === 'illimitato' ? null : parseInt(maxPlayers, 10);
       if (maxPlayersValue !== null && isNaN(maxPlayersValue)) {
         throw new Error("Numero massimo di giocatori non valido.");
       }
-      const maxRoundsValue = maxRounds === '' ? null : parseInt(maxRounds, 10);
+      const maxRoundsValue = maxRounds === 'illimitato' ? null : parseInt(maxRounds, 10);
       if (maxRoundsValue !== null && isNaN(maxRoundsValue)) {
         throw new Error("Numero massimo di turni non valido.");
       }
-      const { data: tournament, error: tournamentError } = await supabase
+      const { error } = await supabase
         .from('tournaments')
-        .insert([{ name, description, created_by: user?.id, start_date: startDate, max_players: maxPlayersValue, max_rounds: maxRoundsValue }])
-        .select()
-        .single();
-      if (tournamentError) throw tournamentError;
-      navigation.navigate('TournamentDetails', { id: tournament.id });
+        .update({ name, description, start_date: startDate, max_players: maxPlayersValue, max_rounds: maxRoundsValue })
+        .eq('id', id);
+      if (error) throw error;
+      navigation.navigate('TournamentDetails', { id: id });
     } catch (error: any) {
       setError(error.message);
       Alert.alert('Errore', error.message);
     }
   };
 
+  if (loading) {
+    return <View style={styles.container}><Text>Caricamento...</Text></View>;
+  }
+
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>Crea Torneo</Text>
+      <Text style={styles.title}>Edit Tournament</Text>
+
       {error && (
         <View style={styles.errorContainer}>
           <Text style={styles.error}>{error}</Text>
         </View>
       )}
+
       <View style={styles.form}>
         <Text style={styles.label}>Tournament Name</Text>
         <TextInput
@@ -55,6 +88,7 @@ export default function CreateTournamentScreen() {
           onChangeText={setName}
           required
         />
+
         <Text style={styles.label}>Description</Text>
         <TextInput
           style={styles.input}
@@ -62,6 +96,7 @@ export default function CreateTournamentScreen() {
           onChangeText={setDescription}
           multiline
         />
+
         <Text style={styles.label}>Start Date</Text>
         <TextInput
           style={styles.input}
@@ -71,6 +106,7 @@ export default function CreateTournamentScreen() {
           placeholder="YYYY-MM-DD"
           required
         />
+
         <Text style={styles.label}>Max Players</Text>
         <TextInput
           style={styles.input}
@@ -87,8 +123,12 @@ export default function CreateTournamentScreen() {
           onChangeText={setMaxRounds}
           placeholder="Unlimited"
         />
-        <TouchableOpacity style={styles.button} onPress={handleSubmit}>
-          <Text style={styles.buttonText}>Crea Torneo</Text>
+
+        <TouchableOpacity
+          style={styles.button}
+          onPress={handleSubmit}
+        >
+          <Text style={styles.buttonText}>Aggiorna Torneo</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>

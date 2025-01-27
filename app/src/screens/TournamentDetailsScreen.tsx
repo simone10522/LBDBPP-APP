@@ -195,7 +195,7 @@ export default function TournamentDetailsScreen() {
   };
 
   const handleEditTournament = () => {
-    navigation.navigate('CreateTournament', { id: id });
+    navigation.navigate('EditTournament', { id: id });
   };
 
   if (loading) {
@@ -230,7 +230,7 @@ export default function TournamentDetailsScreen() {
           <Text style={styles.headerDate}>Start Date: {new Date(tournament.start_date).toLocaleDateString()}</Text>
         )}
         <Text style={[styles.headerStatus, {
-          backgroundColor: tournament.status === 'completed' ? 'green' : tournament.status === 'in_progress' ? 'yellow' : 'gray',
+          backgroundColor: tournament.status === 'completed' ? 'green' : tournament.status === 'in_progress' ? 'rgba(245, 132, 66, 1.0)' : 'gray',
         }]}>
           {tournament.status.replace('_', ' ')}
         </Text>

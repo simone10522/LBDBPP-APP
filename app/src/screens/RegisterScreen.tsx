@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, Image } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, Image, Dimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 
@@ -43,6 +43,7 @@ const RegisterScreen = () => {
       <Image
         source={{ uri: 'https://github.com/simone10522/LBDBPP/blob/main/icons/LBDBPP.png?raw=true' }}
         style={styles.logo}
+        resizeMode="contain"
       />
       <Text style={styles.title}>Registrati</Text>
       {error && (
@@ -93,9 +94,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f0f0',
   },
   logo: {
-    width: 200,
-    height: 70,
-    marginBottom: 20,
+      width: Dimensions.get('window').width * 0.8,
+      height: 100,
+      marginBottom: 20,
+      resizeMode: 'contain',
   },
   title: {
     fontSize: 32,

@@ -1,15 +1,25 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, Image, Dimensions } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, Image, Animated, Dimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 
-const LoginScreen = () => {
+export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const navigation = useNavigation();
+  const fadeAnim = useRef(new Animated.Value(0)).current;
   const { setUser } = useAuth();
+  const screenHeight = Dimensions.get('window').height;
+
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 400,
+      useNativeDriver: true,
+    }).start();
+  }, [fadeAnim]);
 
   const handleLogin = async () => {
     try {
@@ -31,7 +41,15 @@ const LoginScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <Animated.View style={[styles.container, {
+      opacity: fadeAnim,
+      transform: [{
+        translateX: fadeAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [screenHeight, 0],
+        }),
+      }],
+    }]}>
       <Image
         source={{ uri: 'https://github.com/simone10522/LBDBPP/blob/main/icons/LBDBPP.png?raw=true' }}
         style={styles.logo}
@@ -50,6 +68,7 @@ const LoginScreen = () => {
         autoCapitalize="none"
         value={email}
         onChangeText={setEmail}
+        required
       />
       <TextInput
         style={styles.input}
@@ -57,6 +76,7 @@ const LoginScreen = () => {
         secureTextEntry
         value={password}
         onChangeText={setPassword}
+        required
       />
       <TouchableOpacity style={styles.button} onPress={handleLogin}>
         <Text style={styles.buttonText}>Accedi</Text>
@@ -64,7 +84,7 @@ const LoginScreen = () => {
       <TouchableOpacity style={styles.registerButton} onPress={() => navigation.navigate('Register')}>
         <Text style={styles.registerButtonText}>Hai già un account? Registrati</Text>
       </TouchableOpacity>
-    </View>
+    </Animated.View>
   );
 };
 
@@ -129,5 +149,3 @@ const styles = StyleSheet.create({
     borderColor: '#f5c6cb',
   },
 });
-
-export default LoginScreen;

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, Dimensions, Modal } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
@@ -125,7 +125,7 @@ const HomeScreen = () => {
                   />
                 )}
                 <TouchableOpacity onPress={toggleDropdown} ref={dropdownRef}>
-                  <Text style={styles.username}>Ciao! {username}</Text>
+                  <Text style={styles.username}>{username}</Text>
                 </TouchableOpacity>
                 <Modal
                   transparent={true}
@@ -167,7 +167,7 @@ const HomeScreen = () => {
                     style={styles.cardIcon}
                   />
                   <Text style={[styles.cardStatus, {
-                    backgroundColor: tournament.status === 'completed' ? 'green' : tournament.status === 'in_progress' ? 'yellow' : 'gray',
+                    backgroundColor: tournament.status === 'completed' ? 'green' : tournament.status === 'in_progress' ? 'rgba(245, 132, 66, 1.0)' : 'gray',
                   }]}>
                     {tournament.status.replace('_', ' ')}
                   </Text>
@@ -335,8 +335,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   profileImage: {
-    width: 30,
-    height: 30,
+    width: 50,
+    height: 50,
     borderRadius: 15,
     marginRight: 5,
   },
