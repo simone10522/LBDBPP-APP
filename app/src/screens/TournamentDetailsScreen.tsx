@@ -2,9 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Platform, Alert } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
-import { Card } from 'react-native-elements';
-import { EnergyIcon } from '../components/EnergyIcon';
 import { useAuth } from '../hooks/useAuth';
+import MatchList from '../components/MatchList';
+import ParticipantList from '../components/ParticipantList';
+import { Trash2, Edit } from 'lucide-react';
 import Constants from 'expo-constants';
 
 interface Tournament {
@@ -22,7 +23,7 @@ interface Participant {
   username: string;
   points: number;
   id: string;
-  deck: { deck1: string[]; deck2: string[] } | null;
+  deck: any;
 }
 
 interface Match {
@@ -36,24 +37,25 @@ interface Match {
   status: 'scheduled' | 'completed';
 }
 
-const TournamentDetailsScreen = () => {
+export default function TournamentDetailsScreen() {
+  const { id } = useRoute().params as { id: string };
   const { user } = useAuth();
   const navigation = useNavigation();
-  const route = useRoute();
-  const { id } = route.params as { id: string };
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchTournamentData();
+    if (id) {
+      fetchTournamentData();
+    }
   }, [id]);
 
   const fetchTournamentData = async () => {
-    setLoading(true);
     try {
+      setLoading(true);
       const { data: tournamentData, error: tournamentError } = await supabase
         .from('tournaments')
         .select('*')
@@ -98,20 +100,102 @@ const TournamentDetailsScreen = () => {
   };
 
   const handleStartTournament = async () => {
-    if (tournament?.max_players !== null && participants.length < tournament.max_players) {
-      Alert.alert('Errore', 'Il torneo non ha raggiunto il numero massimo di partecipanti.');
-      return;
-    }
     try {
+      // Check if all participants have decks
+      const participantsWithoutDecks = participants.filter(p => !p.deck || !p.deck.deck1 || p.deck.deck1.length === 0 || !p.deck.deck2 || p.deck.deck2.length === 0);
+      if (participantsWithoutDecks.length > 0) {
+        const names = participantsWithoutDecks.map(p => p.username).join(', ');
+        setError(`Giocatore ${names} non ha selezionato i deck`);
+        return;
+      }
+
+      if (tournament?.max_players !== null && participants.length < tournament.max_players) {
+        const missingPlayers = tournament.max_players - participants.length;
+        setError(`Mancano ${missingPlayers} giocatori per avviare il torneo`);
+        return;
+      }
+
       const { error } = await supabase
         .from('tournaments')
         .update({ status: 'in_progress' })
         .eq('id', id);
       if (error) throw error;
+
+      // Call the function to generate matches
+      const { error: generateMatchesError } = await supabase.rpc('generate_tournament_matches', {
+        tournament_id_param: id,
+      });
+      if (generateMatchesError) throw generateMatchesError;
+
       fetchTournamentData();
     } catch (error: any) {
       setError(error.message);
     }
+  };
+
+  const handleSetWinner = async (matchId: string, winnerId: string) => {
+    try {
+      // 1. Update the match with the winner
+      const { error: matchError } = await supabase
+        .from('matches')
+        .update({ winner_id: winnerId, status: 'completed' })
+        .eq('id', matchId);
+      if (matchError) throw matchError;
+
+      // 2. Increment points for the winner
+      const { data: pointsData, error: pointsError } = await supabase.rpc('increment_points', {
+        tournament_id_param: id,
+        participant_id_param: winnerId,
+      });
+      if (pointsError) throw pointsError;
+
+      // 3. Check if all matches are completed and update tournament status
+      if (await allMatchesCompleted()) {
+        await supabase
+          .from('tournaments')
+          .update({ status: 'completed' })
+          .eq('id', id);
+      }
+
+      // 4. Fetch updated data
+      fetchTournamentData();
+    } catch (error: any) {
+      setError(error.message);
+    }
+  };
+
+  const allMatchesCompleted = async () => {
+    const { data, error } = await supabase
+      .from('matches')
+      .select('*')
+      .eq('tournament_id', id)
+      .eq('status', 'scheduled');
+    if (error) {
+      console.error("Error checking matches:", error);
+      return false;
+    }
+    return data.length === 0;
+  };
+
+  const handleDeleteTournament = async () => {
+    if (!user || !tournament || tournament.created_by !== user.id) {
+      setError('Non sei autorizzato a cancellare questo torneo.');
+      return;
+    }
+    try {
+      const { error } = await supabase
+        .from('tournaments')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      navigation.navigate('Home');
+    } catch (error: any) {
+      setError(error.message);
+    }
+  };
+
+  const handleEditTournament = () => {
+    navigation.navigate('CreateTournament', { id: id });
   };
 
   if (loading) {
@@ -119,73 +203,85 @@ const TournamentDetailsScreen = () => {
   }
 
   if (!tournament) {
-    return <View style={styles.container}><Text>Torneo non trovato</Text></View>;
+    return <View style={styles.container}><Text>Tournament not found</Text></View>;
   }
 
   const isOwner = tournament.created_by === user?.id;
-  const isTournamentActive = tournament.status === 'in_progress' || tournament.status === 'completed';
+
+  const getWinner = () => {
+    if (tournament.status !== 'completed' || participants.length === 0) return null;
+    return participants.reduce((prev, current) => (prev.points > current.points) ? prev : current);
+  };
+
+  const winner = getWinner();
   const paddingTop = Platform.OS === 'android' ? Constants.statusBarHeight : 0;
-  const availableSlots = tournament.max_players === null ? '∞' : tournament.max_players - participants.length;
 
   return (
-    <ScrollView style={[styles.container, { paddingTop }]}>
+    <ScrollView style={[styles.container, { paddingTop }]} contentContainerStyle={styles.scrollContent}>
+      {error && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.error}>{error}</Text>
+        </View>
+      )}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{tournament.name}</Text>
         <Text style={styles.headerDescription}>{tournament.description}</Text>
-        <Text style={styles.headerDate}>Created {new Date(tournament.created_at).toLocaleDateString()}</Text>
         {tournament.start_date && (
-            <Text style={styles.headerDate}>Start Date: {new Date(tournament.start_date).toLocaleDateString()}</Text>
+          <Text style={styles.headerDate}>Start Date: {new Date(tournament.start_date).toLocaleDateString()}</Text>
         )}
         <Text style={[styles.headerStatus, {
           backgroundColor: tournament.status === 'completed' ? 'green' : tournament.status === 'in_progress' ? 'yellow' : 'gray',
         }]}>
           {tournament.status.replace('_', ' ')}
         </Text>
-        {tournament.max_players !== null && (
-          <Text style={styles.headerMaxPlayers}>
-            {participants.length}/{tournament.max_players === null ? '∞' : tournament.max_players}
-          </Text>
-        )}
-      </View>
-      {error && <Text style={styles.error}>{error}</Text>}
-      <View style={styles.content}>
-        {isOwner && tournament.status === 'draft' && (
-          <TouchableOpacity onPress={handleStartTournament} style={styles.startButton} disabled={tournament.max_players !== null && participants.length < tournament.max_players}>
-            <Text style={styles.startButtonText}>Inizia Torneo</Text>
+        {isOwner && (
+          <TouchableOpacity
+            onPress={handleEditTournament}
+            style={styles.editButton}
+          >
+            <Text style={styles.editButtonText}>Modifica Torneo</Text>
           </TouchableOpacity>
         )}
-        <TouchableOpacity onPress={() => navigation.navigate('ManageParticipants', { id: id })} style={styles.manageButton}>
-          <Text style={styles.manageButtonText}>Gestisci Partecipanti</Text>
-        </TouchableOpacity>
+      </View>
+      <View style={styles.content}>
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Partecipanti</Text>
-          {participants.map((participant) => (
-            <View key={participant.id} style={styles.participantItem}>
-              <Text style={styles.participantName}>{participant.username} ({participant.points} punti)</Text>
-              {participant.deck && (
-                <View style={styles.deckContainer}>
-                  <Text>Deck 1: {participant.deck.deck1.map((e) => <EnergyIcon key={e} energy={e} style={styles.energyIcon} />)}</Text>
-                  <Text>Deck 2: {participant.deck.deck2.map((e) => <EnergyIcon key={e} energy={e} style={styles.energyIcon} />)}</Text>
-                </View>
-              )}
-            </View>
-          ))}
+          <Text style={styles.sectionTitle}>Matches</Text>
+          {(tournament.status === 'in_progress' || tournament.status === 'completed') && (
+            <MatchList
+              matches={matches}
+              onSetWinner={tournament.status === 'in_progress' ? handleSetWinner : undefined}
+            />
+          )}
         </View>
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Partite</Text>
-          {matches.map((match) => (
-            <View key={match.id} style={styles.matchItem}>
-              <Text>Round {match.round}</Text>
-              <Text>
-                {match.player1} vs {match.player2}
-              </Text>
-              {match.winner_id && <Text>Vincitore: {match.winner_id}</Text>}
-              <Text>Status: {match.status}</Text>
-            </View>
-          ))}
+          <Text style={styles.sectionTitle}>Classifica</Text>
+          <View style={styles.participantList}>
+            <ParticipantList
+              participants={participants
+                .sort((a, b) => b.points - a.points)
+                .map(p => `${p.username} (${p.points} points)`)
+              }
+              readonly
+            />
+          </View>
         </View>
+        {tournament.status === 'completed' && winner && (
+          <View style={styles.winnerContainer}>
+            <Text style={styles.winnerTitle}>VINCITORE</Text>
+            <Image source={{ uri: 'https://github.com/simone10522/LBDBPP/blob/main/icons/crown.png?raw=true' }} style={styles.winnerCrown} />
+            <Text style={styles.winnerName}>{winner.username}</Text>
+          </View>
+        )}
       </View>
       <View style={styles.actions}>
+        <TouchableOpacity onPress={() => navigation.navigate('ManageParticipants', { id: id })} style={styles.manageButton}>
+          <Text style={styles.manageButtonText}>Lista Giocatori</Text>
+        </TouchableOpacity>
+        {isOwner && tournament.status === 'draft' && (
+          <TouchableOpacity onPress={handleStartTournament} style={styles.startButton}>
+            <Text style={styles.startButtonText}>Start Tournament</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </ScrollView>
   );
@@ -197,6 +293,9 @@ const styles = StyleSheet.create({
     padding: 10,
     backgroundColor: '#f0f0f0',
     marginTop: 0,
+  },
+  scrollContent: {
+    paddingBottom: 100,
   },
   header: {
     alignItems: 'center',
@@ -229,11 +328,6 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 14,
   },
-  headerMaxPlayers: {
-    fontSize: 14,
-    color: '#999',
-    marginBottom: 10,
-  },
   content: {
     paddingHorizontal: 10,
   },
@@ -250,20 +344,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     marginBottom: 5,
-  },
-  participantName: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 5,
-  },
-  deckContainer: {
-    flexDirection: 'column',
-    marginLeft: 10,
-  },
-  energyIcon: {
-    width: 20,
-    height: 20,
-    marginRight: 5,
   },
   matchItem: {
     backgroundColor: 'white',
@@ -291,6 +371,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#95a5a6',
     padding: 10,
     borderRadius: 5,
+    marginBottom: 10,
     display: 'none',
   },
   backButtonText: {
@@ -315,12 +396,47 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: 'bold',
   },
-  startText: {
-    fontSize: 20,
+  winnerContainer: {
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  winnerTitle: {
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#2ecc71',
+    textShadowColor: 'black',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 0,
+  },
+  winnerCrown: {
+    height: 80,
+    width: 100,
+  },
+  winnerName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
     textAlign: 'center',
-    marginBottom: 10,
+  },
+  editButton: {
+    backgroundColor: '#4a90e2',
+    padding: 10,
+    borderRadius: 5,
+    marginTop: 10,
+  },
+  editButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  participantList: {
+    backgroundColor: 'white',
+    padding: 10,
+    borderRadius: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
   },
 });
 

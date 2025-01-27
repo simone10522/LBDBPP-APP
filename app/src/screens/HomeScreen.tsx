@@ -1,9 +1,9 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, Dimension } from 'react-native';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, Dimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Card } from 'react-native-elements';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
+import { Card } from 'react-native-elements';
 
 interface Tournament {
   id: string;
@@ -15,12 +15,15 @@ interface Tournament {
 
 const HomeScreen = () => {
   const navigation = useNavigation();
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [username, setUsername] = useState('');
+  const [profileImage, setProfileImage] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [isDropdownVisible, setDropdownVisible] = useState(false);
+  const dropdownRef = useRef(null);
 
   const fetchTournaments = useCallback(async () => {
     setLoading(true);
@@ -30,11 +33,7 @@ const HomeScreen = () => {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) {
-        throw new Error(`Errore durante il recupero dei tornei: ${error.message}`);
-      }
-
-      if (data) {
+      if (!error && data) {
         setTournaments(data);
       } else {
         setTournaments([]);
@@ -46,32 +45,37 @@ const HomeScreen = () => {
     }
   }, []);
 
-  const fetchUsername = async () => {
+  const fetchUserData = async () => {
     if (user) {
       try {
         const { data, error } = await supabase
           .from('profiles')
-          .select('username')
+          .select('username, profile_image')
           .eq('id', user.id)
           .single();
         if (error) {
           console.error("Error fetching user data:", error);
           setUsername('Guest');
+          setProfileImage('');
         } else {
           setUsername(data?.username || 'Guest');
+          setProfileImage(data?.profile_image || '');
         }
       } catch (error) {
         console.error("Error fetching user data:", error);
         setUsername('Guest');
+        setProfileImage('');
       }
     } else {
       setUsername('Guest');
+      setProfileImage('');
     }
+    setLoading(false);
   };
 
   useEffect(() => {
     fetchTournaments();
-    fetchUsername();
+    fetchUserData();
   }, [user, fetchTournaments]);
 
   const onRefresh = React.useCallback(() => {
@@ -79,16 +83,30 @@ const HomeScreen = () => {
     fetchTournaments().finally(() => setRefreshing(false));
   }, [fetchTournaments]);
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    navigation.navigate('Login');
+  };
+
+  const toggleDropdown = () => {
+    setDropdownVisible(!isDropdownVisible);
+  };
+
   return (
-    <View style={{ flex: 1 }}>
+    <View style={styles.container}>
       <ScrollView
-        style={styles.container}
+        style={styles.scrollView}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Tornei</Text>
+          <Image
+            source={{ uri: 'https://github.com/simone10522/LBDBPP/blob/main/icons/LBDBPP.png?raw=true' }}
+            style={styles.headerLogo}
+            resizeMode="contain"
+          />
           <View style={styles.headerButtons}>
             <TouchableOpacity style={styles.createButton} onPress={() => navigation.navigate('CreateTournament')}>
               <Text style={styles.createButtonText}>Crea Torneo</Text>
@@ -99,7 +117,37 @@ const HomeScreen = () => {
               </TouchableOpacity>
             )}
             {user && (
-              <Text style={styles.username}>Ciao! {username}</Text>
+              <View style={styles.userContainer}>
+                {profileImage && (
+                  <Image
+                    source={{ uri: profileImage }}
+                    style={styles.profileImage}
+                  />
+                )}
+                <TouchableOpacity onPress={toggleDropdown} ref={dropdownRef}>
+                  <Text style={styles.username}>Ciao! {username}</Text>
+                </TouchableOpacity>
+                <Modal
+                  transparent={true}
+                  visible={isDropdownVisible}
+                  onRequestClose={() => setDropdownVisible(false)}
+                >
+                  <TouchableOpacity
+                    style={styles.modalOverlay}
+                    activeOpacity={1}
+                    onPress={() => setDropdownVisible(false)}
+                  >
+                    <View style={styles.dropdown}>
+                      <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.dropdownItem}>
+                        <Text>Profile</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={handleLogout} style={styles.dropdownItem}>
+                        <Text>Logout</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </TouchableOpacity>
+                </Modal>
+              </View>
             )}
           </View>
         </View>
@@ -115,6 +163,7 @@ const HomeScreen = () => {
                 <View style={styles.cardHeader}>
                   <Image
                     source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Pok%C3%A9_Ball_icon.svg/2048px-Pok%C3%A9_Ball_icon.svg.png' }}
+                    alt="Pokeball Icon"
                     style={styles.cardIcon}
                   />
                   <Text style={[styles.cardStatus, {
@@ -130,10 +179,12 @@ const HomeScreen = () => {
             </TouchableOpacity>
           ))}
         </View>
+
         {tournaments.length === 0 && !loading && (
           <View style={styles.noTournamentsContainer}>
             <Image
               source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Pok%C3%A9_Ball_icon.svg/2048px-Pok%C3%A9_Ball_icon.svg.png' }}
+              alt="Pokeball Icon"
               style={styles.noTournamentsIcon}
             />
             <Text style={styles.noTournamentsTitle}>Nessun Torneo Disponibile</Text>
@@ -148,9 +199,11 @@ const HomeScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#333',
+  },
+  scrollView: {
+    flex: 1,
     padding: 10,
-    backgroundColor: '#f0f0f0',
-    marginTop: 0,
   },
   header: {
     flexDirection: 'column',
@@ -161,11 +214,16 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#fff',
     textShadowColor: 'black',
     textShadowOffset: { width: 3, height: 3 },
     textShadowRadius: 0,
     textAlign: 'center',
+    display: 'none',
+  },
+  headerLogo: {
+    width: '100%',
+    height: 100,
   },
   headerButtons: {
     flexDirection: 'row',
@@ -207,12 +265,12 @@ const styles = StyleSheet.create({
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    justifyContent: 'space-between',
+    marginBottom: 4,
   },
   cardIcon: {
-    width: 40,
     height: 40,
-    marginRight: 10,
+    width: 40,
   },
   cardStatus: {
     padding: 5,
@@ -266,6 +324,45 @@ const styles = StyleSheet.create({
   noTournamentsText: {
     fontSize: 16,
     color: '#666',
+  },
+  username: {
+    color: 'white',
+    fontWeight: 'bold',
+    marginRight: 10,
+  },
+  userContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  profileImage: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    marginRight: 5,
+  },
+  dropdown: {
+    position: 'absolute',
+    top: 50,
+    right: 0,
+    backgroundColor: 'white',
+    borderRadius: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
+    width: 150,
+  },
+  dropdownItem: {
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
   },
 });
 

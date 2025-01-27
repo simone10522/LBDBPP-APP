@@ -354,6 +354,7 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 5,
     marginBottom: 10,
+    display: 'none',
   },
   backButtonText: {
     color: 'white',
