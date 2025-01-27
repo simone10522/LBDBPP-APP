@@ -8,11 +8,13 @@ import RegisterScreen from './src/screens/RegisterScreen';
 import ManageParticipantsScreen from './src/screens/ManageParticipantsScreen';
 import ManageDecksScreen from './src/screens/ManageDecksScreen';
 import CreateTournamentScreen from './src/screens/CreateTournamentScreen';
-import { Platform, View, ImageBackground, StyleSheet, SafeAreaView } from 'react-native';
+import EditTournamentScreen from './src/screens/EditTournamentScreen';
+import { Platform, View, ImageBackground, StyleSheet, SafeAreaView, Dimensions } from 'react-native';
 
 const Stack = createNativeStackNavigator();
 
 const App = () => {
+  const screenWidth = Dimensions.get('window').width;
   return (
     <NavigationContainer>
       <ImageBackground
@@ -35,8 +37,28 @@ const App = () => {
               headerTitleAlign: 'center',
               headerShadowVisible: false,
               headerTransparent: Platform.OS === 'android',
-              animation: 'none',
               headerShown: false,
+              transitionSpec: {
+                open: { animation: 'timing', config: { duration: 300 } },
+                close: { animation: 'timing', config: { duration: 300 } },
+              },
+              cardStyleInterpolator: ({ current, next, layouts }) => {
+                const translateX = next
+                  ? next.progress.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, -layouts.screen.width],
+                    })
+                  : current.progress.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [layouts.screen.width, 0],
+                    });
+                return {
+                  cardStyle: {
+                    opacity: current.progress,
+                    transform: [{ translateX }],
+                  },
+                };
+              },
             }}
           >
             <Stack.Screen name="Home" component={HomeScreen} />
@@ -46,6 +68,7 @@ const App = () => {
             <Stack.Screen name="ManageParticipants" component={ManageParticipantsScreen} />
             <Stack.Screen name="ManageDecks" component={ManageDecksScreen} />
             <Stack.Screen name="CreateTournament" component={CreateTournamentScreen} />
+            <Stack.Screen name="EditTournament" component={EditTournamentScreen} />
           </Stack.Navigator>
         </SafeAreaView>
       </ImageBackground>
