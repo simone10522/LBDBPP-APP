@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { X } from 'lucide-react';
 
 interface ParticipantListProps {
   participants: string[];
@@ -7,37 +7,25 @@ interface ParticipantListProps {
   readonly?: boolean;
 }
 
-const ParticipantList: React.FC<ParticipantListProps> = ({ participants, onRemove, readonly }) => {
+export default function ParticipantList({ participants, onRemove, readonly }: ParticipantListProps) {
   return (
-    <View style={styles.container}>
+    <ul className="space-y-2">
       {participants.map((participant, index) => (
-        <View key={index} style={styles.listItem}>
-          <Text style={styles.listItemText}>{participant}</Text>
-        </View>
+        <li 
+          key={index}
+          className="flex items-center justify-between p-2 bg-gray-50 rounded-md"
+        >
+          <span>{participant}</span>
+          {!readonly && onRemove && (
+            <button
+              onClick={() => onRemove(index)}
+              className="text-red-500 hover:text-red-700"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </li>
       ))}
-    </View>
+    </ul>
   );
-};
-
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: 20,
-  },
-  listItem: {
-    backgroundColor: 'white',
-    padding: 10,
-    borderRadius: 5,
-    marginBottom: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 3,
-  },
-  listItemText: {
-    fontSize: 16,
-    color: '#333',
-  },
-});
-
-export default ParticipantList;
+}
