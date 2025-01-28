@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, ScrollView, Modal } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
+import { Calendar } from 'react-native-calendars';
+import { format } from 'date-fns';
 
 export default function CreateTournamentScreen() {
   const { user } = useAuth();
@@ -13,6 +15,7 @@ export default function CreateTournamentScreen() {
   const [maxPlayers, setMaxPlayers] = useState('');
   const [maxRounds, setMaxRounds] = useState('');
   const [error, setError] = useState('');
+  const [isDatePickerVisible, setDatePickerVisible] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,6 +39,12 @@ export default function CreateTournamentScreen() {
       setError(error.message);
       Alert.alert('Errore', error.message);
     }
+  };
+
+  const handleDateSelect = (day: any) => {
+    const formattedDate = format(new Date(day.dateString), 'yyyy-MM-dd');
+    setStartDate(formattedDate);
+    setDatePickerVisible(false);
   };
 
   return (
@@ -63,14 +72,27 @@ export default function CreateTournamentScreen() {
           multiline
         />
         <Text style={styles.label}>Start Date</Text>
-        <TextInput
-          style={styles.input}
-          type="date"
-          value={startDate}
-          onChangeText={setStartDate}
-          placeholder="YYYY-MM-DD"
-          required
-        />
+        <TouchableOpacity style={styles.selectButton} onPress={() => setDatePickerVisible(true)}>
+          <Text style={styles.selectButtonText}>{startDate || 'Select Date'}</Text>
+        </TouchableOpacity>
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={isDatePickerVisible}
+          onRequestClose={() => setDatePickerVisible(false)}
+        >
+          <View style={styles.centeredView}>
+            <View style={styles.modalView}>
+              <Calendar
+                onDayPress={handleDateSelect}
+                markedDates={startDate ? { [startDate]: { selected: true, selectedColor: '#4a90e2' } } : {}}
+              />
+              <TouchableOpacity style={styles.button} onPress={() => setDatePickerVisible(false)}>
+                <Text style={styles.buttonText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
         <Text style={styles.label}>Max Players</Text>
         <TextInput
           style={styles.input}
@@ -158,5 +180,26 @@ const styles = StyleSheet.create({
     color: '#721c24',
     fontSize: 16,
     textAlign: 'center',
+  },
+  centeredView: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 22,
+  },
+  modalView: {
+    margin: 20,
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 35,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
 });
