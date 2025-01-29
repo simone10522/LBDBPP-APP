@@ -267,11 +267,12 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
         justifyContent: 'center',
       },
       card: {
-        borderRadius: 10,
-        marginBottom: 10,
-        elevation: 3,
+        borderRadius: 11,
+        marginBottom: 5,
+        elevation: 1,
         width: Dimensions.get('window').width - 20,
         marginHorizontal: 10,
+        backgroundColor: 'rgba(255, 255, 255, 0.8)',
       },
       cardHeader: {
         flexDirection: 'row',
