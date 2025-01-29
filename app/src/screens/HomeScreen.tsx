@@ -210,7 +210,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
     const styles = StyleSheet.create({
       container: {
         flex: 1,
-        backgroundColor: '#999',
+        backgroundColor: '#333',
       },
       scrollView: {
         flex: 1,
@@ -306,7 +306,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
       },
       cardCreatorId: {
         fontSize: 16,
-        color: '#333',
+        color: '#777',
         textAlign: 'center',
         marginBottom: 5,
       },
