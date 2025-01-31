@@ -1,0 +1,64 @@
+CREATE OR REPLACE FUNCTION update_match_result(
+  match_id_param UUID,
+  player_param INTEGER, -- 1 per player1, 2 per player2
+  increment_param BOOLEAN
+)
+RETURNS VOID
+AS $$
+DECLARE
+  current_results TEXT;
+  score1 INTEGER;
+  score2 INTEGER;
+  best_of_value INTEGER;
+  player1_id_value UUID;
+  player2_id_value UUID;
+BEGIN
+  -- Recupera i risultati attuali e il best_of dal match
+  SELECT results, tournaments.best_of, matches.player1_id, matches.player2_id
+  INTO current_results, best_of_value, player1_id_value, player2_id_value
+  FROM matches
+  JOIN tournaments ON matches.tournament_id = tournaments.id
+  WHERE matches.id = match_id_param;
+
+  -- Inizializza i punteggi se results è nullo o vuoto
+  IF current_results IS NULL OR current_results = '' THEN
+    score1 := 0;
+    score2 := 0;
+  ELSE
+    score1 := (string_to_array(current_results, '-'))[1]::INTEGER;
+    score2 := (string_to_array(current_results, '-'))[2]::INTEGER;
+  END IF;
+
+  -- Aggiorna il punteggio in base al giocatore e all'operazione (incrementa/decrementa)
+  IF player_param = 1 THEN
+    IF increment_param THEN
+      score1 := score1 + 1;
+    ELSE
+      score1 := GREATEST(0, score1 - 1); -- Evita punteggi negativi
+    END IF;
+  ELSEIF player_param = 2 THEN
+    IF increment_param THEN
+      score2 := score2 + 1;
+    ELSE
+      score2 := GREATEST(0, score2 - 1); -- Evita punteggi negativi
+    END IF;
+  END IF;
+
+  -- Aggiorna la colonna results con il nuovo punteggio
+  UPDATE matches
+  SET results = score1 || '-' || score2
+  WHERE id = match_id_param;
+
+  -- Determina il vincitore e aggiorna winner_id se necessario
+  IF score1 > score2 AND score1 >= CEIL((best_of_value + 1) / 2.0) THEN
+    UPDATE matches
+    SET winner_id = player1_id_value, status = 'completed'
+    WHERE id = match_id_param;
+  ELSIF score2 > score1 AND score2 >= CEIL((best_of_value + 1) / 2.0) THEN
+    UPDATE matches
+    SET winner_id = player2_id_value, status = 'completed'
+    WHERE id = match_id_param;
+  END IF;
+
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

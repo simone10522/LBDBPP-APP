@@ -14,6 +14,7 @@ export default function CreateTournamentScreen() {
   const [startDate, setStartDate] = useState('');
   const [maxPlayers, setMaxPlayers] = useState('');
   const [maxRounds, setMaxRounds] = useState('');
+  const [bestOf, setBestOf] = useState<number | null>(null); // Aggiunto stato per Best of
   const [error, setError] = useState('');
   const [isDatePickerVisible, setDatePickerVisible] = useState(false);
 
@@ -28,9 +29,12 @@ export default function CreateTournamentScreen() {
       if (maxRoundsValue !== null && isNaN(maxRoundsValue)) {
         throw new Error("Numero massimo di turni non valido.");
       }
+      if (bestOf === null) {
+        throw new Error("Seleziona un'opzione per Best of.");
+      }
       const { data: tournament, error: tournamentError } = await supabase
         .from('tournaments')
-        .insert([{ name, description, created_by: user?.id, start_date: startDate, max_players: maxPlayersValue, max_rounds: maxRoundsValue }])
+        .insert([{ name, description, created_by: user?.id, start_date: startDate, max_players: maxPlayersValue, max_rounds: maxRoundsValue, best_of: bestOf }]) // Aggiunto best_of
         .select()
         .single();
       if (tournamentError) throw tournamentError;
@@ -109,6 +113,21 @@ export default function CreateTournamentScreen() {
           onChangeText={setMaxRounds}
           placeholder="Unlimited"
         />
+        <Text style={styles.label}>Best of</Text>
+        <View style={styles.bestOfContainer}>
+          <TouchableOpacity
+            style={[styles.button, bestOf === 3 && styles.selectedButton]}
+            onPress={() => setBestOf(3)}
+          >
+            <Text style={[styles.buttonText, bestOf === 3 && styles.selectedButtonText]}>Best of 3</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.button, bestOf === 5 && styles.selectedButton]}
+            onPress={() => setBestOf(5)}
+          >
+            <Text style={[styles.buttonText, bestOf === 5 && styles.selectedButtonText]}>Best of 5</Text>
+          </TouchableOpacity>
+        </View>
         <TouchableOpacity style={styles.button} onPress={handleSubmit}>
           <Text style={styles.buttonText}>Crea Torneo</Text>
         </TouchableOpacity>
@@ -159,7 +178,7 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   button: {
-    backgroundColor: '#4a90e2',
+    backgroundColor: '#333',
     padding: 15,
     borderRadius: 5,
     alignItems: 'center',
@@ -202,4 +221,17 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 5,
   },
+  bestOfContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 10,
+  },
+  selectedButton: {
+    backgroundColor: '#3498db',
+  },
+  selectedButtonText: {
+    color: 'white',
+  },
 });
+
+export default CreateTournamentScreen;
