@@ -1,136 +1,162 @@
-import React, { useState, useEffect } from 'react';
-    import { View, Text, StyleSheet, ScrollView } from 'react-native';
-    import { useRoute } from '@react-navigation/native';
-    import { supabase } from '../lib/supabase';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../hooks/useAuth';
+import { EnergyIcon } from '../components/EnergyIcon';
+import { FontAwesome } from '@expo/vector-icons';
 
-    interface Participant {
-      username: string;
-      points: number;
-    }
+interface TournamentParticipant {
+  id: string;
+  username: string;
+  matches_won: number;
+  matches_lost: number;
+  participant_id: string;
+}
 
-    const LeaderboardScreen = () => {
-      const route = useRoute();
-      const { tournamentId } = route.params as { tournamentId: string };
-      const [participants, setParticipants] = useState<Participant[]>([]);
-      const [loading, setLoading] = useState(true);
-      const [error, setError] = useState<string | null>(null);
+const LeaderboardScreen = () => {
+  const { user } = useAuth();
+  const navigation = useNavigation();
+  const route = useRoute();
+  const { id } = route.params as { id: string };
+  const [participants, setParticipants] = useState<TournamentParticipant[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-      useEffect(() => {
-        const fetchParticipants = async () => {
-          setLoading(true);
-          try {
-            const { data, error } = await supabase
-              .from('tournament_participants')
-              .select(`
-                username:participant_id ( username ),
-                points
-              `)
-              .eq('tournament_id', tournamentId)
-              .order('points', { ascending: false });
-
-            if (error) throw error;
-
-            if (data) {
-              setParticipants(data.map((p) => ({
-                username: p.username.username,
-                points: p.points,
-              })));
-            }
-          } catch (error: any) {
-            setError(error.message);
-          } finally {
-            setLoading(false);
-          }
-        };
-
-        fetchParticipants();
-      }, [tournamentId]);
-
-      if (loading) {
-        return <View style={styles.container}><Text>Loading...</Text></View>;
-      }
+  const fetchLeaderboard = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('tournament_participants')
+        .select(`
+          id,
+          matches_won,
+          matches_lost,
+          participant_id,
+          profiles:participant_id (username)
+        `)
+        .eq('tournament_id', id);
 
       if (error) {
-        return <View style={styles.container}><Text style={styles.error}>Error: {error}</Text></View>;
+        throw new Error(`Errore durante il recupero della classifica: ${error.message}`);
       }
 
-      return (
-        <ScrollView style={styles.container}>
-          <Text style={styles.title}>Leaderboard</Text>
-          {participants.length > 0 ? (
-            <View style={styles.listContainer}>
-              {participants.map((participant, index) => (
-                <View key={index} style={styles.participantItem}>
-                  <Text style={styles.rank}>{index + 1}.</Text>
-                  <Text style={styles.participantName}>{participant.username}</Text>
-                  <Text style={styles.points}>{participant.points} Points</Text>
-                </View>
-              ))}
-            </View>
-          ) : (
-            <Text style={styles.noData}>No participants found.</Text>
-          )}
-        </ScrollView>
-      );
-    };
+      if (data) {
+        setParticipants(
+          data.map((p) => ({
+            id: p.id,
+            username: p.profiles.username,
+            matches_won: p.matches_won || 0,
+            matches_lost: p.matches_lost || 0,
+            participant_id: p.participant_id,
+          }))
+        );
+      } else {
+        setParticipants([]);
+      }
+    } catch (error: any) {
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
 
-    const styles = StyleSheet.create({
-      container: {
-        flex: 1,
-        padding: 20,
-        backgroundColor: '#f0f0f0',
-      },
-      title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: '#333',
-        marginBottom: 20,
-        textAlign: 'center',
-      },
-      listContainer: {
-        width: '100%',
-      },
-      participantItem: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        backgroundColor: 'white',
-        padding: 15,
-        marginBottom: 10,
-        borderRadius: 5,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 2,
-        elevation: 3,
-      },
-      rank: {
-        fontSize: 16,
-        color: '#333',
-        fontWeight: 'bold',
-        marginRight: 10,
-      },
-      participantName: {
-        fontSize: 16,
-        color: '#333',
-        flex: 1,
-      },
-      points: {
-        fontSize: 16,
-        color: '#333',
-      },
-      error: {
-        color: 'red',
-        fontSize: 16,
-        textAlign: 'center',
-        marginTop: 10,
-      },
-      noData: {
-        fontSize: 16,
-        color: '#666',
-        textAlign: 'center',
-        marginTop: 20,
-      },
-    });
+  useEffect(() => {
+    fetchLeaderboard();
+  }, [fetchLeaderboard]);
 
-    export default LeaderboardScreen;
+  const sortedParticipants = [...participants].sort((a, b) => {
+    if (b.matches_won !== a.matches_won) {
+      return b.matches_won - a.matches_won;
+    }
+    return a.matches_lost - b.matches_lost;
+  });
+
+  const renderRankingIndicator = (index: number) => {
+    if (index === 0) {
+      return <FontAwesome name="trophy" size={20} color="gold" />;
+    } else if (index === 1) {
+      return <FontAwesome name="trophy" size={20} color="silver" />;
+    } else if (index === 2) {
+      return <FontAwesome name="trophy" size={20} color="#CD7F32" />;
+    } else {
+      return <Text style={[styles.cell, { flex: 1, textAlign: 'center' }]}>{index + 1}</Text>;
+    }
+  };
+
+
+  if (loading) {
+    return <View style={styles.container}><Text>Caricamento...</Text></View>;
+  }
+
+  return (
+    <ScrollView style={styles.container}>
+      <Text style={styles.title}>Leaderboard</Text>
+      <View style={styles.headerRow}>
+        <Text style={[styles.headerCell, { flex: 1, textAlign: 'center' }]}>Pos</Text>
+        <Text style={[styles.headerCell, { flex: 2, textAlign: 'center' }]}>Player</Text>
+        <Text style={styles.headerCell}>G</Text>
+        <Text style={styles.headerCell}>W</Text>
+        <Text style={styles.headerCell}>L</Text>
+      </View>
+      {sortedParticipants.map((participant, index) => (
+        <View key={participant.id} style={[styles.row, user?.id === participant.participant_id ? styles.currentUserRow : {}]}>
+          <Text style={[styles.cell, { flex: 1, textAlign: 'center' }]}>
+            {index < 3 ? renderRankingIndicator(index) : index + 1}
+          </Text>
+          <Text style={[styles.cell, { flex: 2, textAlign: 'center' }]}>{participant.username}</Text>
+          <Text style={[styles.cell, { textAlign: 'center' }]}>{(participant.matches_won || 0) + (participant.matches_lost || 0)}</Text>
+          <Text style={[styles.cell, { textAlign: 'center' }]}>{participant.matches_won || 0}</Text>
+          <Text style={[styles.cell, { textAlign: 'center' }]}>{participant.matches_lost || 0}</Text>
+        </View>
+      ))}
+    </ScrollView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 20,
+    backgroundColor: '#f0f0f0',
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 30,
+    textAlign: 'center',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#ccc',
+    paddingBottom: 10,
+    marginBottom: 10,
+  },
+  headerCell: {
+    flex: 1,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    fontSize: 16,
+    color: '#333',
+  },
+  row: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  cell: {
+    flex: 1,
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+  },
+  currentUserRow: {
+    backgroundColor: '#e0e0e0',
+  },
+});
+
+export default LeaderboardScreen;

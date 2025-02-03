@@ -54,6 +54,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
       const [participantId, setParticipantId] = useState<string | null>(null);
       const [tournamentStatus, setTournamentStatus] = useState<'draft' | 'in_progress' | 'completed'>('draft');
       const [refreshing, setRefreshing] = useState(false);
+      const [showUserMatches, setShowUserMatches] = useState<boolean>(false); // Added state for filtering matches
 
       const fetchParticipants = useCallback(async () => {
         setLoading(true);
@@ -299,7 +300,6 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
           }
 
           if (tournament?.max_players !== null && participants.length < tournament.max_players) {
-            const missingPlayers = tournament.max_players - participants.length;
             setError(`Mancano ${missingPlayers} giocatori per avviare il torneo`);
             return;
           }
@@ -328,7 +328,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
           const { error: matchError } = await supabase
             .from('matches')
             .update({ winner_id: winnerId, status: 'completed' })
-            .eq('id', matchId);
+            .eq('id', id);
           if (matchError) throw matchError;
 
           // 2. Increment points for the winner
@@ -392,6 +392,10 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
         fetchTournamentData().then(() => setRefreshing(false));
       }, [fetchTournamentData]);
 
+      const filteredMatches = showUserMatches
+    ? matches.filter(match => match.player1_id === user?.id || match.player2_id === user?.id)
+    : matches;
+
       if (loading) {
         return <View style={styles.container}><Text>Caricamento...</Text></View>;
       }
@@ -435,48 +439,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
             }]}>
               {tournament.status.replace('_', ' ')}
             </Text>
-          </View>
-          <View style={styles.content}>
-            <View style={styles.section}>
-              <View style={styles.sectionTitleContainer}>
-                <Text style={styles.sectionTitle}>Matches</Text>
-                <Text style={[styles.sectionTitleCenter, { flex: 1, textAlign: 'right', fontSize: 20 }]}>Your Matches</Text>
-              </View>
-              {(tournament.status === 'in_progress' || tournament.status === 'completed') && (
-                <MatchList
-                  matches={matches}
-                  onSetWinner={tournament.status === 'in_progress' ? handleSetWinner : undefined}
-                  tournamentStatus={tournament.status}
-                  bestOf={tournament.best_of}
-                  onMatchUpdate={fetchTournamentData}
-                />
-              )}
-            </View>
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Classifica</Text>
-              <View style={styles.participantList}>
-                <ParticipantList
-                  participants={participants
-                    .sort((a, b) => b.points - a.points)
-                    .map(p => `${p.username} (${p.points} points)`)
-                  }
-                  readonly
-                />
-              </View>
-            </View>
-            {tournament.status === 'completed' && winner && (
-              <View style={styles.winnerContainer}>
-                <Text style={styles.winnerTitle}>VINCITORE</Text>
-                <Image source={{ uri: 'https://github.com/simone10522/LBDBPP/blob/main/icons/crown.png?raw=true' }} style={styles.winnerCrown} />
-                <Text style={styles.winnerName}>{winner.username}</Text>
-              </View>
-            )}
-          </View>
-          <View style={styles.actions}>
-            <TouchableOpacity onPress={() => navigation.navigate('ManageParticipants', { id: id })} style={styles.manageButton}>
-              <Text style={styles.manageButtonText}>Lista Giocatori</Text>
-            </TouchableOpacity>
-            {isOwner && (
+             {isOwner && tournament.status === 'draft' && (
               <TouchableOpacity
                 onPress={handleEditTournament}
                 style={styles.editButton}
@@ -484,6 +447,33 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
                 <Text style={styles.editButtonText}>Modifica Torneo</Text>
               </TouchableOpacity>
             )}
+          </View>
+          <View style={styles.content}>
+            <View style={styles.section}>
+              <View style={styles.sectionTitleContainer}>
+                <Text style={styles.sectionTitle}>Matches</Text>
+                <TouchableOpacity onPress={() => setShowUserMatches(!showUserMatches)} style={{ position: 'absolute', right: 10, top: 0 }}>
+                  <Text style={[styles.sectionTitleRight, {  fontSize: 24, fontWeight: showUserMatches ? 'bold' : 'normal' }]}>Your Matches</Text>
+                </TouchableOpacity>
+              </View>
+              {(tournament.status === 'in_progress' || tournament.status === 'completed') && (
+                <MatchList
+                  matches={filteredMatches}
+                  onSetWinner={tournament.status === 'in_progress' ? handleSetWinner : undefined}
+                  tournamentStatus={tournament.status}
+                  bestOf={tournament.best_of}
+                  onMatchUpdate={fetchTournamentData}
+                />
+              )}
+            </View>
+          </View>
+          <View style={styles.actions}>
+            <TouchableOpacity onPress={() => navigation.navigate('ManageParticipants', { id: id })} style={styles.manageButton}>
+              <Text style={styles.manageButtonText}>Lista Giocatori</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate('Leaderboard', { id: id })} style={styles.manageButton}>
+              <Text style={styles.manageButtonText}>Leaderboard</Text>
+            </TouchableOpacity>
             {isOwner && tournament.status === 'draft' && (
               <TouchableOpacity onPress={handleStartTournament} style={styles.startButton}>
                 <Text style={styles.startButtonText}>Start Tournament</Text>
@@ -648,6 +638,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
         backgroundColor: '#4a90e2',
         padding: 10,
         borderRadius: 5,
+        marginTop: 10,
       },
       editButtonText: {
         color: 'white',

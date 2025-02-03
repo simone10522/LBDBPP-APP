@@ -11,24 +11,20 @@ import ManageParticipantsScreen from './src/screens/ManageParticipantsScreen';
 import ManageDecksScreen from './src/screens/ManageDecksScreen';
 import CreateTournamentScreen from './src/screens/CreateTournamentScreen';
 import EditTournamentScreen from './src/screens/EditTournamentScreen';
+import LeaderboardScreen from './src/screens/LeaderboardScreen';
+import ProfileScreen from './src/screens/ProfileScreen'; // Import ProfileScreen
 
 // Import React Native components for UI and styling
-import { Platform, View, ImageBackground, StyleSheet, SafeAreaView, Dimensions } from 'react-native';
+import { Platform, View, StyleSheet, SafeAreaView } from 'react-native';
 
 // Create a stack navigator for screen navigation
 const Stack = createNativeStackNavigator();
 
 const App = () => {
-  // Get screen width for responsive background image
-  const screenWidth = Dimensions.get('window').width;
   return (
     <NavigationContainer>
-      {/* Background image for the entire application */}
-      <ImageBackground
-        source={{ uri: 'https://epicscifiart.wordpress.com/wp-content/uploads/2015/10/all-151-original-pokemon-battling-in-poster-art.jpg' }}
-        style={styles.backgroundImage}
-        imageStyle={{ opacity: 0.2, backgroundColor: 'black' }} // Apply opacity and background color to the image
-      >
+      {/* Background for the entire application */}
+      <View style={styles.background}>
         <SafeAreaView style={{ flex: 1 }}>
           {/* Stack Navigator setup */}
           <Stack.Navigator
@@ -86,17 +82,21 @@ const App = () => {
             <Stack.Screen name="CreateTournament" component={CreateTournamentScreen} />
             {/* Screen for editing an existing tournament */}
             <Stack.Screen name="EditTournament" component={EditTournamentScreen} />
+            {/* Screen for view leaderboard tournament */}
+            <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
+            {/* Profile Screen */}
+            <Stack.Screen name="Profile" component={ProfileScreen} />
           </Stack.Navigator>
         </SafeAreaView>
-      </ImageBackground>
+      </View>
     </NavigationContainer>
   );
 };
 
 const styles = StyleSheet.create({
-  backgroundImage: {
+  background: {
     flex: 1,
-    backgroundColor: 'black', // Fallback background color in case image fails to load
+    backgroundColor: '#222', // Dark background color for the entire app
   },
 });
 

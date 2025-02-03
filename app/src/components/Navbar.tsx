@@ -65,15 +65,15 @@ const Navbar = () => {
       <View style={styles.rightContainer}>
         {user ? (
           <View style={styles.userContainer}>
+            <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
+              <Text style={styles.username}>Ciao! {username}</Text>
+            </TouchableOpacity>
             {profileImage && (
               <Image
                 source={{ uri: profileImage }}
                 style={styles.profileImage}
               />
             )}
-            <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
-              <Text style={styles.username}>Ciao! {username}</Text>
-            </TouchableOpacity>
             <TouchableOpacity onPress={handleLogout}>
               <Text style={styles.logoutButton}>Logout</Text>
             </TouchableOpacity>
@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    marginRight: 5,
+    marginLeft: 5, // Changed marginRight to marginLeft
   },
   username: {
     color: 'white',
