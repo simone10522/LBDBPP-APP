@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "LBDBPP",
+    "slug": "lbdbpp",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "softwareKeyboardLayoutMode": "pan",
+      "package": "com.example.lbdbpp",
+      "versionCode": 1
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "experiments": {
+      "turboModules": false
+    },
+    "extra": {
+      "eas": {
+        "projectId": "c382d6da-ecee-4deb-9045-74b7ff0c5207"
+      },
+      "supabaseUrl": "https://pmgibubmmyjadiltkmax.supabase.co",
+      "supabaseKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBtZ2lidWJtbXlqYWRpbHRrbWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU5MjQ0ODksImV4cCI6MjA1MTUwMDQ4OX0.YTmPshWZBxX1zeKncOAgakpf_p7Pv26GS-c4E9ut8e0"
+    }
+  }
+}
