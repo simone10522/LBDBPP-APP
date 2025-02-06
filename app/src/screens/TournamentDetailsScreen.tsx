@@ -405,6 +405,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
       }
 
       const isOwner = tournament.created_by === user?.id;
+      const isCreator = isOwner; // Define isCreator based on isOwner
 
       const getWinner = () => {
         if (tournament.status !== 'completed' || participants.length === 0) return null;
@@ -462,7 +463,9 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
                   onSetWinner={tournament.status === 'in_progress' ? handleSetWinner : undefined}
                   tournamentStatus={tournament.status}
                   bestOf={tournament.best_of}
+                  isCreator={isCreator} // Pass isCreator prop here
                   onMatchUpdate={fetchTournamentData}
+                  allTournamentMatches={matches} // Pass all matches here
                 />
               )}
             </View>

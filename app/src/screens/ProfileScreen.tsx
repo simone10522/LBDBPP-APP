@@ -8,6 +8,7 @@ const ProfileScreen = () => {
   const { user } = useAuth();
   const [username, setUsername] = useState('');
   const [profileImage, setProfileImage] = useState('');
+  const [matchPassword, setMatchPassword] = useState(''); // Nuovo stato per Match password
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -21,7 +22,7 @@ const ProfileScreen = () => {
       try {
         const { data, error } = await supabase
           .from('profiles')
-          .select('username, profile_image')
+          .select('username, profile_image, match_password') // Recupera anche match_password
           .eq('id', user.id)
           .single();
 
@@ -33,6 +34,7 @@ const ProfileScreen = () => {
         } else if (data) {
           setUsername(data.username || '');
           setProfileImage(data.profile_image || '');
+          setMatchPassword(data.match_password || ''); // Imposta matchPassword dallo stato
         }
       } catch (error: any) {
         setError(error.message);
@@ -46,13 +48,12 @@ const ProfileScreen = () => {
     setLoading(true);
     setError(null);
 
-    console.log("Saving profile with username:", username, "and profileImage:", profileImage);
-    console.log("Current profileImage value:", profileImage);
+    console.log("Saving profile with username:", username, "and profileImage:", profileImage, "and matchPassword:", matchPassword);
 
     try {
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({ username, profile_image: profileImage }) // <-- Aggiunto profile_image all'update
+        .update({ username, profile_image: profileImage, match_password: matchPassword }) // Salva anche matchPassword
         .eq('id', user.id);
 
       if (updateError) {
@@ -121,6 +122,18 @@ const ProfileScreen = () => {
               value={profileImage}
               onChangeText={setProfileImage}
               placeholder="Enter avatar URL"
+              placeholderTextColor="#aaa"
+            />
+          </View>
+
+          {/* Nuovo campo per Match Password */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Match password</Text>
+            <TextInput
+              style={styles.input}
+              value={matchPassword}
+              onChangeText={setMatchPassword}
+              placeholder="Enter match password"
               placeholderTextColor="#aaa"
             />
           </View>

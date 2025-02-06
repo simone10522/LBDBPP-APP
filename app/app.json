@@ -29,8 +29,6 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": [
-    ],
     "experiments": {
       "turboModules": false
     },

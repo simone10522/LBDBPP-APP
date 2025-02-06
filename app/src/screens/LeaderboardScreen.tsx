@@ -1,9 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
-import { EnergyIcon } from '../components/EnergyIcon';
 import { FontAwesome } from '@expo/vector-icons';
 
 interface TournamentParticipant {
@@ -12,6 +11,7 @@ interface TournamentParticipant {
   matches_won: number;
   matches_lost: number;
   participant_id: string;
+  points: number;
 }
 
 const LeaderboardScreen = () => {
@@ -33,6 +33,7 @@ const LeaderboardScreen = () => {
           matches_won,
           matches_lost,
           participant_id,
+          points,
           profiles:participant_id (username)
         `)
         .eq('tournament_id', id);
@@ -49,6 +50,7 @@ const LeaderboardScreen = () => {
             matches_won: p.matches_won || 0,
             matches_lost: p.matches_lost || 0,
             participant_id: p.participant_id,
+            points: p.points || 0, // Access points directly from tournament_participants
           }))
         );
       } else {
@@ -66,10 +68,10 @@ const LeaderboardScreen = () => {
   }, [fetchLeaderboard]);
 
   const sortedParticipants = [...participants].sort((a, b) => {
-    if (b.matches_won !== a.matches_won) {
-      return b.matches_won - a.matches_won;
+    if (b.points !== a.points) {
+      return b.points - a.points;
     }
-    return a.matches_lost - b.matches_lost;
+    return b.matches_won - a.matches_won;
   });
 
   const renderRankingIndicator = (index: number) => {
@@ -95,7 +97,7 @@ const LeaderboardScreen = () => {
       <View style={styles.headerRow}>
         <Text style={[styles.headerCell, { flex: 1, textAlign: 'center' }]}>Pos</Text>
         <Text style={[styles.headerCell, { flex: 2, textAlign: 'center' }]}>Player</Text>
-        <Text style={styles.headerCell}>G</Text>
+        <Text style={styles.headerCell}>P</Text>
         <Text style={styles.headerCell}>W</Text>
         <Text style={styles.headerCell}>L</Text>
       </View>
@@ -105,7 +107,7 @@ const LeaderboardScreen = () => {
             {index < 3 ? renderRankingIndicator(index) : index + 1}
           </Text>
           <Text style={[styles.cell, { flex: 2, textAlign: 'center' }]}>{participant.username}</Text>
-          <Text style={[styles.cell, { textAlign: 'center' }]}>{(participant.matches_won || 0) + (participant.matches_lost || 0)}</Text>
+          <Text style={[styles.cell, { textAlign: 'center' }]}>{participant.points}</Text>
           <Text style={[styles.cell, { textAlign: 'center' }]}>{participant.matches_won || 0}</Text>
           <Text style={[styles.cell, { textAlign: 'center' }]}>{participant.matches_lost || 0}</Text>
         </View>
