@@ -52,6 +52,7 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
   const [currentRound, setCurrentRound] = useState<number>(1);
   const [notificationStatus, setNotificationStatus] = useState<string | null>(null);
   const backendServerURL = 'https://lbdb-server.onrender.com'; // *** IMPORTANTE: INSERISCI QUI L'IP DEL TUO COMPUTER ***
+  const [isNotifyButtonDisabled, setIsNotifyButtonDisabled] = useState(false); // Stato per disabilitare il pulsante
 
   useEffect(() => {
     registerForPushNotificationsAsync().then(token => setNotificationStatus(token));
@@ -280,12 +281,31 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
   };
 
   const handleNotifyOpponent = async (match: Match) => {
+    setIsNotifyButtonDisabled(true);
+
     try {
-      // 1. Recupera il push token dell'avversario da Supabase
+      const opponentId = user?.id === match.player1_id ? match.player2_id : match.player1_id;
+      const opponentName = user?.id === match.player1_id ? match.player2 : match.player1;
+
+      // Fetch sender's profile to get match_password
+      const { data: senderProfile, error: senderProfileError } = await supabase
+        .from('profiles')
+        .select('match_password') // Select match_password of the sender
+        .eq('id', user?.id)
+        .single();
+
+      if (senderProfileError) {
+        console.error("Errore nel recupero del profilo del mittente:", senderProfileError);
+        Alert.alert("Errore", "Impossibile recuperare il profilo del mittente.");
+        return;
+      }
+
+      const senderMatchPassword = senderProfile?.match_password; // Get sender's match_password
+
       const { data: opponentProfile, error: profileError } = await supabase
         .from('profiles')
-        .select('push_token')
-        .eq('id', match.player2_id)
+        .select('push_token') // Select push_token of the opponent
+        .eq('id', opponentId)
         .single();
 
       if (profileError) {
@@ -296,27 +316,29 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
 
       const opponentPushToken = opponentProfile?.push_token;
 
+
       if (!opponentPushToken) {
-        Alert.alert("Attenzione", `${match.player2} non ha abilitato le notifiche push.`);
+        Alert.alert("Attenzione", `${opponentName} non ha abilitato le notifiche push.`);
         return;
       }
 
-      // 2. Chiama l'endpoint /send-notification del backend
-      const message = `È il tuo turno di giocare contro ${match.player1} nel torneo!`;
+      // Include sender's match_password in the message
+      const message = `È il tuo turno di giocare contro ${match.player1} nel torneo! La password per il match è "${senderMatchPassword || 'Password non impostata'}".`;
+
       const response = await fetch(`${backendServerURL}/send-notification`, {
-        method: 'POST', // Cambiato in POST
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          pushToken: opponentPushToken, // Invia il push token dell'avversario
-          message: message,             // Invia il messaggio
-          userId: match.player2_id,      // Invia l'ID utente dell'avversario
+          pushToken: opponentPushToken,
+          message: message,
+          userId: opponentId,
         }),
       });
 
       if (response.ok) {
-        Alert.alert("Notifica inviata!", `Notifica push inviata a ${match.player2}.`);
+        Alert.alert("Notifica inviata!", `Notifica push inviata a ${opponentName}.`);
       } else {
         const errorText = await response.text();
         Alert.alert("Errore nell'invio della notifica", `Status: ${response.status} - ${errorText}`);
@@ -325,6 +347,10 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
     } catch (error) {
       console.error("Errore durante la notifica dell'avversario:", error);
       Alert.alert("Errore", "Qualcosa è andato storto durante l'invio della notifica.");
+    } finally {
+      setTimeout(() => {
+        setIsNotifyButtonDisabled(false);
+      }, 30000);
     }
   };
 
@@ -440,14 +466,13 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
                         <Text style={styles.setResultsText}>Set Results</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
-                        style={[styles.setResultsButton, { backgroundColor: 'orange', padding: 10, marginTop: 5 }]}
-                        onPress={() => handleNotifyOpponent(match)}
-                        disabled={!(user && (user.id === match.player1_id || user.id === match.player2_id) && match.round === currentRound)} // Condizione pulsante notifica
                         style={[
                           styles.setResultsButton,
                           { backgroundColor: 'orange', padding: 10, marginTop: 5 },
-                          !(user && (user.id === match.player1_id || user.id === match.player2_id) && match.round === currentRound) ? styles.disabledButton : {} // Stile condizionale per disabilitato
+                          isNotifyButtonDisabled ? styles.disabledButton : {} // Stile condizionale per disabilitazione
                         ]}
+                        onPress={() => handleNotifyOpponent(match)}
+                        disabled={!(user && (user.id === match.player1_id || user.id === match.player2_id) && match.round === currentRound) || isNotifyButtonDisabled} // Condizione pulsante notifica + disabilitazione timer
                       >
                         <Image
                           source={require('../../assets/bell-icon.png')}
