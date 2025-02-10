@@ -2,6 +2,8 @@
 # Node.js dependencies
 node_modules/
 yarn.lock/
+app/yarn.lock/
+app/package-lock.json
 app/node_modules/
 app/npm-debug.log*
 app/yarn-debug.log*
