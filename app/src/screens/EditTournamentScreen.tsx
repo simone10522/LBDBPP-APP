@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
     import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
     import { useNavigation, useRoute } from '@react-navigation/native';
     import { supabase } from '../lib/supabase';
-    import { useAuth } from '../hooks/useAuth';
+    import { useAuth } from '../hooks/_useAuth';
 
     export default function EditTournamentScreen() {
       const { user } = useAuth();

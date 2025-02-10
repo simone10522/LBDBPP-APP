@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../hooks/_useAuth';
 import { Card } from 'react-native-elements';
 import background from '../../assets/button_corner.png';
 import heroBackground from '../../assets/pokemon_hero_bg.png';
@@ -220,21 +220,6 @@ const HomeScreen = () => {
         style={styles.scrollView}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        <View style={styles.heroSection}>
-          <ImageBackground
-            source={heroBackground}
-            style={styles.heroBackground}
-            resizeMode="cover"
-          >
-            <Image
-              source={LogoIcon}
-              style={styles.heroLogo}
-              resizeMode="contain"
-            />
-            <Text style={styles.heroTitle}>Benvenuto nella Lega Pokémon!</Text>
-          </ImageBackground>
-        </View>
-
         <View style={styles.headerButtons}>
           <TouchableOpacity
             style={styles.createButton}

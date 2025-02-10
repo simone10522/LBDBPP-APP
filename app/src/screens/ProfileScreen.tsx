@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image } from 'react-native';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../hooks/_useAuth';
 import { supabase } from '../lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
 

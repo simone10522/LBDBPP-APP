@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Image, ImageBackground, TouchableOpacity, TextInput, Alert } from 'react-native';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../hooks/_useAuth';
 import { supabase } from '../lib/supabase';
 import background from '../../assets/matchbox.jpg';
 import Modal from 'react-native-modal';
