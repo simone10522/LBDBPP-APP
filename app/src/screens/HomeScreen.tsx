@@ -15,6 +15,7 @@ import {
   Animated,
   Easing,
 } from 'react-native';
+import CustomButton from '../components/CustomButton';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/_useAuth';
@@ -221,19 +222,6 @@ const HomeScreen = () => {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         <View style={styles.headerButtons}>
-          <TouchableOpacity
-            style={styles.createButton}
-            onPress={handleCreateButtonPress}
-            onPressIn={() => animateButton(createButtonScale)} // Shrink on press - Pass createButtonScale
-            onPressOut={() => resetButton(createButtonScale)} // Reset scale on release - Pass createButtonScale
-            activeOpacity={1} // Disabilita l'opacità predefinita di TouchableOpacity
-          >
-            <Animated.View style={{ transform: [{ scale: createButtonScale }] }}>
-              <ImageBackground source={background} style={styles.buttonBackground} resizeMode="stretch">
-                <Text style={styles.createButtonText}>Crea Torneo</Text>
-              </ImageBackground>
-            </Animated.View>
-          </TouchableOpacity>
           {!user && (
             <TouchableOpacity
               style={styles.loginButton}
@@ -380,6 +368,7 @@ const HomeScreen = () => {
             <Text style={styles.noTournamentsText}>Inizia creando un Torneo!</Text>
           </View>
         )}
+          <CustomButton text="Crea Torneo" handlePress={handleCreateButtonPress} />
       </ScrollView>
     </View>
   );
