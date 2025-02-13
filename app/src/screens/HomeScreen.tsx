@@ -221,6 +221,7 @@ const HomeScreen = () => {
         style={styles.scrollView}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
+        <Text style={styles.headerTitle}>Pocket Tournaments</Text>
         <View style={styles.headerButtons}>
           {!user && (
             <TouchableOpacity
@@ -231,9 +232,7 @@ const HomeScreen = () => {
               activeOpacity={1} // Disabilita l'opacità predefinita di TouchableOpacity
             >
               <Animated.View style={{ transform: [{ scale: loginButtonScale }] }}>
-               <ImageBackground source={background} style={styles.buttonBackground} resizeMode="stretch">
                 <Text style={styles.loginButtonText}>Accedi</Text>
-                </ImageBackground>
               </Animated.View>
             </TouchableOpacity>
           )}
@@ -294,8 +293,6 @@ const HomeScreen = () => {
             <Switch
               value={isCardMinimized}
               onValueChange={toggleCardSize}
-              trackColor={{ false: '#767577', true: '#81b0ff' }}
-              thumbColor={isCardMinimized ? '#f5dd4b' : '#f4f3f4'}
             />
           </View>
         </View>
@@ -321,7 +318,6 @@ const HomeScreen = () => {
               >
                 <Animated.View style={{ transform: [{ scale: cardScale }] }}>
                   <Card containerStyle={[styles.card, isCardMinimized ? styles.cardMinimized : {}]}>
-                    <ImageBackground source={cardBackground} style={styles.cardBackground} imageStyle={styles.cardBackgroundImageStyle} resizeMode="stretch" >
                       <View style={styles.cardHeader}>
                         <Image source={tournamentIcon} alt="Tournament Icon" style={styles.cardIcon} />
                         <Text style={styles.cardCreatorId}>Creato da: {tournament.created_by}</Text>
@@ -353,7 +349,6 @@ const HomeScreen = () => {
                           </Text>
                         </View>
                       )}
-                    </ImageBackground>
                   </Card>
                 </Animated.View>
               </TouchableOpacity>
@@ -377,32 +372,11 @@ const HomeScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#333',
+    backgroundColor: '#FAFFFF',
   },
   scrollView: {
     flex: 1,
     padding: 10,
-  },
-  heroSection: {
-    width: '100%',
-    paddingVertical: 20,
-    paddingHorizontal: 10,
-    marginBottom: 20,
-    backgroundColor: 'rgba(0,0,0,0.8)',
-    borderRadius: 10,
-    alignItems: 'center',
-    overflow: 'hidden',
-  },
-  heroBackground: {
-    flex: 1,
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  heroLogo: {
-    width: '120%',
-    height: 110,
   },
   heroTitle: {
     fontSize: 24,
@@ -410,9 +384,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginTop: 10,
     textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: -1, height: 1 },
-    textShadowRadius: 10,
   },
   header: {
     flexDirection: 'column',
@@ -423,16 +394,8 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#fff',
-    textShadowColor: 'black',
-    textShadowOffset: { width: 3, height: 3 },
-    textShadowRadius: 0,
+    color: '#212121',
     textAlign: 'center',
-    display: 'none',
-  },
-  headerLogo: {
-    width: '100%',
-    height: 100,
   },
   headerButtons: {
     flexDirection: 'row',
@@ -465,19 +428,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   card: {
-    borderRadius: 15,
+    borderRadius: 16,
     marginBottom: 1,
     elevation: 3,
     width: Dimensions.get('window').width - 30,
     marginHorizontal: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.15,
-    shadowRadius: 5,
-    padding: 0,
+    padding: 16,
     overflow: 'hidden',
     borderColor: 'transparent', // Aggiungi questo per rendere il bordo trasparente
-    backgroundColor: 'transparent', // Aggiungi questo per rendere lo sfondo della Card trasparente
+    backgroundColor:'#DEE7E7',
   },
   cardMinimized: {
     paddingVertical: 0,
@@ -623,13 +582,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   searchBarContainer: {
-    marginBottom: 15,
+    marginBottom: 16,
     paddingHorizontal: 10,
     flex: 1,
 
   },
   searchBar: {
-    backgroundColor: '#555',
+    backgroundColor: '#D9D9D9',
     borderRadius: 25,
     paddingVertical: 10,
     paddingHorizontal: 20,

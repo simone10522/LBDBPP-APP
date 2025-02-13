@@ -27,12 +27,13 @@ function getStyles(theme) {
             justifyContent: 'center',
         },
         text: {
-            color: theme === 'light' ? '#fafafa' : '#212121',
+            color: theme === 'light' ? '#212121' : '#212121',
+            fontSize: 18,
+            fontWeight: 'semibold',
         }
     });
 }
 
 const darkButton = {
-    backgroundColor: '#000',
-    color: '#fafafa',
+    backgroundColor: '#0D99FF',
 }
