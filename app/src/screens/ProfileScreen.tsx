@@ -3,14 +3,16 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image } from 'reac
 import { useAuth } from '../hooks/_useAuth';
 import { supabase } from '../lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
+import { useNavigation } from '@react-navigation/native'; // Import useNavigation
 
 const ProfileScreen = () => {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const [username, setUsername] = useState('');
   const [profileImage, setProfileImage] = useState('');
   const [matchPassword, setMatchPassword] = useState(''); // Nuovo stato per Match password
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const navigation = useNavigation(); // Initialize navigation
 
   useEffect(() => {
     fetchProfile();
@@ -85,14 +87,29 @@ const ProfileScreen = () => {
     }
   };
 
+  const handleLogout = async () => { // Add handleLogout function
+    await supabase.auth.signOut();
+    setUser(null);
+    navigation.navigate('Login');
+  };
+
+  const darkPalette = {
+    background: '#121212',
+    text: '#FFFFFF',
+    inputBackground: '#333333',
+    buttonBackground: '#4a90e2',
+    buttonText: '#FFFFFF',
+    error: '#FF0000',
+  };
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Profile Settings</Text>
+    <View style={[styles.container, { backgroundColor: darkPalette.background }]}>
+      <Text style={[styles.title, { color: darkPalette.text }]}>Profile Settings</Text>
 
       {loading ? (
-        <Text style={styles.text}>Loading profile...</Text>
+        <Text style={[styles.text, { color: darkPalette.text }]}>Loading profile...</Text>
       ) : error ? (
-        <Text style={styles.error}>{error}</Text>
+        <Text style={[styles.error, { color: darkPalette.error }]}>{error}</Text>
       ) : (
         <>
           <View style={styles.profileSection}>
@@ -105,9 +122,9 @@ const ProfileScreen = () => {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Username</Text>
+            <Text style={[styles.inputLabel, { color: darkPalette.text }]}>Username</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { backgroundColor: darkPalette.inputBackground, color: darkPalette.text }]}
               value={username}
               onChangeText={setUsername}
               placeholder="Enter your username"
@@ -116,9 +133,9 @@ const ProfileScreen = () => {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Avatar URL</Text>
+            <Text style={[styles.inputLabel, { color: darkPalette.text }]}>Avatar URL</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { backgroundColor: darkPalette.inputBackground, color: darkPalette.text }]}
               value={profileImage}
               onChangeText={setProfileImage}
               placeholder="Enter avatar URL"
@@ -128,9 +145,9 @@ const ProfileScreen = () => {
 
           {/* Nuovo campo per Match Password */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Match password</Text>
+            <Text style={[styles.inputLabel, { color: darkPalette.text }]}>Match password</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { backgroundColor: darkPalette.inputBackground, color: darkPalette.text }]}
               value={matchPassword}
               onChangeText={setMatchPassword}
               placeholder="Enter match password"
@@ -138,9 +155,14 @@ const ProfileScreen = () => {
             />
           </View>
 
-          <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile} disabled={loading}>
-            <Text style={styles.saveButtonText}>{loading ? 'Saving...' : 'Save Profile'}</Text>
-          </TouchableOpacity>
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile} disabled={loading}>
+              <Text style={styles.saveButtonText}>{loading ? 'Saving...' : 'Save Profile'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+              <Text style={styles.logoutButtonText}>Logout</Text>
+            </TouchableOpacity>
+          </View>
         </>
       )}
     </View>
@@ -212,13 +234,32 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   saveButton: {
-    backgroundColor: '#e74c3c',
+    backgroundColor: 'green',
     paddingVertical: 12,
     paddingHorizontal: 25,
     borderRadius: 8,
     marginTop: 20,
   },
   saveButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  buttonContainer: { // New style for button container
+    flexDirection: 'row',
+    justifyContent: 'space-between', // or 'space-around' or 'center'
+    width: '100%',
+    marginTop: 20,
+  },
+  logoutButton: { // New style for logout button
+    backgroundColor: '#e74c3c',
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 8,
+    marginTop: 20,
+  },
+  logoutButtonText: { // New style for logout button text
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',

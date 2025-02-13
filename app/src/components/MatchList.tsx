@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, ImageBackground, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { useAuth } from '../hooks/_useAuth';
 import { supabase } from '../lib/supabase';
-import background from '../../assets/matchbox.jpg';
 import Modal from 'react-native-modal';
 import * as Notifications from 'expo-notifications';
 
@@ -38,6 +37,22 @@ Notifications.setNotificationHandler({
     shouldSetBadge: false,
   }),
 });
+
+// Define the darkPalette object with colors
+const darkPalette = {
+  background: '#121212',
+  cardBackground: '#1E1E1E',
+  text: '#FFFFFF',
+  secondaryText: '#AAAAAA',
+  accent: '#BB86FC',
+  button: '#3700B3',
+  buttonText: '#FFFFFF',
+  inputBackground: '#2C2C2C',
+  inputPlaceholder: '#AAAAAA',
+  statusCompleted: '#2ecc71',
+  statusInProgress: '#e67e22',
+  statusDraft: '#7f8c8d',
+};
 
 export default function MatchList({ matches, onSetWinner, tournamentStatus, onMatchUpdate, bestOf, isCreator, allTournamentMatches }: MatchListProps) { // Prop rinominata qui e nuova prop
   const { user } = useAuth();
@@ -435,12 +450,9 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
           <Text style={styles.roundTitle}>Round {round}</Text>
           <View style={styles.matchesContainer}>
             {matches.map((match) => (
-              <ImageBackground
+              <View
                 key={match.id}
-                source={background}
                 style={styles.matchItem}
-                resizeMode="stretch"
-                imageStyle={styles.matchItemBackground}
               >
                 {onSetWinner && tournamentStatus === 'in_progress' && match.status === 'scheduled' ? (
                   <View style={[styles.winnerButtons, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' }]}>
@@ -455,12 +467,14 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
                       <TouchableOpacity
                         style={[
                           styles.setResultsButton,
-                          match.round !== currentRound || (!isCreator && user && user.id !== match.player1_id && user.id !== match.player2_id) ? styles.disabledButton : {} // Stili condizionali con isCreator
+                          match.round !== currentRound || (!isCreator && user && user.id !== match.player1_id && user.id !== match.player2_id) ? styles.disabledButton : {}, // Stili condizionali con isCreator
+                          !user ? styles.disabledButton : {} // Disable if user is not logged in
                         ]}
                         onPress={() => toggleModal(match.id)}
                         disabled={
                           match.round !== currentRound || // Round check
-                          (!isCreator && user && user.id !== match.player1_id && user.id !== match.player2_id) // Permission check, ora con isCreator
+                          (!isCreator && user && user.id !== match.player1_id && user.id !== match.player2_id) || // Permission check, ora con isCreator
+                          !user // Disable if user is not logged in
                         }
                       >
                         <Text style={styles.setResultsText}>Set Results</Text>
@@ -469,10 +483,11 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
                         style={[
                           styles.setResultsButton,
                           { backgroundColor: 'orange', padding: 10, marginTop: 5 },
-                          isNotifyButtonDisabled ? styles.disabledButton : {} // Stile condizionale per disabilitazione
+                          isNotifyButtonDisabled ? styles.disabledButton : {}, // Stile condizionale per disabilitazione
+                          !user ? styles.disabledButton : {} // Disable if user is not logged in
                         ]}
                         onPress={() => handleNotifyOpponent(match)}
-                        disabled={!(user && (user.id === match.player1_id || user.id === match.player2_id) && match.round === currentRound) || isNotifyButtonDisabled} // Condizione pulsante notifica + disabilitazione timer
+                        disabled={!(user && (user.id === match.player1_id || user.id === match.player2_id) && match.round === currentRound) || isNotifyButtonDisabled || !user} // Condizione pulsante notifica + disabilitazione timer + disable if user is not logged in
                       >
                         <Image
                           source={require('../../assets/bell-icon.png')}
@@ -507,7 +522,7 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
                     </View>
                   </View>
                 )}
-              </ImageBackground>
+              </View>
             ))}
           </View>
         </View>
@@ -524,6 +539,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 10,
+    color: darkPalette.text,
   },
   matchesContainer: {
     marginBottom: 10,
@@ -532,7 +548,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: 'white',
+    backgroundColor: darkPalette.cardBackground,
     padding: 10,
     borderRadius: 5,
     marginBottom: 5,
@@ -541,9 +557,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 2,
     elevation: 10,
-  },
-  matchItemBackground: {
-    borderRadius: 5,
   },
   playersContainer: {
     flexDirection: 'row',
@@ -578,7 +591,7 @@ const styles = StyleSheet.create({
   },
   playerName: {
     fontSize: 24,
-    color: '#333',
+    color: darkPalette.text,
     textAlign: 'center',
   },
   playerContainer: {
@@ -594,23 +607,23 @@ const styles = StyleSheet.create({
   scoreText: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: darkPalette.text,
     marginHorizontal: 10,
   },
   noMatches: {
     fontSize: 18,
     textAlign: 'center',
     marginTop: 20,
-    color: '#666',
+    color: darkPalette.secondaryText,
   },
   setResultsButton: {
-    backgroundColor: '#007bff',
+    backgroundColor: darkPalette.button,
     padding: 10,
     borderRadius: 5,
     marginBottom: 5,
   },
   setResultsText: {
-    color: 'white',
+    color: darkPalette.text,
     fontWeight: 'bold',
     textAlign: 'center',
   },
@@ -619,7 +632,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: 'white',
+    backgroundColor: darkPalette.cardBackground,
     padding: 20,
     borderRadius: 10,
     width: '90%', // Increased width
@@ -629,19 +642,21 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 15,
     textAlign: 'center',
+    color: darkPalette.text,
   },
   modalText: {
     fontSize: 16,
     marginBottom: 5,
+    color: darkPalette.text,
   },
   modalButton: {
-    backgroundColor: '#007bff',
+    backgroundColor: darkPalette.button,
     padding: 10,
     borderRadius: 5,
     marginTop: 10,
   },
   modalButtonText: {
-    color: 'white',
+    color: darkPalette.text,
     fontWeight: 'bold',
     textAlign: 'center',
   },
@@ -653,10 +668,11 @@ const styles = StyleSheet.create({
   scoreInput: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: darkPalette.secondaryText,
     borderRadius: 5,
     padding: 8,
     marginLeft: 10,
+    color: darkPalette.text,
   },
   disabledButton: {
     backgroundColor: 'gray',

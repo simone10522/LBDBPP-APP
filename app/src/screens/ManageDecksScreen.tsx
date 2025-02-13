@@ -75,11 +75,23 @@ export default function ManageDecksScreen() {
     }
   };
 
+  const darkPalette = {
+    background: '#121212',
+    text: '#FFFFFF',
+    secondaryText: '#AAAAAA',
+    headerBackground: '#1E1E1E',
+    rowBackground: '#2C2C2C',
+    buttonBackground: '#333333',
+    buttonText: '#FFFFFF',
+    errorText: '#FF0000',
+    borderColor: '#373737',
+  };
+
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.title}>Gestisci Mazzi</Text>
+    <ScrollView style={[styles.container, { backgroundColor: darkPalette.background }]}>
+      <Text style={[styles.title, { color: darkPalette.text }]}>Gestisci Mazzi</Text>
       <View style={styles.deckContainer}>
-        <Text style={styles.deckTitle}>Deck 1</Text>
+        <Text style={[styles.deckTitle, { color: darkPalette.text }]}>Deck 1</Text>
         <View style={styles.energyList}>
           {energies.map((energy) => (
             <TouchableOpacity key={energy} style={styles.energyItem} onPress={() => handleEnergyChange(1, energy, !deck1.includes(energy))}>
@@ -89,7 +101,7 @@ export default function ManageDecksScreen() {
         </View>
       </View>
       <View style={styles.deckContainer}>
-        <Text style={styles.deckTitle}>Deck 2</Text>
+        <Text style={[styles.deckTitle, { color: darkPalette.text }]}>Deck 2</Text>
         <View style={styles.energyList}>
           {energies.map((energy) => (
             <TouchableOpacity key={energy} style={styles.energyItem} onPress={() => handleEnergyChange(2, energy, !deck2.includes(energy))}>
@@ -98,10 +110,10 @@ export default function ManageDecksScreen() {
           ))}
         </View>
       </View>
-      <TouchableOpacity style={styles.button} onPress={handleSubmit}>
-        <Text style={styles.buttonText}>Salva</Text>
+      <TouchableOpacity style={[styles.button, { backgroundColor: darkPalette.buttonBackground }]} onPress={handleSubmit}>
+        <Text style={[styles.buttonText, { color: darkPalette.buttonText }]}>Salva</Text>
       </TouchableOpacity>
-      {error && <Text style={styles.error}>{error}</Text>}
+      {error && <Text style={[styles.error, { color: darkPalette.errorText }]}>{error}</Text>}
     </ScrollView>
   );
 };

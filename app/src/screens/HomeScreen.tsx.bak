@@ -24,7 +24,6 @@ interface Tournament {
   description: string;
   status: 'draft' | 'in_progress' | 'completed';
   created_at: string;
-  created_at: string;
   created_by: string;
   max_players: number | null;
 }
@@ -46,9 +45,7 @@ const HomeScreen = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [allTournaments, setAllTournaments] = useState<Tournament[]>([]);
   const [isCardMinimized, setIsCardMinimized] = useState(false);
-
-  const logoTopPosition = useRef(new Animated.Value(-Dimensions.get('window').width)).current;
-  const logoBottomPosition = useRef(new Animated.Value(Dimensions.get('window').width)).current;
+  const logoScale = useRef(new Animated.Value(1)).current; // Animazione per la scala del logo
 
   const fetchUserData = useCallback(async () => {
     setLoading(true);
@@ -148,20 +145,15 @@ const HomeScreen = () => {
   }, [fetchUserTournaments]);
 
   useEffect(() => {
-    Animated.timing(logoTopPosition, {
-      toValue: 0,
-      duration: 1000,
-      easing: Easing.easeOut,
-      useNativeDriver: true,
-    }).start();
-
-    Animated.timing(logoBottomPosition, {
-      toValue: 0,
-      duration: 1000,
-      easing: Easing.easeOut,
-      useNativeDriver: true,
-    }).start();
-  }, [logoTopPosition, logoBottomPosition]);
+    Animated.loop(
+      Animated.timing(logoScale, {
+        toValue: 1.05,
+        duration: 1500, // Durata di un ciclo di animazione
+        easing: Easing.easeInOut,
+        useNativeDriver: true,
+      })
+    ).start();
+  }, [logoScale]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -218,15 +210,9 @@ const HomeScreen = () => {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" />}
           contentContainerStyle={{ flexGrow: 1 }}
         >
-          {/* New Logo Implementation */}
-          <Animated.Image
-            source={require('../../assets/logotop.png')}
-            style={[styles.logoTop, { transform: [{ translateX: logoTopPosition }] }]}
-            resizeMode="contain"
-          />
-          <Animated.Image
-            source={require('../../assets/logobot.png')}
-            style={[styles.logoBottom, { transform: [{ translateX: logoBottomPosition }] }]}
+          <Animated.Image // Usiamo Animated.Image
+            source={require('../../assets/homelogo.png')}
+            style={[styles.appLogo, { transform: [{ scale: logoScale }] }]} // Applica l'animazione qui
             resizeMode="contain"
           />
 
@@ -313,23 +299,11 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 10,
   },
-  // appLogo: {
-  //   width: 550, // Adjust as needed
-  //   height: 150, // Adjust as needed
-  //   // marginBottom: 20, // Removed marginBottom
-  //   marginTop: 70, // Added marginTop
-  //   alignSelf: 'center',
-  // },
-  logoTop: {
+  appLogo: {
     width: 550, // Adjust as needed
-    height: 75, // Adjust as needed
+    height: 150, // Adjust as needed
+    // marginBottom: 20, // Removed marginBottom
     marginTop: 70, // Added marginTop
-    alignSelf: 'center',
-  },
-  logoBottom: {
-    width: 350, // Adjust as needed
-    height: 75, // Adjust as needed
-    marginBottom: 20, // Removed marginBottom
     alignSelf: 'center',
   },
   appName: {
