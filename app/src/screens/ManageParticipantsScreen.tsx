@@ -210,55 +210,43 @@ export default function ManageParticipantsScreen() {
 
   const isTournamentActive = tournamentStatus === 'in_progress' || tournamentStatus === 'completed';
 
-  const darkPalette = {
-    background: '#121212',
-    text: '#FFFFFF',
-    secondaryText: '#AAAAAA',
-    headerBackground: '#1E1E1E',
-    rowBackground: '#2C2C2C',
-    buttonBackground: '#333333',
-    buttonText: '#FFFFFF',
-    errorText: '#FF0000',
-    borderColor: '#373737',
-  };
-
   return (
-    <ScrollView style={[styles.container, { backgroundColor: darkPalette.background }]}>
-      <View style={[styles.header, { backgroundColor: darkPalette.headerBackground }]}>
-        <Text style={[styles.headerTitle, { color: darkPalette.text }]}>Lista Partecipanti</Text>
-        <Text style={[styles.headerSubTitle, { color: darkPalette.secondaryText }]}>
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Lista Partecipanti</Text>
+        <Text style={styles.headerSubTitle}>
           ({tournamentParticipants.length}/{maxPlayers === null ? '∞' : maxPlayers})
         </Text>
       </View>
-      {error && <Text style={[styles.error, { color: darkPalette.errorText }]}>{error}</Text>}
-      {loading && <Text style={{ color: darkPalette.text }}>Caricamento...</Text>}
+      {error && <Text style={styles.error}>{error}</Text>}
+      {loading && <Text>Caricamento...</Text>}
       {user && (
         <View style={styles.actions}>
           {!isParticipating && (
-            <TouchableOpacity onPress={handleJoinTournament} style={[styles.joinButton, { backgroundColor: darkPalette.buttonBackground }]} disabled={isTournamentActive}>
-              <Text style={[styles.joinButtonText, { color: darkPalette.buttonText }]}>Partecipa al Torneo</Text>
+            <TouchableOpacity onPress={handleJoinTournament} style={styles.joinButton} disabled={isTournamentActive}>
+              <Text style={styles.joinButtonText}>Partecipa al Torneo</Text>
             </TouchableOpacity>
           )}
           {isParticipating && (
-            <TouchableOpacity onPress={handleLeaveTournament} style={[styles.leaveButton, { backgroundColor: darkPalette.buttonBackground }]} disabled={isTournamentActive}>
-              <Text style={[styles.leaveButtonText, { color: darkPalette.buttonText }]}>Esci dal Torneo</Text>
+            <TouchableOpacity onPress={handleLeaveTournament} style={styles.leaveButton} disabled={isTournamentActive}>
+              <Text style={styles.leaveButtonText}>Esci dal Torneo</Text>
             </TouchableOpacity>
           )}
           {isParticipating && participantId && (
-            <TouchableOpacity onPress={() => navigation.navigate('ManageDecks', { participantId: participantId })} style={[styles.manageDeckButton, { backgroundColor: darkPalette.buttonBackground }]} disabled={isTournamentActive}>
-              <Text style={[styles.manageDeckButtonText, { color: darkPalette.buttonText }]}>Gestisci Mazzi</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('ManageDecks', { participantId: participantId })} style={styles.manageDeckButton} disabled={isTournamentActive}>
+              <Text style={styles.manageDeckButtonText}>Gestisci Mazzi</Text>
             </TouchableOpacity>
           )}
         </View>
       )}
       <View style={styles.listContainer}>
         {tournamentParticipants.map((p) => (
-          <View key={p.id} style={[styles.listItem, { backgroundColor: darkPalette.rowBackground, borderColor: darkPalette.borderColor }]}>
-            <Text style={[styles.listItemText, { color: darkPalette.text }]}>{p.username}</Text>
-            <Text style={[styles.listItemText, { color: darkPalette.text }]}>{formatDeck(p.deck)}</Text>
+          <View key={p.id} style={styles.listItem}>
+            <Text style={styles.listItemText}>{p.username}</Text>
+            <Text style={styles.listItemText}>{formatDeck(p.deck)}</Text>
             {tournament?.created_by === user?.id && (
-              <TouchableOpacity onPress={() => handleRemoveParticipant(p.id)} style={[styles.removeButton, { backgroundColor: darkPalette.buttonBackground }]}>
-                <Text style={[styles.removeButtonText, { color: darkPalette.buttonText }]}>Rimuovi</Text>
+              <TouchableOpacity onPress={() => handleRemoveParticipant(p.id)} style={styles.removeButton}>
+                <Text style={styles.removeButtonText}>Rimuovi</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -277,7 +265,6 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: 20,
-    backgroundColor: '#ddd',
   },
   headerTitle: {
     fontSize: 32,

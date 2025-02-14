@@ -38,41 +38,29 @@ const RegisterScreen = () => {
     setProfileImage(e.target.value);
   };
 
-  const darkPalette = {
-    background: '#121212',
-    text: '#FFFFFF',
-    inputBackground: '#333333',
-    buttonBackground: '#4a90e2',
-    buttonText: '#FFFFFF',
-    error: '#FF0000',
-    borderColor: '#555555',
-  };
-
   return (
-    <View style={[styles.container, { backgroundColor: darkPalette.background }]}>
+    <View style={styles.container}>
       <Image
-        source={require('../../assets/homelogo.png')}
+        source={{ uri: 'https://github.com/simone10522/LBDBPP/blob/main/icons/LBDBPP.png?raw=true' }}
         style={styles.logo}
         resizeMode="contain"
       />
-      <Text style={[styles.title, { color: darkPalette.text }]}>Registrati</Text>
+      <Text style={styles.title}>Registrati</Text>
       {error && (
         <View style={styles.errorContainer}>
-          <Text style={[styles.error, { color: darkPalette.error }]}>{error}</Text>
+          <Text style={styles.error}>{error}</Text>
         </View>
       )}
       <TextInput
-        style={[styles.input, { backgroundColor: darkPalette.inputBackground, color: darkPalette.text, borderColor: darkPalette.borderColor }]}
+        style={styles.input}
         placeholder="Username"
-        placeholderTextColor="#AAAAAA"
         value={username}
         onChangeText={setUsername}
         required
       />
       <TextInput
-        style={[styles.input, { backgroundColor: darkPalette.inputBackground, color: darkPalette.text, borderColor: darkPalette.borderColor }]}
+        style={styles.input}
         placeholder="Email"
-        placeholderTextColor="#AAAAAA"
         keyboardType="email-address"
         autoCapitalize="none"
         value={email}
@@ -80,19 +68,18 @@ const RegisterScreen = () => {
         required
       />
       <TextInput
-        style={[styles.input, { backgroundColor: darkPalette.inputBackground, color: darkPalette.text, borderColor: darkPalette.borderColor }]}
+        style={styles.input}
         placeholder="Password"
-        placeholderTextColor="#AAAAAA"
         secureTextEntry
         value={password}
         onChangeText={setPassword}
         required
       />
-      <TouchableOpacity style={[styles.button, { backgroundColor: darkPalette.buttonBackground }]} onPress={handleRegister}>
-        <Text style={[styles.buttonText, { color: darkPalette.buttonText }]}>Registrati</Text>
+      <TouchableOpacity style={styles.button} onPress={handleRegister}>
+        <Text style={styles.buttonText}>Registrati</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.loginButton} onPress={() => navigation.navigate('Login')}>
-        <Text style={[styles.loginButtonText, { color: darkPalette.buttonBackground }]}>Hai già un account? Accedi</Text>
+        <Text style={styles.loginButtonText}>Hai già un account? Accedi</Text>
       </TouchableOpacity>
     </View>
   );
@@ -107,10 +94,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f0f0',
   },
   logo: {
-    width: Dimensions.get('window').width * 0.8,
-    height: 100,
-    marginBottom: 20,
-    resizeMode: 'contain',
+      width: Dimensions.get('window').width * 0.8,
+      height: 100,
+      marginBottom: 20,
+      resizeMode: 'contain',
   },
   title: {
     fontSize: 32,

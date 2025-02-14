@@ -13,28 +13,32 @@ import CreateTournamentScreen from './src/screens/CreateTournamentScreen';
 import EditTournamentScreen from './src/screens/EditTournamentScreen';
 import LeaderboardScreen from './src/screens/LeaderboardScreen';
 import ProfileScreen from './src/screens/ProfileScreen'; // Import ProfileScreen
-import BottomNavigationBar from './src/components/BottomNavigationBar'; // Import BottomNavigationBar
-import TournamentPage from './src/screens/TournamentPage'; // Import TournamentPage
 
 // Import React Native components for UI and styling
-import { Platform, View, StyleSheet, SafeAreaView } from 'react-native';
+import { Platform, View, StyleSheet, SafeAreaView, useColorScheme } from 'react-native';
+
+
+import ThemeContext from "./src/context/theme";
 
 //Utils
 import { useAuth } from './src/hooks/_useAuth';
-const user = true; // Set to true for now, to test both scenarios
 
 // Create a stack navigator for screen navigation
 const Stack = createNativeStackNavigator();
 
 const App = () => {
+
+  const deviceTheme = useColorScheme();
+  const theme = deviceTheme === 'dark' ? 'dark' : 'light';
+
   return (
+  <ThemeContext.Provider value={theme}>
     <NavigationContainer>
       {/* Background for the entire application */}
       <View style={styles.background}>
         <SafeAreaView style={{ flex: 1 }}>
           {/* Stack Navigator setup */}
           <Stack.Navigator
-            initialRouteName="Home"
             screenOptions={{
               headerTitleStyle: {
                 fontSize: 20,
@@ -74,12 +78,11 @@ const App = () => {
             }}
           >
             {/* Define each screen in the stack navigator */}
-            {/* Explicitly include both Login and Home screens */}
-            <Stack.Screen name="Login" component={LoginScreen} />
-            <Stack.Screen name="Home" component={HomeScreen} />
-
+            <Stack.Screen name="Home" component={HomeScreen} /> 
             {/* Screen for displaying tournament details */}
             <Stack.Screen name="TournamentDetails" component={TournamentDetailsScreen} />
+            {/* Screen for user login */}
+            <Stack.Screen name="Login" component={LoginScreen} />
             {/* Screen for user registration */}
             <Stack.Screen name="Register" component={RegisterScreen} />
             {/* Screen for managing tournament participants */}
@@ -94,13 +97,11 @@ const App = () => {
             <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
             {/* Profile Screen */}
             <Stack.Screen name="Profile" component={ProfileScreen} />
-            {/* Tournament Page */}
-            <Stack.Screen name="TournamentPage" component={TournamentPage} />
           </Stack.Navigator>
         </SafeAreaView>
-        <BottomNavigationBar />
       </View>
     </NavigationContainer>
+  </ThemeContext.Provider>
   );
 };
 

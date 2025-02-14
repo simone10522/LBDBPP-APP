@@ -86,42 +86,30 @@ const LeaderboardScreen = () => {
     }
   };
 
-  const darkPalette = {
-    background: '#121212',
-    text: '#FFFFFF',
-    secondaryText: '#AAAAAA',
-    headerBackground: '#1E1E1E',
-    rowBackground: '#2C2C2C',
-    currentUserRow: '#333333',
-    borderColor: '#373737',
-  };
-
 
   if (loading) {
-    return <View style={styles.container}><Text style={{ color: darkPalette.text }}>Caricamento...</Text></View>;
+    return <View style={styles.container}><Text>Caricamento...</Text></View>;
   }
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: darkPalette.background }]}>
-      <Text style={[styles.title, { color: darkPalette.text }]}>Leaderboard</Text>
-      <View style={[styles.headerRow, { borderBottomColor: darkPalette.borderColor }]}>
-        <Text style={[styles.headerCell, { flex: 1, textAlign: 'center', color: darkPalette.text }]}>Pos</Text>
-        <Text style={[styles.headerCell, { flex: 2, textAlign: 'center', color: darkPalette.text }]}>Player</Text>
-        <Text style={[styles.headerCell, { color: darkPalette.text }]}>P</Text>
-        <Text style={[styles.headerCell, { color: darkPalette.text }]}>W</Text>
-        <Text style={[styles.headerCell, { color: darkPalette.text }]}>L</Text>
+    <ScrollView style={styles.container}>
+      <Text style={styles.title}>Leaderboard</Text>
+      <View style={styles.headerRow}>
+        <Text style={[styles.headerCell, { flex: 1, textAlign: 'center' }]}>Pos</Text>
+        <Text style={[styles.headerCell, { flex: 2, textAlign: 'center' }]}>Player</Text>
+        <Text style={styles.headerCell}>P</Text>
+        <Text style={styles.headerCell}>W</Text>
+        <Text style={styles.headerCell}>L</Text>
       </View>
       {sortedParticipants.map((participant, index) => (
-        <View key={participant.id} style={[styles.row, user?.id === participant.participant_id ? styles.currentUserRow : {},
-        { backgroundColor: user?.id === participant.participant_id ? darkPalette.currentUserRow : darkPalette.rowBackground,
-        borderBottomColor: darkPalette.borderColor }]}>
-          <Text style={[styles.cell, { flex: 1, textAlign: 'center', color: darkPalette.text }]}>
+        <View key={participant.id} style={[styles.row, user?.id === participant.participant_id ? styles.currentUserRow : {}]}>
+          <Text style={[styles.cell, { flex: 1, textAlign: 'center' }]}>
             {index < 3 ? renderRankingIndicator(index) : index + 1}
           </Text>
-          <Text style={[styles.cell, { flex: 2, textAlign: 'center', color: darkPalette.text }]}>{participant.username}</Text>
-          <Text style={[styles.cell, { textAlign: 'center', color: darkPalette.text }]}>{participant.points}</Text>
-          <Text style={[styles.cell, { textAlign: 'center', color: darkPalette.text }]}>{participant.matches_won || 0}</Text>
-          <Text style={[styles.cell, { textAlign: 'center', color: darkPalette.text }]}>{participant.matches_lost || 0}</Text>
+          <Text style={[styles.cell, { flex: 2, textAlign: 'center' }]}>{participant.username}</Text>
+          <Text style={[styles.cell, { textAlign: 'center' }]}>{participant.points}</Text>
+          <Text style={[styles.cell, { textAlign: 'center' }]}>{participant.matches_won || 0}</Text>
+          <Text style={[styles.cell, { textAlign: 'center' }]}>{participant.matches_lost || 0}</Text>
         </View>
       ))}
     </ScrollView>
@@ -132,16 +120,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
+    backgroundColor: '#f0f0f0',
   },
   title: {
     fontSize: 32,
     fontWeight: 'bold',
+    color: '#333',
     marginBottom: 30,
     textAlign: 'center',
   },
   headerRow: {
     flexDirection: 'row',
     borderBottomWidth: 1,
+    borderBottomColor: '#ccc',
     paddingBottom: 10,
     marginBottom: 10,
   },
@@ -150,19 +141,23 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     fontSize: 16,
+    color: '#333',
   },
   row: {
     flexDirection: 'row',
     borderBottomWidth: 1,
+    borderBottomColor: '#eee',
     paddingVertical: 10,
     alignItems: 'center',
   },
   cell: {
     flex: 1,
     fontSize: 16,
+    color: '#666',
     textAlign: 'center',
   },
   currentUserRow: {
+    backgroundColor: '#e0e0e0',
   },
 });
 
