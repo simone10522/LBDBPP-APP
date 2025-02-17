@@ -16,6 +16,8 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import tournamentIcon from '../../assets/tournament_icon.png';
+import { useAuth } from '../hooks/useAuth';
+import { lightPalette, darkPalette } from '../context/themes';
 
 interface Tournament {
   id: string;
@@ -50,6 +52,8 @@ const TournamentList: React.FC<TournamentListProps> = ({
 }) => {
   const navigation = useNavigation();
   const cardScalesRef = useRef<Animated.Value[]>([]);
+  const { isDarkMode } = useAuth();
+  const theme = isDarkMode ? darkPalette : lightPalette;
 
   useEffect(() => {
     cardScalesRef.current = tournaments.map(() => new Animated.Value(1));
@@ -75,17 +79,17 @@ const TournamentList: React.FC<TournamentListProps> = ({
 
 
   return (
-    <View style={styles.container}>
-      <View style={styles.searchBarContainer}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={[styles.searchBarContainer, { backgroundColor: theme.background }]}>
         <TextInput
-          style={styles.searchBar}
+          style={[styles.searchBar, { backgroundColor: theme.inputBackground, color: theme.text }]}
           placeholder="Cerca tornei..."
-          placeholderTextColor="#aaa"
+          placeholderTextColor={theme.inputPlaceholder}
           value={searchTerm}
           onChangeText={handleSearchChange}
         />
         <View style={styles.switchContainer}>
-          <Text style={styles.switchLabel}>Compatto</Text>
+          <Text style={[styles.switchLabel, { color: theme.text }]}>Compatto</Text>
           <Switch
             value={isCardMinimized}
             onValueChange={toggleCardSize}
@@ -96,17 +100,17 @@ const TournamentList: React.FC<TournamentListProps> = ({
       </View>
 
       {loading ? (
-        <Text style={styles.loadingText}>Caricamento...</Text>
+        <Text style={[styles.loadingText, { color: theme.text }]}>Caricamento...</Text>
       ) : error ? (
         <Text style={styles.errorText}>{error}</Text>
       ) : tournaments.length === 0 ? (
-        <View style={styles.noTournaments}>
+        <View style={[styles.noTournaments, { backgroundColor: theme.background }]}>
           <Image source={tournamentIcon} style={styles.noTournamentsIcon} />
-          <Text style={styles.noTournamentsText}>Nessun Torneo Disponibile</Text>
-          <Text style={styles.noTournamentsSubText}>Inizia creando un Torneo!</Text>
+          <Text style={[styles.noTournamentsText, { color: theme.text }]}>Nessun Torneo Disponibile</Text>
+          <Text style={[styles.noTournamentsSubText, { color: theme.secondaryText }]}>Inizia creando un Torneo!</Text>
         </View>
       ) : (
-        <View style={styles.tournamentsContainer}>
+        <View style={[styles.tournamentsContainer, { backgroundColor: theme.background }]}>
           {tournaments.map((tournament, index) => {
             const cardScale = cardScalesRef.current[index] || new Animated.Value(1);
             return (
@@ -118,10 +122,10 @@ const TournamentList: React.FC<TournamentListProps> = ({
                 onPressOut={() => resetCard(cardScale)}
                 activeOpacity={1}
               >
-                <Animated.View style={[styles.card, { transform: [{ scale: cardScale }] }]}>
+                <Animated.View style={[styles.card, { transform: [{ scale: cardScale }], backgroundColor: theme.cardBackground }]}>
                   <View style={styles.cardHeader}>
                     <Image source={tournamentIcon} style={styles.cardIcon} />
-                    <Text style={styles.cardCreatorText}>Creato da: {tournament.created_by}</Text>
+                    <Text style={[styles.cardCreatorText, { color: theme.secondaryText }]}>Creato da: {tournament.created_by}</Text>
                     <Text
                       style={[
                         styles.cardStatus,
@@ -138,14 +142,14 @@ const TournamentList: React.FC<TournamentListProps> = ({
                       {tournament.status.replace(/_/g, ' ')}
                     </Text>
                   </View>
-                  <Text style={styles.cardTitle}>{tournament.name}</Text>
+                  <Text style={[styles.cardTitle, { color: theme.text }]}>{tournament.name}</Text>
                   {!isCardMinimized && (
                     <View>
-                      <Text style={styles.cardDescription}>{tournament.description}</Text>
-                      <Text style={styles.cardInfo}>
+                      <Text style={[styles.cardDescription, { color: theme.secondaryText }]}>{tournament.description}</Text>
+                      <Text style={[styles.cardInfo, { color: theme.secondaryText }]}>
                         Max Players: {tournament.max_players === null ? 'Unlimited' : tournament.max_players}
                       </Text>
-                      <Text style={styles.cardInfo}>
+                      <Text style={[styles.cardInfo, { color: theme.secondaryText }]}>
                         Created: {new Date(tournament.created_at).toLocaleDateString()}
                       </Text>
                     </View>
@@ -160,20 +164,6 @@ const TournamentList: React.FC<TournamentListProps> = ({
   );
 };
 
-const darkPalette = {
-  background: '#121212',
-  cardBackground: '#1E1E1E',
-  text: '#FFFFFF',
-  secondaryText: '#AAAAAA',
-  accent: '#BB86FC',
-  button: '#3700B3',
-  buttonText: '#FFFFFF',
-  inputBackground: '#2C2C2C',
-  inputPlaceholder: '#AAAAAA',
-  statusCompleted: '#2ecc71',
-  statusInProgress: '#e67e22',
-  statusDraft: '#7f8c8d',
-};
 
 const styles = StyleSheet.create({
   container: {
@@ -187,11 +177,9 @@ const styles = StyleSheet.create({
   },
   searchBar: {
     flex: 1,
-    backgroundColor: darkPalette.inputBackground,
     borderRadius: 20,
     paddingVertical: 8,
     paddingHorizontal: 15,
-    color: darkPalette.text,
     marginRight: 10,
   },
   switchContainer: {
@@ -199,11 +187,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   switchLabel: {
-    color: darkPalette.text,
     marginRight: 10,
   },
   loadingText: {
-    color: darkPalette.text,
     textAlign: 'center',
     padding: 20,
   },
@@ -223,13 +209,11 @@ const styles = StyleSheet.create({
   },
   noTournamentsText: {
     fontSize: 18,
-    color: darkPalette.text,
     fontWeight: 'bold',
     marginBottom: 5,
   },
   noTournamentsSubText: {
     fontSize: 14,
-    color: darkPalette.secondaryText,
   },
   tournamentsContainer: {
     paddingHorizontal: 10,
@@ -238,7 +222,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   card: {
-    backgroundColor: darkPalette.cardBackground,
     borderRadius: 10,
     padding: 15,
     width: Dimensions.get('window').width - 40,
@@ -255,11 +238,10 @@ const styles = StyleSheet.create({
   },
   cardCreatorText: {
     flex: 1,
-    color: darkPalette.secondaryText,
     fontSize: 14,
   },
   cardStatus: {
-    color: darkPalette.buttonText,
+    color: '#fff',
     fontWeight: 'bold',
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -268,17 +250,14 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: darkPalette.text,
     marginBottom: 5,
   },
   cardDescription: {
     fontSize: 14,
-    color: darkPalette.secondaryText,
     marginBottom: 5,
   },
   cardInfo: {
     fontSize: 12,
-    color: darkPalette.secondaryText,
     marginBottom: 3,
   },
 });

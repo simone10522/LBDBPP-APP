@@ -7,6 +7,8 @@ import {
 } from 'react-native';
 import { supabase } from '../lib/supabase';
 import TournamentList from '../components/TournamentList';
+import { useAuth } from '../hooks/useAuth'; // Import useAuth hook
+import { lightPalette, darkPalette } from '../context/themes'; // Import lightPalette and darkPalette
 
 interface Tournament {
   id: string;
@@ -26,6 +28,9 @@ const TournamentPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [allTournaments, setAllTournaments] = useState<Tournament[]>([]);
   const [isCardMinimized, setIsCardMinimized] = useState(false);
+  const { isDarkMode } = useAuth(); // Use useAuth hook to get isDarkMode
+
+  const theme = isDarkMode ? darkPalette : lightPalette; // Determine current theme
 
   const fetchTournaments = useCallback(async () => {
     setLoading(true);
@@ -84,10 +89,10 @@ const TournamentPage = () => {
 
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView
-        style={styles.scrollView}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" />}
+        style={[styles.scrollView, { backgroundColor: theme.background }]}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.text} />}
       >
         <TournamentList
           tournaments={tournaments}
@@ -103,25 +108,11 @@ const TournamentPage = () => {
     </View>
   );
 };
-const darkPalette = {
-  background: '#121212',
-  cardBackground: '#1E1E1E',
-  text: '#FFFFFF',
-  secondaryText: '#AAAAAA',
-  accent: '#BB86FC',
-  button: '#3700B3', // Default button color, will be overridden
-  buttonText: '#FFFFFF',
-  inputBackground: '#2C2C2C',
-  inputPlaceholder: '#AAAAAA',
-  statusCompleted: '#2ecc71',
-  statusInProgress: '#e67e22',
-  statusDraft: '#7f8c8d',
-};
+
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: darkPalette.background,
   },
   scrollView: {
     flex: 1,

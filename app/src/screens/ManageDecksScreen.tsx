@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../hooks/_useAuth';
+import { useAuth } from '../hooks/useAuth';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { EnergyIcon } from '../components/EnergyIcon';
+import { lightPalette, darkPalette } from '../context/themes';
 
 const energies = ['fuoco', 'acqua', 'elettro', 'normale', 'erba', 'oscurità', 'lotta', 'acciaio', 'psico'];
 
 export default function ManageDecksScreen() {
-  const { user } = useAuth();
+  const { user, isDarkMode } = useAuth();
   const navigation = useNavigation();
   const route = useRoute();
   const { participantId } = route.params as { participantId: string };
@@ -16,6 +17,8 @@ export default function ManageDecksScreen() {
   const [deck2, setDeck2] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [hasDeck, setHasDeck] = useState(false);
+
+  const palette = isDarkMode ? darkPalette : lightPalette;
 
   useEffect(() => {
     const fetchExistingDeck = async () => {
@@ -76,10 +79,10 @@ export default function ManageDecksScreen() {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.title}>Gestisci Mazzi</Text>
+    <ScrollView style={[styles.container, { backgroundColor: palette.background }]}>
+      <Text style={[styles.title, { color: palette.text }]}>Gestisci Mazzi</Text>
       <View style={styles.deckContainer}>
-        <Text style={styles.deckTitle}>Deck 1</Text>
+        <Text style={[styles.deckTitle, { color: palette.text }]}>Deck 1</Text>
         <View style={styles.energyList}>
           {energies.map((energy) => (
             <TouchableOpacity key={energy} style={styles.energyItem} onPress={() => handleEnergyChange(1, energy, !deck1.includes(energy))}>
@@ -89,7 +92,7 @@ export default function ManageDecksScreen() {
         </View>
       </View>
       <View style={styles.deckContainer}>
-        <Text style={styles.deckTitle}>Deck 2</Text>
+        <Text style={[styles.deckTitle, { color: palette.text }]}>Deck 2</Text>
         <View style={styles.energyList}>
           {energies.map((energy) => (
             <TouchableOpacity key={energy} style={styles.energyItem} onPress={() => handleEnergyChange(2, energy, !deck2.includes(energy))}>
@@ -98,10 +101,10 @@ export default function ManageDecksScreen() {
           ))}
         </View>
       </View>
-      <TouchableOpacity style={styles.button} onPress={handleSubmit}>
-        <Text style={styles.buttonText}>Salva</Text>
+      <TouchableOpacity style={[styles.button, { backgroundColor: palette.buttonBackground }]} onPress={handleSubmit}>
+        <Text style={[styles.buttonText, { color: palette.buttonText }]}>Salva</Text>
       </TouchableOpacity>
-      {error && <Text style={styles.error}>{error}</Text>}
+      {error && <Text style={[styles.error, { color: palette.error }]}>{error}</Text>}
     </ScrollView>
   );
 };
@@ -110,13 +113,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#f0f0f0', // Sarà sovrascritto dal tema
   },
   title: {
     fontSize: 32,
     fontWeight: 'bold',
     marginBottom: 20,
-    color: '#333',
+    color: '#333', // Sarà sovrascritto dal tema
     textAlign: 'center',
   },
   deckContainer: {
@@ -126,7 +129,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 10,
-    color: '#333',
+    color: '#333', // Sarà sovrascritto dal tema
   },
   energyList: {
     flexDirection: 'row',
@@ -148,17 +151,17 @@ const styles = StyleSheet.create({
     opacity: 1,
   },
   button: {
-    backgroundColor: '#4a90e2',
+    backgroundColor: '#4a90e2', // Sarà sovrascritto dal tema
     padding: 15,
     borderRadius: 5,
     alignItems: 'center',
   },
   buttonText: {
-    color: 'white',
+    color: 'white', // Sarà sovrascritto dal tema
     fontWeight: 'bold',
   },
   error: {
-    color: 'red',
+    color: 'red', // Sarà sovrascritto dal tema
     fontSize: 16,
     marginTop: 10,
     textAlign: 'center',

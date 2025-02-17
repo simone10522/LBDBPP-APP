@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useAuth } from '../hooks/_useAuth'; // Import useAuth
-import { Home, List, User } from 'lucide-react-native';
+import { useAuth } from '../hooks/useAuth'; // Import useAuth
+import { Home, List, User, BarChart4 } from 'lucide-react-native'; // Import BarChart4 for Ranked icon
 
 const BottomNavigationBar = () => {
   const navigation = useNavigation();
@@ -25,6 +25,10 @@ const BottomNavigationBar = () => {
       <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('TournamentPage')}>
         <List color="#fff" size={24} />
         <Text style={styles.buttonText}>Tornei</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('RankedScreen')}>
+        <BarChart4 color="#fff" size={24} />
+        <Text style={styles.buttonText}>Ranked</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.button} onPress={handleProfilePress}>
         <User color="#fff" size={24} />

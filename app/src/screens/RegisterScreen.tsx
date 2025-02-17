@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, Image, Dimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
+import { lightPalette, darkPalette } from '../context/themes'; // Importa i temi
+import { useAuth } from '../hooks/useAuth'; // Importa useAuth
+
 
 const RegisterScreen = () => {
   const [email, setEmail] = useState('');
@@ -10,6 +13,9 @@ const RegisterScreen = () => {
   const [profileImage, setProfileImage] = useState('');
   const [error, setError] = useState('');
   const navigation = useNavigation();
+  const { isDarkMode } = useAuth(); // Usa isDarkMode dal contesto
+  const theme = isDarkMode ? darkPalette : lightPalette; // Determina il tema corrente
+
 
   const handleRegister = async () => {
     try {
@@ -38,29 +44,32 @@ const RegisterScreen = () => {
     setProfileImage(e.target.value);
   };
 
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <Image
-        source={{ uri: 'https://github.com/simone10522/LBDBPP/blob/main/icons/LBDBPP.png?raw=true' }}
+        source={require('../../assets/homelogo.png')}
         style={styles.logo}
         resizeMode="contain"
       />
-      <Text style={styles.title}>Registrati</Text>
+      <Text style={[styles.title, { color: theme.text }]}>Registrati</Text>
       {error && (
         <View style={styles.errorContainer}>
-          <Text style={styles.error}>{error}</Text>
+          <Text style={[styles.error, { color: theme.error }]}>{error}</Text>
         </View>
       )}
       <TextInput
-        style={styles.input}
+        style={[styles.input, { backgroundColor: theme.inputBackground, color: theme.text, borderColor: theme.borderColor }]}
         placeholder="Username"
+        placeholderTextColor={theme.secondaryText}
         value={username}
         onChangeText={setUsername}
         required
       />
       <TextInput
-        style={styles.input}
+        style={[styles.input, { backgroundColor: theme.inputBackground, color: theme.text, borderColor: theme.borderColor }]}
         placeholder="Email"
+        placeholderTextColor={theme.secondaryText}
         keyboardType="email-address"
         autoCapitalize="none"
         value={email}
@@ -68,18 +77,19 @@ const RegisterScreen = () => {
         required
       />
       <TextInput
-        style={styles.input}
+        style={[styles.input, { backgroundColor: theme.inputBackground, color: theme.text, borderColor: theme.borderColor }]}
         placeholder="Password"
+        placeholderTextColor={theme.secondaryText}
         secureTextEntry
         value={password}
         onChangeText={setPassword}
         required
       />
-      <TouchableOpacity style={styles.button} onPress={handleRegister}>
-        <Text style={styles.buttonText}>Registrati</Text>
+      <TouchableOpacity style={[styles.button, { backgroundColor: theme.buttonBackground }]} onPress={handleRegister}>
+        <Text style={[styles.buttonText, { color: theme.buttonText }]}>Registrati</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.loginButton} onPress={() => navigation.navigate('Login')}>
-        <Text style={styles.loginButtonText}>Hai già un account? Accedi</Text>
+        <Text style={[styles.loginButtonText, { color: theme.buttonBackground }]}>Hai già un account? Accedi</Text>
       </TouchableOpacity>
     </View>
   );
@@ -91,45 +101,38 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#f0f0f0',
   },
   logo: {
-      width: Dimensions.get('window').width * 0.8,
-      height: 100,
-      marginBottom: 20,
-      resizeMode: 'contain',
+    width: Dimensions.get('window').width * 0.8,
+    height: 100,
+    marginBottom: 20,
+    resizeMode: 'contain',
   },
   title: {
     fontSize: 32,
     fontWeight: 'bold',
     marginBottom: 30,
-    color: '#333',
   },
   input: {
     width: '100%',
-    backgroundColor: 'white',
     padding: 15,
     marginBottom: 10,
     borderRadius: 5,
     borderWidth: 1,
-    borderColor: '#ddd',
   },
   button: {
-    backgroundColor: '#4a90e2',
     padding: 15,
     borderRadius: 5,
     width: '100%',
     alignItems: 'center',
   },
   buttonText: {
-    color: 'white',
     fontWeight: 'bold',
   },
   loginButton: {
     marginTop: 20,
   },
   loginButtonText: {
-    color: '#4a90e2',
     textDecorationLine: 'underline',
   },
   errorContainer: {
@@ -141,7 +144,6 @@ const styles = StyleSheet.create({
     borderColor: '#f5c6cb',
   },
   error: {
-    color: '#721c24',
     fontSize: 16,
     textAlign: 'center',
   },
