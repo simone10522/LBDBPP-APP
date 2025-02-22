@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Clipboard, Alert, ScrollView, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Clipboard, Alert, ScrollView, RefreshControl, Image } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
 import { lightPalette, darkPalette } from '../context/themes';
 import { supabase } from '../lib/supabase';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { v4 as uuidv4 } from 'uuid';
 import 'react-native-get-random-values';
+import { Copy, Check } from 'lucide-react-native'; // Import the Copy icon
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
 
 const RankedScreen = () => {
   const { isDarkMode, user } = useAuth();
@@ -28,6 +30,50 @@ const RankedScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [isMatchFound, setIsMatchFound] = useState(false); // New state variable
   const [playerCount, setPlayerCount] = useState(0); // Stato per il numero di giocatori in coda
+  const [opponentProfileImage, setOpponentProfileImage] = useState(null); // Stato per l'immagine del profilo dell'avversario
+  const imageY = useSharedValue(500); // Start position from the bottom
+  const [userProfileImage, setUserProfileImage] = useState(null); // Stato per l'immagine del profilo dell'utente
+  const [userImageClicked, setUserImageClicked] = useState(false);
+  const [opponentImageClicked, setOpponentImageClicked] = useState(false);
+  const [isConfirmButtonActive, setIsConfirmButtonActive] = useState(false);
+
+  useEffect(() => {
+    const fetchUserProfileImage = async () => {
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('profile_image')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError) {
+        console.error("Error fetching user profile image:", profileError);
+        setUserProfileImage(null);
+      } else {
+        setUserProfileImage(profileData?.profile_image);
+      }
+    };
+
+    if (user) {
+      fetchUserProfileImage();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (opponentProfileImage) {
+      imageY.value = withSpring(0, { // Move to center (0) with a spring effect
+        damping: 10,
+        stiffness: 80,
+      });
+    } else {
+      imageY.value = 500; // Reset position if no image
+    }
+  }, [opponentProfileImage]);
+
+  const animatedImageStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateY: imageY.value }],
+    };
+  });
 
   const generateMatchPassword = () => {
     const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -259,7 +305,7 @@ const RankedScreen = () => {
 
             const { data: opponentProfile, error: opponentProfileError } = await supabase
               .from('profiles')
-              .select('username')
+              .select('username, profile_image') // Fetch profile_image as well
               .eq('id', opponentId)
               .single();
 
@@ -268,6 +314,7 @@ const RankedScreen = () => {
               setOpponentName('Sconosciuto');
             } else {
               setOpponentName(opponentProfile?.username);
+              setOpponentProfileImage(opponentProfile?.profile_image); // Set the profile image URL
             }
 
             setMatchPassword(existingMatch.match_password);
@@ -358,6 +405,21 @@ const RankedScreen = () => {
             setIsSearching(false);
             setIsCancelButtonVisible(false); // Hide cancel button after match
             setOpponentName(opponentUsername); // Imposta il NOME UTENTE dell'avversario
+
+            // Fetch opponent profile image
+            const { data: opponentProfile, error: opponentProfileError } = await supabase
+              .from('profiles')
+              .select('profile_image')
+              .eq('id', user2)
+              .single();
+
+            if (opponentProfileError) {
+              console.error("Error fetching opponent profile image:", opponentProfileError);
+              setOpponentProfileImage(null);
+            } else {
+              setOpponentProfileImage(opponentProfile?.profile_image);
+            }
+
             setMatchPassword(matchPasswordGenerated); // Imposta la password del match
             setMatchReady(true);
             setIsMatchFound(true); // Set isMatchFound to true
@@ -452,6 +514,29 @@ const RankedScreen = () => {
     }, [user])
   );
 
+  const handleProfilePress = (userId) => {
+    // Navigate to the profile screen with the user ID
+    navigation.navigate('Profile', { userId: userId });
+  };
+
+  const handleUserImagePress = () => {
+    setUserImageClicked(prev => !prev);
+    setOpponentImageClicked(false);
+    setIsConfirmButtonActive(true);
+  };
+
+  const handleOpponentImagePress = () => {
+    setOpponentImageClicked(prev => !prev);
+    setUserImageClicked(false);
+    setIsConfirmButtonActive(true);
+  };
+
+  const handleConfirmWinner = () => {
+    // Handle the logic when the "conferma vincitore" button is pressed
+    // For example, you might want to send the winner information to the server
+    console.log("Winner confirmed!");
+  };
+
   return (
     <View style={{ flex: 1 }}>
       <ScrollView
@@ -483,10 +568,46 @@ const RankedScreen = () => {
         )}
         {opponentName && matchPassword && (
           <View style={styles.matchFoundContainer}>
+            <Animated.Image
+              source={{ uri: opponentProfileImage }}
+              style={[styles.opponentProfileImage, animatedImageStyle]}
+            />
             <Text style={styles.matchFoundText}>Avversario trovato: {opponentName}</Text>
-            <TouchableOpacity onPress={() => handleCopyToClipboard(matchPassword)}>
-              <Text style={styles.matchFoundText}>Match Password: {matchPassword}</Text>
-            </TouchableOpacity>
+            <View style={styles.passwordContainer}>
+              <Text style={styles.matchFoundText}>Match Password:</Text>
+              <View style={styles.passwordBox}>
+                <Text style={[styles.passwordText, { color: theme.text }]}>{matchPassword}</Text>
+              </View>
+              <TouchableOpacity onPress={() => handleCopyToClipboard(matchPassword)} style={styles.copyButton}>
+                <Copy color="#fff" size={20} />
+              </TouchableOpacity>
+            </View>
+            <Text style={[styles.centeredText, { color: theme.text }]}>chi ha vinto?</Text>
+            <View style={styles.profileImagesContainer}>
+              <View style={styles.imageContainer}>
+                <TouchableOpacity onPress={handleUserImagePress}>
+                  <Image
+                    source={{ uri: userProfileImage }}
+                    style={styles.profileImage}
+                  />
+                </TouchableOpacity>
+                {userImageClicked && <Check color="green" size={24} />}
+              </View>
+              <View style={styles.imageContainer}>
+                <TouchableOpacity onPress={handleOpponentImagePress}>
+                  <Image
+                    source={{ uri: opponentProfileImage }}
+                    style={styles.profileImage}
+                  />
+                </TouchableOpacity>
+                {opponentImageClicked && <Check color="green" size={24} />}
+              </View>
+            </View>
+            {isConfirmButtonActive && (
+              <TouchableOpacity style={styles.confirmButton} onPress={handleConfirmWinner}>
+                <Text style={styles.confirmButtonText}>Conferma Vincitore</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
       </ScrollView>
@@ -563,6 +684,72 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   searchAnotherButtonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  opponentProfileImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginBottom: 10,
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  passwordBox: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 5,
+    marginRight: 10,
+  },
+  passwordText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  copyButton: {
+    backgroundColor: '#007bff',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 5,
+  },
+  copyButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  centeredText: {
+    textAlign: 'center',
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginTop: 10,
+  },
+  profileImagesContainer: {
+    flexDirection: 'row', // Display images side by side
+    justifyContent: 'center', // Center images horizontally
+    marginTop: 10, // Add some space above the images
+  },
+  profileImage: {
+    width: 50, // Adjust size as needed
+    height: 50, // Adjust size as needed
+    borderRadius: 25, // Make images circular
+    marginHorizontal: 10, // Add some horizontal spacing between images
+  },
+  imageContainer: {
+    alignItems: 'center', // Center items horizontally
+  },
+  confirmButton: {
+    backgroundColor: '#28a745',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 5,
+    marginTop: 20,
+  },
+  confirmButtonText: {
     color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
