@@ -84,9 +84,32 @@ const ProfileScreen = () => {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    navigation.navigate('Login');
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Clear push_token before logging out
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ push_token: null })
+        .eq('id', user.id);
+
+      if (updateError) {
+        console.error("Error clearing push_token:", updateError);
+        setError(updateError.message);
+      } else {
+        console.log("push_token cleared successfully");
+        // Proceed with logout after successful push_token removal
+        await supabase.auth.signOut();
+        setUser(null);
+        navigation.navigate('Login');
+      }
+    } catch (error: any) {
+      console.error("Error during logout:", error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const toggleTheme = () => {
