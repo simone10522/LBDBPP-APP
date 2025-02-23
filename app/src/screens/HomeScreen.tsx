@@ -7,30 +7,24 @@ import {
   TouchableOpacity,
   Image,
   RefreshControl,
-  Dimensions,
   Modal,
-  ImageBackground,
-  TextInput,
-  Switch,
   Animated,
   Easing,
+  Dimensions,
 } from 'react-native';
-import CustomButton from '../components/CustomButton';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../hooks/_useAuth';
-import { Card } from 'react-native-elements';
-import background from '../../assets/button_corner.png';
-import heroBackground from '../../assets/pokemon_hero_bg.png';
-import tournamentIcon from '../../assets/tournament_icon.png';
-import LogoIcon from '../../assets/LOGO.png';
-import cardBackground from '../../assets/test.png';
+import { useAuth } from '../hooks/useAuth';
+import TournamentList from '../components/TournamentList';
+// No need to import AsyncStorage
+import { lightPalette, darkPalette } from '../context/themes'; // Import palettes
 
 interface Tournament {
   id: string;
   name: string;
   description: string;
   status: 'draft' | 'in_progress' | 'completed';
+  created_at: string;
   created_at: string;
   created_by: string;
   max_players: number | null;
@@ -39,106 +33,147 @@ interface Tournament {
 const HomeScreen = () => {
   const navigation = useNavigation();
   const { user, setUser } = useAuth();
-  const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [username, setUsername] = useState('');
   const [profileImage, setProfileImage] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [isDropdownVisible, setDropdownVisible] = useState(false);
-  const dropdownRef = useRef(null);
+  const dropdownOpacity = useRef(new Animated.Value(0)).current;
+  const createButtonScale = useRef(new Animated.Value(1)).current;
+  const loginButtonScale = useRef(new Animated.Value(1)).current;
+  const [userTournaments, setUserTournaments] = useState<Tournament[]>([]);
+  const [tournamentLoading, setTournamentLoading] = useState(false);
+  const [tournamentError, setTournamentError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [allTournaments, setAllTournaments] = useState<Tournament[]>([]);
   const [isCardMinimized, setIsCardMinimized] = useState(false);
-  const dropdownOpacity = useRef(new Animated.Value(0)).current;
-  const createButtonScale = useRef(new Animated.Value(1)).current; // Scale value for button animation
-  const loginButtonScale = useRef(new Animated.Value(1)).current; // Scale value for login button animation
-  const cardScalesRef = useRef<Animated.Value[]>([]); // Ref to store array of Animated.Value for cards
 
-  const fetchTournaments = useCallback(async () => {
+  const logoTopPosition = useRef(new Animated.Value(-Dimensions.get('window').width)).current;
+  const logoBottomPosition = useRef(new Animated.Value(Dimensions.get('window').width)).current;
+
+  const { isDarkMode } = useAuth(); // Get isDarkMode from useAuth
+
+  // No need for useEffect to load theme
+
+  const theme = isDarkMode ? darkPalette : lightPalette; // Determine the theme
+
+  // ... (rest of your component, using the theme object as before) ...
+
+    const fetchUserData = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('tournaments')
-        .select('*, profiles!tournaments_created_by_fkey(username)')
-        .order('created_at', { ascending: false });
-
-      if (!error && data) {
-        console.log('Fetched tournaments:', data);
-        const tournamentsWithUsername = data.map((tournament: any) => ({
-          ...tournament,
-          created_by: tournament.profiles?.username || 'Unknown',
-        }));
-        setAllTournaments(tournamentsWithUsername);
-        filterTournaments(tournamentsWithUsername, searchTerm);
-      } else {
-        console.error('Error fetching tournaments:', error);
-        setTournaments([]);
+      if (!user) {
+        setUsername('Guest');
+        setProfileImage('');
+        return;
       }
-    } catch (error: any) {
-      console.error('Error during tournament fetch:', error);
-      setError(error.message);
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('username, profile_image')
+        .eq('id', user.id)
+        .single();
+
+      if (error) throw error;
+
+      setUsername(data?.username || 'Guest');
+      setProfileImage(data?.profile_image || '');
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+      setUsername('Guest');
+      setProfileImage('');
     } finally {
       setLoading(false);
     }
-  }, [searchTerm]);
+  }, [user]);
+
+  const fetchUserTournaments = useCallback(async () => {
+    if (!user) {
+      setUserTournaments([]);
+      return;
+    }
+    setTournamentLoading(true);
+    try {
+      const { data: createdTournaments, error: createdError } = await supabase
+        .from('tournaments')
+        .select('*, profiles!tournaments_created_by_fkey(username)')
+        .eq('created_by', user.id);
+
+      if (createdError) throw createdError;
+
+      const { data: participantTournaments, error: participantError } = await supabase
+        .from('tournament_participants')
+        .select('tournament_id, tournaments(*, profiles!tournaments_created_by_fkey(username))')
+        .eq('participant_id', user.id);
+
+      if (participantError) throw participantError;
+
+      let tournaments = [];
+      if (createdTournaments) {
+        tournaments = tournaments.concat(createdTournaments.map((tournament: any) => ({
+          ...tournament,
+          created_by: tournament.profiles?.username || 'Unknown',
+        })));
+      }
+      if (participantTournaments) {
+        tournaments = tournaments.concat(participantTournaments.map(pt => ({
+          ...pt.tournaments,
+          created_by: pt.tournaments?.profiles?.username || 'Unknown',
+        })));
+      }
+
+      const uniqueTournaments = Array.from(new Set(tournaments.map(t => t.id))).map(id => {
+        return tournaments.find(t => t.id === id);
+      });
+      setUserTournaments(uniqueTournaments as Tournament[]);
+      setAllTournaments(uniqueTournaments as Tournament[]);
+      filterTournaments(uniqueTournaments as Tournament[], searchTerm);
+    } catch (error: any) {
+      setTournamentError(error.message);
+    } finally {
+      setTournamentLoading(false);
+    }
+  }, [user, searchTerm]);
 
   const filterTournaments = (tournamentsToFilter: Tournament[], term: string) => {
-    if (term) {
-      const filtered = tournamentsToFilter.filter(
-        (tournament) =>
-          tournament.name.toLowerCase().includes(term.toLowerCase()) ||
-          tournament.description.toLowerCase().includes(term.toLowerCase())
-      );
-      setTournaments(filtered);
-    } else {
-      setTournaments(tournamentsToFilter);
-    }
-  };
-
-  const fetchUserData = async () => {
-    if (user) {
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('username, profile_image')
-          .eq('id', user.id)
-          .single();
-        if (error) {
-          console.error('Error fetching user data:', error);
-          setUsername('Guest');
-          setProfileImage('');
-        } else {
-          setUsername(data?.username || 'Guest');
-          setProfileImage(data?.profile_image || '');
-        }
-      } catch (error) {
-        console.error('Error fetching user data:', error);
-        setUsername('Guest');
-        setProfileImage('');
-      }
-    } else {
-      setUsername('Guest');
-      setProfileImage('');
-    }
-    setLoading(false);
+    const filtered = term
+      ? tournamentsToFilter.filter(
+          (tournament) =>
+            tournament.name.toLowerCase().includes(term.toLowerCase()) ||
+            tournament.description.toLowerCase().includes(term.toLowerCase())
+        )
+      : tournamentsToFilter;
+    setUserTournaments(filtered);
   };
 
   useEffect(() => {
-    fetchTournaments();
     fetchUserData();
-  }, [user, fetchTournaments]);
+  }, [fetchUserData]);
 
   useEffect(() => {
-    // Initialize cardScalesRef.current when tournaments change
-    cardScalesRef.current = tournaments.map(() => new Animated.Value(1));
-  }, [tournaments]);
+    fetchUserTournaments();
+  }, [fetchUserTournaments]);
 
+  useEffect(() => {
+    Animated.timing(logoTopPosition, {
+      toValue: 0,
+      duration: 1000,
+      easing: Easing.easeOut,
+      useNativeDriver: true,
+    }).start();
+
+    Animated.timing(logoBottomPosition, {
+      toValue: 0,
+      duration: 1000,
+      easing: Easing.easeOut,
+      useNativeDriver: true,
+    }).start();
+  }, [logoTopPosition, logoBottomPosition]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchTournaments().finally(() => setRefreshing(false));
-  }, [fetchTournaments]);
+    fetchUserData().finally(() => setRefreshing(false));
+  }, [fetchUserData]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -148,23 +183,31 @@ const HomeScreen = () => {
 
   const toggleDropdown = () => {
     setDropdownVisible(!isDropdownVisible);
-    if (!isDropdownVisible) {
-      Animated.timing(dropdownOpacity, {
-        toValue: 1,
-        duration: 200,
-        easing: Easing.easeOut,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      Animated.timing(dropdownOpacity, {
-        toValue: 0,
-        duration: 200,
-        easing: Easing.easeOut,
-        useNativeDriver: true,
-      }).start();
-    }
+    Animated.timing(dropdownOpacity, {
+      toValue: isDropdownVisible ? 0 : 1,
+      duration: 200,
+      easing: Easing.easeOut,
+      useNativeDriver: true,
+    }).start();
   };
 
+  const animateButton = (buttonScale: Animated.Value) => {
+    Animated.timing(buttonScale, {
+      toValue: 0.9,
+      duration: 50,
+      easing: Easing.ease,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const resetButton = (buttonScale: Animated.Value) => {
+    Animated.timing(buttonScale, {
+      toValue: 1,
+      duration: 150,
+      easing: Easing.ease,
+      useNativeDriver: true,
+    }).start();
+  };
   const handleSearchChange = (text: string) => {
     setSearchTerm(text);
     filterTournaments(allTournaments, text);
@@ -174,394 +217,147 @@ const HomeScreen = () => {
     setIsCardMinimized(!isCardMinimized);
   };
 
-  const handleCreateButtonPress = () => {
-    navigation.navigate('CreateTournament');
-  };
-
-  const animateButton = (buttonScale: Animated.Value) => { // Modified to accept buttonScale
-    Animated.timing(buttonScale, {
-      toValue: 0.9, // Shrink scale when pressed
-      duration: 50, // Short duration for press effect
-      easing: Easing.ease,
-      useNativeDriver: true, // ADD useNativeDriver: true
-    }).start();
-  };
-
-  const resetButton = (buttonScale: Animated.Value) => { // Modified to accept buttonScale
-    Animated.timing(buttonScale, {
-      toValue: 1, // Back to normal scale when released
-      duration: 150,
-      easing: Easing.ease,
-      useNativeDriver: true, // ADD useNativeDriver: true
-    }).start();
-  };
-
-  const animateCard = (cardScale: Animated.Value) => {
-    Animated.timing(cardScale, {
-      toValue: 0.95, // Slightly shrink card when pressed
-      duration: 50,
-      easing: Easing.ease,
-      useNativeDriver: true, // ADD useNativeDriver: true
-    }).start();
-  };
-
-  const resetCard = (cardScale: Animated.Value) => {
-    Animated.timing(cardScale, {
-      toValue: 1, // Reset card scale to normal
-      duration: 150,
-      easing: Easing.ease,
-      useNativeDriver: true, // ADD useNativeDriver: true
-    }).start();
-  };
-
-
   return (
-    <View style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      >
-        <Text style={styles.headerTitle}>Pocket Tournaments</Text>
-        <View style={styles.headerButtons}>
-          {!user && (
+    <View style={[styles.backgroundImage, { backgroundColor: theme.background }]}>
+      <View style={[styles.container]}>
+        <ScrollView
+          style={styles.scrollView}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.text} />} // Apply theme to refreshControl
+          contentContainerStyle={{ flexGrow: 1 }}
+        >
+          <Animated.Image
+            source={require('../../assets/logotop.png')}
+            style={[styles.logoTop, { transform: [{ translateX: logoTopPosition }] }]}
+            resizeMode="contain"
+          />
+          <Animated.Image
+            source={require('../../assets/logobot.png')}
+            style={[styles.logoBottom, { transform: [{ translateX: logoBottomPosition }] }]}
+            resizeMode="contain"
+          />
+
+          <View style={styles.header} />
+          <View style={styles.yourTournamentsSection}>
+            <Text style={[styles.yourTournamentsTitle, { color: theme.text }]}>Your Tournaments</Text>
+            {!user && (
+              <Text style={[styles.noTournamentsText, { color: theme.text }]}>
+                Nessun Torneo Disponibile, Esegui il Login
+              </Text>
+            )}
+            {user && (
+              <TournamentList
+                tournaments={userTournaments}
+                loading={tournamentLoading}
+                error={tournamentError}
+                onRefresh={onRefresh}
+                searchTerm={searchTerm}
+                handleSearchChange={handleSearchChange}
+                isCardMinimized={isCardMinimized}
+                toggleCardSize={toggleCardSize}
+              />
+            )}
+          </View>
+        </ScrollView>
+        <View style={styles.bottomButtonsContainer}>
+          {!user ? (
             <TouchableOpacity
-              style={styles.loginButton}
+              style={[styles.loginButton, { backgroundColor: theme.buttonBackground }]}
               onPress={() => navigation.navigate('Login')}
-              onPressIn={() => animateButton(loginButtonScale)} // Shrink on press - Pass loginButtonScale
-              onPressOut={() => resetButton(loginButtonScale)} // Reset scale on release - Pass loginButtonScale
-              activeOpacity={1} // Disabilita l'opacità predefinita di TouchableOpacity
+              onPressIn={() => animateButton(loginButtonScale)}
+              onPressOut={() => resetButton(loginButtonScale)}
             >
-              <Animated.View style={{ transform: [{ scale: loginButtonScale }] }}>
-                <Text style={styles.loginButtonText}>Accedi</Text>
-              </Animated.View>
+              <Animated.Text style={[styles.loginButtonText, { transform: [{ scale: loginButtonScale }], color: theme.buttonText }]}>
+                Accedi
+              </Animated.Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[styles.createButton, { backgroundColor: theme.buttonBackground }]}
+              onPress={() => navigation.navigate('CreateTournament')}
+              onPressIn={() => animateButton(createButtonScale)}
+              onPressOut={() => resetButton(createButtonScale)}
+            >
+              <Animated.Text style={[styles.createButtonText, { transform: [{ scale: createButtonScale }], color: theme.buttonText }]}>
+                Crea Torneo
+              </Animated.Text>
             </TouchableOpacity>
           )}
-          {user && (
-            <View style={styles.userContainer}>
-              <TouchableOpacity onPress={toggleDropdown} ref={dropdownRef}>
-                <Text style={styles.username}>{username}</Text>
-              </TouchableOpacity>
-              {profileImage && (
-                <Image source={{ uri: profileImage }} style={styles.profileImage} />
-              )}
-              <Modal
-                transparent={true}
-                visible={isDropdownVisible}
-                onRequestClose={() => setDropdownVisible(false)}
-              >
-                <TouchableOpacity
-                  style={styles.modalOverlay}
-                  activeOpacity={1}
-                  onPress={() => setDropdownVisible(false)}
-                >
-                  <Animated.View
-                    style={[
-                      styles.dropdown,
-                      {
-                        opacity: dropdownOpacity,
-                      },
-                    ]}
-                  >
-                    <TouchableOpacity
-                      onPress={() => navigation.navigate('Profile')}
-                      style={styles.dropdownItem}
-                    >
-                      <Text style={styles.dropdownItemText}>Profile</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={handleLogout} style={styles.dropdownItem}>
-                      <Text style={styles.dropdownItemText}>Logout</Text>
-                    </TouchableOpacity>
-                  </Animated.View>
-                </TouchableOpacity>
-              </Modal>
-            </View>
-          )}
         </View>
-
-        <View style={styles.searchBarAndSwitchContainer}>
-          <View style={styles.searchBarContainer}>
-            <TextInput
-              style={styles.searchBar}
-              placeholder="Cerca tornei..."
-              placeholderTextColor="#aaa"
-              value={searchTerm}
-              onChangeText={handleSearchChange}
-            />
-          </View>
-          <View style={styles.switchContainer}>
-            <Text style={styles.switchLabel}>Compatto</Text>
-            <Switch
-              value={isCardMinimized}
-              onValueChange={toggleCardSize}
-            />
-          </View>
-        </View>
-
-        {loading && <Text>Caricamento...</Text>}
-        {error && <Text style={styles.error}>{error}</Text>}
-        <View style={styles.tournamentsContainer}>
-          {tournaments.map((tournament, index) => { // Added index here
-            let cardScale;
-            if (Array.isArray(cardScalesRef.current) && index < cardScalesRef.current.length) {
-              cardScale = cardScalesRef.current[index]; // Access cardScale from array using index
-            } else {
-              cardScale = new Animated.Value(1); // Fallback: use a new Animated.Value directly - NO CONDITIONAL HOOK!
-              console.warn("cardScalesRef.current not properly initialized or index out of bounds. Using fallback Animated.Value.");
-            }
-            return (
-              <TouchableOpacity
-                key={tournament.id}
-                onPress={() => navigation.navigate('TournamentDetails', { id: tournament.id })}
-                activeOpacity={1} // Ensure no default opacity change
-                onPressIn={() => animateCard(cardScale)}
-                onPressOut={() => resetCard(cardScale)}
-              >
-                <Animated.View style={{ transform: [{ scale: cardScale }] }}>
-                  <Card containerStyle={[styles.card, isCardMinimized ? styles.cardMinimized : {}]}>
-                      <View style={styles.cardHeader}>
-                        <Image source={tournamentIcon} alt="Tournament Icon" style={styles.cardIcon} />
-                        <Text style={styles.cardCreatorId}>Creato da: {tournament.created_by}</Text>
-                        <Text
-                          style={[
-                            styles.cardStatus,
-                            {
-                              backgroundColor:
-                                tournament.status === 'completed'
-                                  ? 'green'
-                                  : tournament.status === 'in_progress'
-                                  ? 'rgba(245, 132, 66, 1.0)'
-                                  : 'gray',
-                            },
-                          ]}
-                        >
-                          {tournament.status.replace('_', ' ')}
-                        </Text>
-                      </View>
-                      <Text style={styles.cardTitle}>{tournament.name}</Text>
-                      {!isCardMinimized && (
-                        <View>
-                          <Text style={styles.cardDescription}>{tournament.description}</Text>
-                          <Text style={styles.cardMaxPlayers}>
-                            Max Players: {tournament.max_players === null ? 'Unlimited' : tournament.max_players}
-                          </Text>
-                          <Text style={styles.cardDate}>
-                            Created {new Date(tournament.created_at).toLocaleDateString()}
-                          </Text>
-                        </View>
-                      )}
-                  </Card>
-                </Animated.View>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {tournaments.length === 0 && !loading && (
-          <View style={styles.noTournamentsContainer}>
-            <Image source={tournamentIcon} alt="Tournament Icon" style={styles.noTournamentsIcon} />
-            <Text style={styles.noTournamentsTitle}>Nessun Torneo Disponibile</Text>
-            <Text style={styles.noTournamentsText}>Inizia creando un Torneo!</Text>
-          </View>
-        )}
-          <CustomButton text="Crea Torneo" handlePress={handleCreateButtonPress} />
-      </ScrollView>
+      </View>
     </View>
   );
 };
 
+
+
 const styles = StyleSheet.create({
+  backgroundImage: {
+    flex: 1,
+    resizeMode: 'cover',
+    backgroundColor: 'transparent', // set background color here
+  },
   container: {
     flex: 1,
-    backgroundColor: '#FAFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    // backgroundColor: 'rgba(0,0,0,0.5)', // Removed grey overlay
   },
   scrollView: {
     flex: 1,
     padding: 10,
   },
-  heroTitle: {
-    fontSize: 24,
+  logoTop: {
+    width: 550,
+    height: 75,
+    marginTop: 70,
+    alignSelf: 'center',
+  },
+  logoBottom: {
+    width: 350,
+    height: 75,
+    marginBottom: 20,
+    alignSelf: 'center',
+  },
+  appName: {
+    fontSize: 28,
     fontWeight: 'bold',
-    color: '#fff',
-    marginTop: 10,
     textAlign: 'center',
+    marginVertical: 20,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+    display: 'none',
   },
   header: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    marginBottom: 20,
-    paddingTop: 20,
-  },
-  headerTitle: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#212121',
-    textAlign: 'center',
-  },
-  headerButtons: {
     flexDirection: 'row',
+    justifyContent: 'flex-end',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-  },
-  createButton: {
-    backgroundColor: 'transparent',
     padding: 10,
-    borderRadius: 5,
-    marginRight: 10,
-  },
-  createButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  loginButton: {
-    backgroundColor: 'transparent',
-    padding: 0,
-    borderRadius: 11,
-  },
-  loginButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  tournamentsContainer: {
-    paddingHorizontal: 5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  card: {
-    borderRadius: 16,
-    marginBottom: 1,
-    elevation: 3,
-    width: Dimensions.get('window').width - 30,
-    marginHorizontal: 15,
-    padding: 16,
-    overflow: 'hidden',
-    borderColor: 'transparent', // Aggiungi questo per rendere il bordo trasparente
-    backgroundColor:'#DEE7E7',
-  },
-  cardMinimized: {
-    paddingVertical: 0,
-    marginBottom: 0, // Rimuoviamo il marginBottom quando la card è minimizzata
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 5,
-    marginLeft: 20,
-  },
-  cardIcon: {
-    height: 50,
-    width: 50,
-    marginRight: 10,
-    marginTop: 10,
-    marginLeft: -10,
-  },
-  cardStatus: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginRight: 15,
-    marginTop: 10
-  },
-  cardTitle: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 0,
-    marginLeft: 11,
-  },
-  cardDescription: {
-    fontSize: 18,
-    color: '#666',
-    marginBottom: 0,
-    marginLeft: 11,
-  },
-  cardDate: {
-    fontSize: 16,
-    color: '#666',
-    marginLeft: 11,
-    marginBottom: 2,
-  },
-  cardCreatorId: {
-    fontSize: 18,
-    color: '#777',
-    textAlign: 'center',
-    marginBottom: 8,
-    marginTop: 15
-  },
-  error: {
-    color: 'red',
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: 10,
-  },
-  noTournamentsContainer: {
-    alignItems: 'center',
-    paddingVertical: 30,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    borderRadius: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 4,
-  },
-  noTournamentsIcon: {
-    height: 70,
-    width: 70,
-    marginBottom: 15,
-  },
-  noTournamentsTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-  },
-  noTournamentsText: {
-    fontSize: 18,
-    color: '#666',
-  },
-  username: {
-    color: 'white',
-    fontWeight: 'bold',
-    marginRight: 10,
+    marginBottom: 20,
+    display: 'none',
   },
   userContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
+  userButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  username: {
+    fontWeight: 'bold',
+    marginRight: 10,
+  },
   profileImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 15,
-    marginLeft: 5,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
   },
-  dropdown: {
-    position: 'absolute',
-    top: 50,
-    right: 0,
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 5,
-    width: 160,
-    paddingVertical: 10,
-  },
-  dropdownItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  dropdownItemText: {
-    fontSize: 16,
-    color: '#333',
+  profileImagePlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 10,
   },
   modalOverlay: {
     flex: 1,
@@ -569,54 +365,70 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     alignItems: 'flex-end',
   },
-  cardMaxPlayers: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 1,
-    marginLeft: 11,
-  },
-  buttonBackground: {
-    width: 150,
-    height: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  searchBarContainer: {
-    marginBottom: 16,
-    paddingHorizontal: 10,
-    flex: 1,
-
-  },
-  searchBar: {
-    backgroundColor: '#D9D9D9',
-    borderRadius: 25,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    fontSize: 16,
-    color: '#333',
-  },
-  searchBarAndSwitchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 15,
-    paddingHorizontal: 10,
-  },
-  switchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 10,
-  },
-  switchLabel: {
-    color: 'white',
-    marginRight: 10,
-  },
-  cardBackground: {
-    flex: 1,
-    padding: 10, // Removed padding from cardBackground
-  },
-  cardBackgroundImageStyle: {
+  dropdown: {
+    position: 'absolute',
+    top: 50,
+    right: 10,
     borderRadius: 5,
+    width: 160,
+    paddingVertical: 10,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  dropdownItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+  },
+  dropdownItemText: {
+    fontSize: 16,
+  },
+  loginButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    marginBottom: 10,
+    alignSelf: 'stretch',
+    marginHorizontal: 10,
+    borderWidth: 1,
+  },
+  loginButtonText: {
+    fontWeight: 'bold',
+    textAlign: 'center',
+    fontSize: 16,
+  },
+  createButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignSelf: 'stretch',
+    marginHorizontal: 10,
+    borderWidth: 1,
+  },
+  createButtonText: {
+    fontWeight: 'bold',
+    textAlign: 'center',
+    fontSize: 16,
+  },
+  bottomButtonsContainer: {
+    paddingBottom: 20,
+    paddingHorizontal: 10,
+  },
+  yourTournamentsSection: {
+    marginTop: 30,
+    paddingHorizontal: 0,
+  },
+  yourTournamentsTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 15,
+  },
+  noTournamentsText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 10,
   },
 });
 

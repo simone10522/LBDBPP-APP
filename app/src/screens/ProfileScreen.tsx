@@ -1,16 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image } from 'react-native';
-import { useAuth } from '../hooks/_useAuth';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, Switch } from 'react-native';
+import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
+import { useNavigation } from '@react-navigation/native';
+import { lightPalette, darkPalette } from '../context/themes';
 
 const ProfileScreen = () => {
-  const { user } = useAuth();
+  const { user, setUser, isDarkMode, setIsDarkMode } = useAuth();
   const [username, setUsername] = useState('');
   const [profileImage, setProfileImage] = useState('');
-  const [matchPassword, setMatchPassword] = useState(''); // Nuovo stato per Match password
+  const [matchPassword, setMatchPassword] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const navigation = useNavigation();
+
+  const theme = isDarkMode ? darkPalette : lightPalette;
 
   useEffect(() => {
     fetchProfile();
@@ -22,19 +27,16 @@ const ProfileScreen = () => {
       try {
         const { data, error } = await supabase
           .from('profiles')
-          .select('username, profile_image, match_password') // Recupera anche match_password
+          .select('username, profile_image, match_password')
           .eq('id', user.id)
           .single();
-
-        console.log("Profile data:", data);
-        console.log("Profile error:", error);
 
         if (error) {
           setError(error.message);
         } else if (data) {
           setUsername(data.username || '');
           setProfileImage(data.profile_image || '');
-          setMatchPassword(data.match_password || ''); // Imposta matchPassword dallo stato
+          setMatchPassword(data.match_password || '');
         }
       } catch (error: any) {
         setError(error.message);
@@ -48,12 +50,10 @@ const ProfileScreen = () => {
     setLoading(true);
     setError(null);
 
-    console.log("Saving profile with username:", username, "and profileImage:", profileImage, "and matchPassword:", matchPassword);
-
     try {
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({ username, profile_image: profileImage, match_password: matchPassword }) // Salva anche matchPassword
+        .update({ username, profile_image: profileImage, match_password: matchPassword })
         .eq('id', user.id);
 
       if (updateError) {
@@ -78,21 +78,52 @@ const ProfileScreen = () => {
       quality: 1,
     });
 
-    console.log(result);
-
     if (!result.canceled) {
       setProfileImage(result.assets[0].uri);
     }
   };
 
+  const handleLogout = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Clear push_token before logging out
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ push_token: null })
+        .eq('id', user.id);
+
+      if (updateError) {
+        console.error("Error clearing push_token:", updateError);
+        setError(updateError.message);
+      } else {
+        console.log("push_token cleared successfully");
+        // Proceed with logout after successful push_token removal
+        await supabase.auth.signOut();
+        setUser(null);
+        navigation.navigate('Login');
+      }
+    } catch (error: any) {
+      console.error("Error during logout:", error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleTheme = () => {
+    setIsDarkMode(!isDarkMode);
+  };
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Profile Settings</Text>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <Text style={[styles.title, { color: theme.text }]}>Profile Settings</Text>
 
       {loading ? (
-        <Text style={styles.text}>Loading profile...</Text>
+        <Text style={[styles.text, { color: theme.text }]}>Loading profile...</Text>
       ) : error ? (
-        <Text style={styles.error}>{error}</Text>
+        <Text style={[styles.error, { color: theme.error }]}>{error}</Text>
       ) : (
         <>
           <View style={styles.profileSection}>
@@ -105,9 +136,9 @@ const ProfileScreen = () => {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Username</Text>
+            <Text style={[styles.inputLabel, { color: theme.text }]}>Username</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { backgroundColor: theme.inputBackground, color: theme.text }]}
               value={username}
               onChangeText={setUsername}
               placeholder="Enter your username"
@@ -116,9 +147,9 @@ const ProfileScreen = () => {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Avatar URL</Text>
+            <Text style={[styles.inputLabel, { color: theme.text }]}>Avatar URL</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { backgroundColor: theme.inputBackground, color: theme.text }]}
               value={profileImage}
               onChangeText={setProfileImage}
               placeholder="Enter avatar URL"
@@ -126,11 +157,11 @@ const ProfileScreen = () => {
             />
           </View>
 
-          {/* Nuovo campo per Match Password */}
+          {/* Match Password field */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Match password</Text>
+            <Text style={[styles.inputLabel, { color: theme.text }]}>Match password</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { backgroundColor: theme.inputBackground, color: theme.text }]}
               value={matchPassword}
               onChangeText={setMatchPassword}
               placeholder="Enter match password"
@@ -138,9 +169,26 @@ const ProfileScreen = () => {
             />
           </View>
 
-          <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile} disabled={loading}>
-            <Text style={styles.saveButtonText}>{loading ? 'Saving...' : 'Save Profile'}</Text>
-          </TouchableOpacity>
+          {/* Theme Switch */}
+          <View style={styles.themeSwitchContainer}>
+            <Text style={[styles.themeSwitchLabel, { color: theme.text }]}>{isDarkMode ? 'Dark Mode' : 'Light Mode'}</Text>
+            <Switch
+              trackColor={{ false: '#767577', true: '#81b0ff' }}
+              thumbColor={isDarkMode ? '#f5dd4b' : '#f4f3f4'}
+              ios_backgroundColor="#3e3e3e"
+              onValueChange={toggleTheme}
+              value={isDarkMode}
+            />
+          </View>
+
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity style={[styles.saveButton, { backgroundColor: theme.buttonBackground }]} onPress={handleSaveProfile} disabled={loading}>
+              <Text style={[styles.saveButtonText, { color: theme.buttonText }]}>{loading ? 'Saving...' : 'Save Profile'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.logoutButton, { backgroundColor: theme.error }]} onPress={handleLogout}>
+              <Text style={[styles.logoutButtonText, { color: theme.buttonText }]}>Logout</Text>
+            </TouchableOpacity>
+          </View>
         </>
       )}
     </View>
@@ -151,23 +199,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#333',
     alignItems: 'center',
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#fff',
     marginBottom: 20,
   },
   text: {
     fontSize: 16,
-    color: '#fff',
     textAlign: 'center',
   },
   error: {
     fontSize: 16,
-    color: 'red',
     textAlign: 'center',
     marginBottom: 10,
   },
@@ -182,14 +226,12 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   uploadButton: {
-    backgroundColor: '#3498db',
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 8,
     marginTop: 10,
   },
   uploadButtonText: {
-    color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',
@@ -200,29 +242,52 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: 16,
-    color: '#fff',
     marginBottom: 5,
   },
   input: {
-    backgroundColor: '#444',
-    color: '#fff',
     paddingHorizontal: 15,
     paddingVertical: 10,
     borderRadius: 8,
     fontSize: 16,
   },
   saveButton: {
-    backgroundColor: '#e74c3c',
     paddingVertical: 12,
     paddingHorizontal: 25,
     borderRadius: 8,
     marginTop: 20,
   },
   saveButtonText: {
-    color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
     textAlign: 'center',
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 20,
+  },
+  logoutButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 8,
+    marginTop: 20,
+  },
+  logoutButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  themeSwitchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    paddingHorizontal: 15,
+    marginBottom: 15,
+  },
+  themeSwitchLabel: {
+    fontSize: 16,
   },
 });
 

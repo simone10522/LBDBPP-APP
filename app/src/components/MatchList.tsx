@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, ImageBackground, TouchableOpacity, TextInput, Alert } from 'react-native';
-import { useAuth } from '../hooks/_useAuth';
+import { View, Text, StyleSheet, Image, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
-import background from '../../assets/matchbox.jpg';
 import Modal from 'react-native-modal';
 import * as Notifications from 'expo-notifications';
+import { lightPalette, darkPalette } from '../context/themes'; // Import lightPalette and darkPalette
 
 interface Match {
   id: string;
@@ -40,7 +40,7 @@ Notifications.setNotificationHandler({
 });
 
 export default function MatchList({ matches, onSetWinner, tournamentStatus, onMatchUpdate, bestOf, isCreator, allTournamentMatches }: MatchListProps) { // Prop rinominata qui e nuova prop
-  const { user } = useAuth();
+  const { user, isDarkMode } = useAuth(); // Use useAuth hook to get isDarkMode
   const [profileImages, setProfileImages] = useState<{ [key: string]: string }>({});
   const [matchScores, setMatchScores] = useState<{ [matchId: string]: string }>({});
   const [isModalVisible, setModalVisible] = useState(false);
@@ -53,6 +53,8 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
   const [notificationStatus, setNotificationStatus] = useState<string | null>(null);
   const backendServerURL = 'https://lbdb-server.onrender.com'; // *** IMPORTANTE: INSERISCI QUI L'IP DEL TUO COMPUTER ***
   const [isNotifyButtonDisabled, setIsNotifyButtonDisabled] = useState(false); // Stato per disabilitare il pulsante
+
+  const theme = isDarkMode ? darkPalette : lightPalette; // Determine current theme
 
   useEffect(() => {
     registerForPushNotificationsAsync().then(token => setNotificationStatus(token));
@@ -152,7 +154,7 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
     return acc;
   }, {} as Record<number, Match[]>);
 
-  const rounds = Object.entries(roundsMap).sort(([a], [b]) => Number(a) - Number(b));
+  const rounds = Object.entries(roundsMap).sort(( [a], [b] ) => Number(a) - Number(b));
 
   const toggleModal = (matchId: string | null = null) => {
     setSelectedMatchId(matchId);
@@ -388,33 +390,41 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
 
 
   if (tournamentStatus === 'draft') {
-    return <Text style={styles.noMatches}>Tournament not started yet.</Text>;
+    return <Text style={[styles.noMatches, { color: theme.secondaryText }]}>Tournament not started yet.</Text>;
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <Modal
         isVisible={isModalVisible}
         onBackdropPress={() => toggleModal()}
         style={styles.modal}
       >
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Set Match Results</Text>
+        <View style={[styles.modalContent, { backgroundColor: theme.cardBackground }]}>
+          <Text style={[styles.modalTitle, { color: theme.text }]}>Set Match Results</Text>
           {selectedMatch && (
             <>
               <View style={styles.scoreInputContainer}>
-                <Text style={styles.modalText}>{selectedMatch.player1} Score:</Text>
+                <Text style={[styles.modalText, { color: theme.text }]}>{selectedMatch.player1} Score:</Text>
                 <TextInput
-                  style={styles.scoreInput}
+                  style={[styles.scoreInput, {
+                    backgroundColor: theme.inputBackground,
+                    color: theme.text,
+                    borderColor: theme.borderColor
+                  }]}
                   keyboardType="number-pad"
                   value={player1Score}
                   onChangeText={(text) => setPlayer1Score(validateScore(text))}
                 />
               </View>
               <View style={styles.scoreInputContainer}>
-                <Text style={styles.modalText}>{selectedMatch.player2} Score:</Text>
+                <Text style={[styles.modalText, { color: theme.text }]}>{selectedMatch.player2} Score:</Text>
                 <TextInput
-                  style={styles.scoreInput}
+                  style={[styles.scoreInput, {
+                    backgroundColor: theme.inputBackground,
+                    color: theme.text,
+                    borderColor: theme.borderColor
+                  }]}
                   keyboardType="number-pad"
                   value={player2Score}
                   onChangeText={(text) => setPlayer2Score(validateScore(text))}
@@ -422,25 +432,22 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
               </View>
             </>
           )}
-          <TouchableOpacity style={styles.modalButton} onPress={handleSetMatchWinner}>
-            <Text style={styles.modalButtonText}>Confirm Results</Text>
+          <TouchableOpacity style={[styles.modalButton, { backgroundColor: theme.buttonBackground }]} onPress={handleSetMatchWinner}>
+            <Text style={[styles.modalButtonText, { color: theme.buttonText }]}>Confirm Results</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.modalButton} onPress={() => toggleModal()}>
-            <Text style={styles.modalButtonText}>Cancel</Text>
+          <TouchableOpacity style={[styles.modalButton, { backgroundColor: theme.buttonBackground }]} onPress={() => toggleModal()}>
+            <Text style={[styles.modalButtonText, { color: theme.buttonText }]}>Cancel</Text>
           </TouchableOpacity>
         </View>
       </Modal>
       {rounds.map(([round, matches]) => (
         <View key={round}>
-          <Text style={styles.roundTitle}>Round {round}</Text>
+          <Text style={[styles.roundTitle, { color: theme.text }]}>Round {round}</Text>
           <View style={styles.matchesContainer}>
             {matches.map((match) => (
-              <ImageBackground
+              <View
                 key={match.id}
-                source={background}
-                style={styles.matchItem}
-                resizeMode="stretch"
-                imageStyle={styles.matchItemBackground}
+                style={[styles.matchItem, { backgroundColor: theme.cardBackground }]}
               >
                 {onSetWinner && tournamentStatus === 'in_progress' && match.status === 'scheduled' ? (
                   <View style={[styles.winnerButtons, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' }]}>
@@ -449,30 +456,34 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
                         source={{ uri: profileImages[match.player1_id] || '/icons/profile1.png' }}
                         style={styles.profileImage}
                       />
-                      <Text style={[styles.playerName, { width: 100 }]}>{match.player1}</Text>
+                      <Text style={[styles.playerName, { width: 100, color: theme.text }]}>{match.player1}</Text>
                     </View>
                     <View style={{ flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                       <TouchableOpacity
                         style={[
                           styles.setResultsButton,
-                          match.round !== currentRound || (!isCreator && user && user.id !== match.player1_id && user.id !== match.player2_id) ? styles.disabledButton : {} // Stili condizionali con isCreator
+                          { backgroundColor: theme.buttonBackground, padding: 10, marginTop: 5 },
+                          match.round !== currentRound || (!isCreator && user && user.id !== match.player1_id && user.id !== match.player2_id) ? styles.disabledButton : {}, // Stili condizionali con isCreator
+                          !user ? styles.disabledButton : {} // Disable if user is not logged in
                         ]}
                         onPress={() => toggleModal(match.id)}
                         disabled={
                           match.round !== currentRound || // Round check
-                          (!isCreator && user && user.id !== match.player1_id && user.id !== match.player2_id) // Permission check, ora con isCreator
+                          (!isCreator && user && user.id !== match.player1_id && user.id !== match.player2_id) || // Permission check, ora con isCreator
+                          !user // Disable if user is not logged in
                         }
                       >
-                        <Text style={styles.setResultsText}>Set Results</Text>
+                        <Text style={[styles.setResultsText, { color: theme.buttonText }]}>Set Results</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={[
                           styles.setResultsButton,
-                          { backgroundColor: 'orange', padding: 10, marginTop: 5 },
-                          isNotifyButtonDisabled ? styles.disabledButton : {} // Stile condizionale per disabilitazione
+                          { backgroundColor: theme.buttonBackground, padding: 10, marginTop: 5 },
+                          isNotifyButtonDisabled ? styles.disabledButton : {}, // Stile condizionale per disabilitazione
+                          !user ? styles.disabledButton : {} // Disable if user is not logged in
                         ]}
                         onPress={() => handleNotifyOpponent(match)}
-                        disabled={!(user && (user.id === match.player1_id || user.id === match.player2_id) && match.round === currentRound) || isNotifyButtonDisabled} // Condizione pulsante notifica + disabilitazione timer
+                        disabled={!(user && (user.id === match.player1_id || user.id === match.player2_id) && match.round === currentRound) || isNotifyButtonDisabled || !user} // Condizione pulsante notifica + disabilitazione timer + disable if user is not logged in
                       >
                         <Image
                           source={require('../../assets/bell-icon.png')}
@@ -485,7 +496,7 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
                         source={{ uri: profileImages[match.player2_id] || '/icons/profile1.png' }}
                         style={styles.profileImage}
                       />
-                      <Text style={[styles.playerName, { width: 100 }]}>{match.player2}</Text>
+                      <Text style={[styles.playerName, { width: 100, color: theme.text }]}>{match.player2}</Text>
                     </View>
                   </View>
                 ) : (
@@ -495,19 +506,19 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
                         source={{ uri: profileImages[match.player1_id] || '/icons/profile1.png' }}
                         style={[styles.profileImage, match.winner_id !== match.player1_id ? styles.dimmedImage : {}]}
                       />
-                      <Text style={[styles.playerName, { width: 100 }]}>{match.player1}</Text>
+                      <Text style={[styles.playerName, { width: 100, color: theme.text }]}>{match.player1}</Text>
                     </View>
-                    <Text style={[styles.scoreText, { width: 50 }]}>{matchScores[match.id] || '0 - 0'}</Text>
+                    <Text style={[styles.scoreText, { width: 50, color: theme.text }]}>{matchScores[match.id] || '0 - 0'}</Text>
                     <View style={styles.playerContainer}>
                       <Image
                         source={{ uri: profileImages[match.player2_id] || '/icons/profile1.png' }}
                         style={[styles.profileImage, match.winner_id !== match.player2_id ? styles.dimmedImage : {}]}
                       />
-                      <Text style={[styles.playerName, { width: 100 }]}>{match.player2}</Text>
+                      <Text style={[styles.playerName, { width: 100, color: theme.text }]}>{match.player2}</Text>
                     </View>
                   </View>
                 )}
-              </ImageBackground>
+              </View>
             ))}
           </View>
         </View>
@@ -532,18 +543,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: 'white',
     padding: 10,
     borderRadius: 5,
     marginBottom: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 10,
-  },
-  matchItemBackground: {
-    borderRadius: 5,
+    shadowRadius: 1,
+    elevation: 3,
   },
   playersContainer: {
     flexDirection: 'row',
@@ -578,7 +585,6 @@ const styles = StyleSheet.create({
   },
   playerName: {
     fontSize: 24,
-    color: '#333',
     textAlign: 'center',
   },
   playerContainer: {
@@ -594,23 +600,19 @@ const styles = StyleSheet.create({
   scoreText: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
     marginHorizontal: 10,
   },
   noMatches: {
     fontSize: 18,
     textAlign: 'center',
     marginTop: 20,
-    color: '#666',
   },
   setResultsButton: {
-    backgroundColor: '#007bff',
     padding: 10,
     borderRadius: 5,
     marginBottom: 5,
   },
   setResultsText: {
-    color: 'white',
     fontWeight: 'bold',
     textAlign: 'center',
   },
@@ -619,7 +621,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: 'white',
     padding: 20,
     borderRadius: 10,
     width: '90%', // Increased width
@@ -635,13 +636,11 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   modalButton: {
-    backgroundColor: '#007bff',
     padding: 10,
     borderRadius: 5,
     marginTop: 10,
   },
   modalButtonText: {
-    color: 'white',
     fontWeight: 'bold',
     textAlign: 'center',
   },
@@ -653,7 +652,6 @@ const styles = StyleSheet.create({
   scoreInput: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#ccc',
     borderRadius: 5,
     padding: 8,
     marginLeft: 10,

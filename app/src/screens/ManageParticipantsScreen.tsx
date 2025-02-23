@@ -2,9 +2,10 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../hooks/_useAuth';
+import { useAuth } from '../hooks/useAuth';
 import ParticipantList from '../components/ParticipantList';
 import { EnergyIcon } from '../components/EnergyIcon';
+import { lightPalette, darkPalette } from '../context/themes';
 
 type Energy = 'fuoco' | 'terra' | 'acqua' | 'elettro' | 'normale' | 'erba' | 'oscurità' | 'lotta' | 'acciaio' | 'psico';
 
@@ -36,6 +37,8 @@ export default function ManageParticipantsScreen() {
   const [participantId, setParticipantId] = useState<string | null>(null);
   const [tournamentStatus, setTournamentStatus] = useState<'draft' | 'in_progress' | 'completed'>('draft');
   const [tournament, setTournament] = useState<Tournament | null>(null);
+  const { isDarkMode } = useAuth();
+  const palette = isDarkMode ? darkPalette : lightPalette;
 
   const fetchParticipants = useCallback(async () => {
     setLoading(true);
@@ -210,43 +213,44 @@ export default function ManageParticipantsScreen() {
 
   const isTournamentActive = tournamentStatus === 'in_progress' || tournamentStatus === 'completed';
 
+
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Lista Partecipanti</Text>
-        <Text style={styles.headerSubTitle}>
+    <ScrollView style={[styles.container, { backgroundColor: palette.background }]}>
+      <View style={[styles.header, { backgroundColor: palette.headerBackground }]}>
+        <Text style={[styles.headerTitle, { color: palette.text }]}>Lista Partecipanti</Text>
+        <Text style={[styles.headerSubTitle, { color: palette.secondaryText }]}>
           ({tournamentParticipants.length}/{maxPlayers === null ? '∞' : maxPlayers})
         </Text>
       </View>
-      {error && <Text style={styles.error}>{error}</Text>}
-      {loading && <Text>Caricamento...</Text>}
+      {error && <Text style={[styles.error, { color: palette.errorText }]}>{error}</Text>}
+      {loading && <Text style={{ color: palette.text }}>Caricamento...</Text>}
       {user && (
         <View style={styles.actions}>
           {!isParticipating && (
-            <TouchableOpacity onPress={handleJoinTournament} style={styles.joinButton} disabled={isTournamentActive}>
-              <Text style={styles.joinButtonText}>Partecipa al Torneo</Text>
+            <TouchableOpacity onPress={handleJoinTournament} style={[styles.joinButton, { backgroundColor: palette.buttonBackground }]} disabled={isTournamentActive}>
+              <Text style={[styles.joinButtonText, { color: palette.buttonText }]}>Partecipa al Torneo</Text>
             </TouchableOpacity>
           )}
           {isParticipating && (
-            <TouchableOpacity onPress={handleLeaveTournament} style={styles.leaveButton} disabled={isTournamentActive}>
-              <Text style={styles.leaveButtonText}>Esci dal Torneo</Text>
+            <TouchableOpacity onPress={handleLeaveTournament} style={[styles.leaveButton, { backgroundColor: palette.buttonBackground }]} disabled={isTournamentActive}>
+              <Text style={[styles.leaveButtonText, { color: palette.buttonText }]}>Esci dal Torneo</Text>
             </TouchableOpacity>
           )}
           {isParticipating && participantId && (
-            <TouchableOpacity onPress={() => navigation.navigate('ManageDecks', { participantId: participantId })} style={styles.manageDeckButton} disabled={isTournamentActive}>
-              <Text style={styles.manageDeckButtonText}>Gestisci Mazzi</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('ManageDecks', { participantId: participantId })} style={[styles.manageDeckButton, { backgroundColor: palette.buttonBackground }]} disabled={isTournamentActive}>
+              <Text style={[styles.manageDeckButtonText, { color: palette.buttonText }]}>Gestisci Mazzi</Text>
             </TouchableOpacity>
           )}
         </View>
       )}
       <View style={styles.listContainer}>
         {tournamentParticipants.map((p) => (
-          <View key={p.id} style={styles.listItem}>
-            <Text style={styles.listItemText}>{p.username}</Text>
-            <Text style={styles.listItemText}>{formatDeck(p.deck)}</Text>
+          <View key={p.id} style={[styles.listItem, { backgroundColor: palette.rowBackground, borderColor: palette.borderColor }]}>
+            <Text style={[styles.listItemText, { color: palette.text }]}>{p.username}</Text>
+            <Text style={[styles.listItemText, { color: palette.text }]}>{formatDeck(p.deck)}</Text>
             {tournament?.created_by === user?.id && (
-              <TouchableOpacity onPress={() => handleRemoveParticipant(p.id)} style={styles.removeButton}>
-                <Text style={styles.removeButtonText}>Rimuovi</Text>
+              <TouchableOpacity onPress={() => handleRemoveParticipant(p.id)} style={[styles.removeButton, { backgroundColor: palette.buttonBackground }]}>
+                <Text style={[styles.removeButtonText, { color: palette.buttonText }]}>Rimuovi</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -265,6 +269,7 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: 20,
+    backgroundColor: '#ddd',
   },
   headerTitle: {
     fontSize: 32,
@@ -326,8 +331,8 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 3,
+    shadowRadius: 0.1,
+    elevation: 0.1,
   },
   listItemText: {
     fontSize: 16,
@@ -365,4 +370,10 @@ const styles = StyleSheet.create({
     height: 20,
     marginRight: 5,
   },
+  headerBackground: {
+    backgroundColor: '#ddd', // Default light mode header background
+  },
+  rowBackground: {
+    backgroundColor: 'white', // Default light mode row background
+  }
 });
