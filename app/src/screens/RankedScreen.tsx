@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Clipboard, Alert, ScrollView, RefreshControl, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Clipboard, ScrollView, RefreshControl, Image } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
 import { lightPalette, darkPalette } from '../context/themes';
 import { supabase } from '../lib/supabase';
@@ -42,9 +42,14 @@ const RankedScreen = () => {
   const [opponentWinnerSelection, setOpponentWinnerSelection] = useState(null);
   const [winnerConfirmed, setWinnerConfirmed] = useState(false);
   const [opponentId, setOpponentId] = useState(null);
-  const [timer, setTimer] = useState(0);
+  const [timer, setTimer] = useState(60);
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
   const [matchConfirmed, setMatchConfirmed] = useState(false);
+  const [winnerProfileImage, setWinnerProfileImage] = useState(null);
+  const [winnerUsername, setWinnerUsername] = useState(null);
+  const [winnerId, setWinnerId] = useState(null);
+  const [intervalIdRef, setIntervalIdRef] = useState(null);
+  const [showTimer, setShowTimer] = useState(true);
 
   useEffect(() => {
     const fetchUserProfileImage = async () => {
@@ -171,7 +176,6 @@ const RankedScreen = () => {
 
   const handleCopyToClipboard = async (text) => {
     Clipboard.setString(text);
-    Alert.alert('Password Copiata', 'La password del match è stata copiata negli appunti!');
   };
 
   const onRefresh = useCallback(() => {
@@ -201,6 +205,11 @@ const RankedScreen = () => {
     setWinnerConfirmed(false);
     setAwaitingConfirmation(false);
     setMatchConfirmed(false);
+    setWinnerProfileImage(null);
+    setWinnerUsername(null);
+    setWinnerId(null);
+    setTimer(60);
+    setShowTimer(true);
   };
 
   const fetchPlayerCount = async () => {
@@ -510,6 +519,7 @@ const RankedScreen = () => {
     setIsConfirmButtonActive(true);
     setUserWinnerSelection(user.id);
     console.log("User selected as winner:", user.id);
+    setWinnerId(user.id);
     try {
       const { error } = await supabase
         .from('ranked')
@@ -518,13 +528,11 @@ const RankedScreen = () => {
 
       if (error) {
         console.error("Error updating confirmed status:", error);
-        Alert.alert("Errore", "Errore durante l'aggiornamento dello stato di conferma.");
       } else {
         console.log("Confirmed status updated to awaiting.");
       }
     } catch (error) {
       console.error("Error updating confirmed status:", error);
-      Alert.alert("Errore", "Si è verificato un errore durante l'aggiornamento dello stato di conferma.");
     }
   };
 
@@ -534,6 +542,7 @@ const RankedScreen = () => {
     setIsConfirmButtonActive(true);
     setUserWinnerSelection(opponentId);
     console.log("Opponent selected as winner:", opponentId);
+    setWinnerId(opponentId);
     try {
       const { error } = await supabase
         .from('ranked')
@@ -542,19 +551,16 @@ const RankedScreen = () => {
 
       if (error) {
         console.error("Error updating confirmed status:", error);
-        Alert.alert("Errore", "Errore durante l'aggiornamento dello stato di conferma.");
       } else {
         console.log("Confirmed status updated to awaiting.");
       }
     } catch (error) {
       console.error("Error updating confirmed status:", error);
-      Alert.alert("Errore", "Si è verificato un errore durante l'aggiornamento dello stato di conferma.");
     }
   };
 
   const handleConfirmWinner = async () => {
     if (!userWinnerSelection) {
-      Alert.alert("Selezione obbligatoria", "Seleziona un vincitore prima di confermare.");
       return;
     }
 
@@ -597,10 +603,8 @@ const RankedScreen = () => {
       if (existingWinner === null) {
         const storeResult = await storeWinnerSelection(matchId, userWinnerSelection);
         if (!storeResult) {
-          Alert.alert("Errore", "Errore durante il salvataggio della selezione del vincitore.");
           return;
         }
-        Alert.alert("Successo", "Selezione del vincitore salvata. In attesa della conferma dell'avversario.");
         setAwaitingConfirmation(true);
 
         setTimer(60);
@@ -610,11 +614,11 @@ const RankedScreen = () => {
               return prevTimer - 1;
             } else {
               clearInterval(intervalId);
-              setAwaitingConfirmation(false);
               return 0;
             }
           });
         }, 1000);
+        setIntervalIdRef(intervalId);
 
         return () => clearInterval(intervalId);
       } else if (existingWinner === userWinnerSelection && confirmedStatus === 'awaiting') {
@@ -625,20 +629,19 @@ const RankedScreen = () => {
 
         if (confirmedError) {
           console.error("Error updating confirmed status:", confirmedError);
-          Alert.alert("Errore", "Errore durante l'aggiornamento dello stato di conferma.");
           return;
         }
 
-        Alert.alert("Vincitore Confermato", `Entrambi i giocatori hanno selezionato ${userWinnerSelection} come vincitore!`);
         setWinnerConfirmed(true);
         setAwaitingConfirmation(false);
+        if (intervalIdRef) {
+          clearInterval(intervalIdRef);
+        }
       } else {
-        Alert.alert("Selezione non corrispondente", "I giocatori non hanno selezionato lo stesso vincitore. Riprova.");
       }
 
     } catch (error) {
       console.error("Error confirming winner:", error);
-      Alert.alert("Errore", "Si è verificato un errore durante la conferma del vincitore.");
     }
   };
 
@@ -658,6 +661,8 @@ const RankedScreen = () => {
           } else if (data?.confirmed === 'confirmed') {
             setMatchConfirmed(true);
             clearInterval(intervalId);
+            setAwaitingConfirmation(false);
+            setShowTimer(false);
           }
         } catch (error) {
           console.error("Error checking confirmed status:", error);
@@ -668,13 +673,6 @@ const RankedScreen = () => {
 
     return () => clearInterval(intervalId);
   }, [awaitingConfirmation, matchId]);
-
-  useEffect(() => {
-    if (matchConfirmed) {
-      Alert.alert("Match Confermato!", "L'avversario ha confermato il risultato.");
-      setMatchConfirmed(false);
-    }
-  }, [matchConfirmed]);
 
   return (
     <View style={{ flex: 1 }}>
@@ -717,6 +715,7 @@ const RankedScreen = () => {
             handleConfirmWinner={handleConfirmWinner}
             awaitingConfirmation={awaitingConfirmation}
             timer={timer}
+            showTimer={showTimer}
           />
         )}
       </ScrollView>
@@ -755,6 +754,60 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  winnerContainer: {
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  winnerLabel: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  winnerImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    marginBottom: 10,
+  },
+  winnerUsername: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  centeredView: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 22,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalView: {
+    margin: 20,
+    borderRadius: 20,
+    padding: 35,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  button: {
+    borderRadius: 20,
+    padding: 10,
+    elevation: 2,
+  },
+  buttonClose: {
+    backgroundColor: '#2196F3',
+  },
+  textStyle: {
+    color: 'white',
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 });
 
