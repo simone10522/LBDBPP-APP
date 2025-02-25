@@ -20,6 +20,7 @@ interface MatchConfirmationProps {
   handleConfirmWinner: () => void;
   awaitingConfirmation: boolean;
   timer: number;
+  showTimer: boolean;
 }
 
 const MatchConfirmation: React.FC<MatchConfirmationProps> = ({
@@ -39,6 +40,7 @@ const MatchConfirmation: React.FC<MatchConfirmationProps> = ({
   handleConfirmWinner,
   awaitingConfirmation,
   timer,
+  showTimer,
 }) => {
   return (
     <View style={styles.matchFoundContainer}>
@@ -85,7 +87,7 @@ const MatchConfirmation: React.FC<MatchConfirmationProps> = ({
       {winnerConfirmed && (
         <Text style={[styles.matchFoundText, { color: 'blue' }]}>Vincitore Confermato!</Text>
       )}
-      {awaitingConfirmation && (
+      {awaitingConfirmation && showTimer && (
         <View style={styles.awaitingConfirmationContainer}>
           <Text style={[styles.awaitingConfirmationText, { color: theme.text }]}>
             In attesa della conferma dell'avversario...
