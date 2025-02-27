@@ -1,15 +1,14 @@
+//No changes needed, just for context
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Clipboard, ScrollView, RefreshControl, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, RefreshControl, Alert } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
 import { lightPalette, darkPalette } from '../context/themes';
 import { supabase } from '../lib/supabase';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { v4 as uuidv4 } from 'uuid';
 import 'react-native-get-random-values';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import RankedSearch from '../components/RankedSearch';
-import MatchConfirmation from '../components/MatchConfirmation';
-import { Copy, Check } from 'lucide-react-native';
+import RankedSearchAnimation from '../components/RankedSearchAnimation'; // Importa il nuovo componente
 
 const RankedScreen = () => {
   const { isDarkMode, user } = useAuth();
@@ -22,111 +21,13 @@ const RankedScreen = () => {
   const [isButtonVisible, setIsButtonVisible] = useState(true);
   const [isCancelButtonVisible, setIsCancelButtonVisible] = useState(false);
   const searchIntervalRef = useRef(null);
-  const [opponentName, setOpponentName] = useState(null);
-  const [matchPassword, setMatchPassword] = useState(null);
   const navigation = useNavigation();
   const [animatedText, setAnimatedText] = useState('Ricerca in corso');
-  const [matchReady, setMatchReady] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [playerCount, setPlayerCount] = useState(0);
   const [matchId, setMatchId] = useState(null);
   const [matchStartTime, setMatchStartTime] = useState(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const [isMatchFound, setIsMatchFound] = useState(false);
-  const [playerCount, setPlayerCount] = useState(0);
-  const [opponentProfileImage, setOpponentProfileImage] = useState(null);
-  const imageY = useSharedValue(500);
-  const [userProfileImage, setUserProfileImage] = useState(null);
-  const [userImageClicked, setUserImageClicked] = useState(false);
-  const [opponentImageClicked, setOpponentImageClicked] = useState(false);
-  const [isConfirmButtonActive, setIsConfirmButtonActive] = useState(false);
-  const [userWinnerSelection, setUserWinnerSelection] = useState(null);
-  const [opponentWinnerSelection, setOpponentWinnerSelection] = useState(null);
-  const [winnerConfirmed, setWinnerConfirmed] = useState(false);
-  const [opponentId, setOpponentId] = useState(null);
-  const [timer, setTimer] = useState(60);
-  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
-  const [matchConfirmed, setMatchConfirmed] = useState(false);
-  const [winnerProfileImage, setWinnerProfileImage] = useState(null);
-  const [winnerUsername, setWinnerUsername] = useState(null);
-  const [winnerId, setWinnerId] = useState(null);
-  const [intervalIdRef, setIntervalIdRef] = useState(null);
-  const [showTimer, setShowTimer] = useState(true);
-
-  useEffect(() => {
-    const fetchUserProfileImage = async () => {
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('profile_image')
-        .eq('id', user.id)
-        .single();
-
-      if (profileError) {
-        console.error("Error fetching user profile image:", profileError);
-        setUserProfileImage(null);
-      } else {
-        setUserProfileImage(profileData?.profile_image);
-      }
-    };
-
-    if (user) {
-      fetchUserProfileImage();
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (opponentProfileImage) {
-      imageY.value = withSpring(0, {
-        damping: 10,
-        stiffness: 80,
-      });
-    } else {
-      imageY.value = 500;
-    }
-  }, [opponentProfileImage]);
-
-  const animatedImageStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ translateY: imageY.value }],
-    };
-  });
-
-  const generateMatchPassword = () => {
-    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let password = '';
-    for (let i = 0; i < 10; i++) {
-      password += characters.charAt(Math.floor(Math.random() * characters.length));
-    }
-    return password;
-  };
-
-  const handleCancelSearch = async () => {
-    setIsSearching(false);
-    clearInterval(timerRef.current);
-    clearInterval(searchIntervalRef.current);
-    setSearchDuration(0);
-    setIsButtonVisible(true);
-    setIsCancelButtonVisible(false);
-    setIsInQueue(false);
-    setAnimatedText('Ricerca in corso');
-    setButtonText('Ricerca Classificata');
-    setIsMatchFound(false);
-
-    try {
-      const { error: deleteError } = await supabase
-        .from('ranked_queue')
-        .delete()
-        .eq('user_id', user.id);
-
-      if (deleteError) {
-        console.error("Error deleting user from ranked queue:", deleteError);
-      } else {
-        console.log("User removed from ranked queue.");
-      }
-    } catch (error) {
-      console.error("Error in delete operation:", error);
-    }
-
-    fetchPlayerCount();
-  };
+  const mounted = useRef(false); // Add a ref to track component mount status
 
   useEffect(() => {
     if (!user) {
@@ -174,10 +75,6 @@ const RankedScreen = () => {
     return () => clearInterval(timerRef.current);
   }, [isSearching]);
 
-  const handleCopyToClipboard = async (text) => {
-    Clipboard.setString(text);
-  };
-
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchPlayerCount();
@@ -186,7 +83,7 @@ const RankedScreen = () => {
     }, 1000);
   }, []);
 
-  const handleSearchAnotherMatch = () => {
+  const handleCancelSearch = async () => {
     setIsSearching(false);
     clearInterval(timerRef.current);
     clearInterval(searchIntervalRef.current);
@@ -196,20 +93,23 @@ const RankedScreen = () => {
     setIsInQueue(false);
     setAnimatedText('Ricerca in corso');
     setButtonText('Ricerca Classificata');
-    setOpponentName(null);
-    setMatchPassword(null);
-    setMatchReady(false);
-    setMatchId(null);
-    setMatchStartTime(null);
-    setIsMatchFound(false);
-    setWinnerConfirmed(false);
-    setAwaitingConfirmation(false);
-    setMatchConfirmed(false);
-    setWinnerProfileImage(null);
-    setWinnerUsername(null);
-    setWinnerId(null);
-    setTimer(60);
-    setShowTimer(true);
+
+    try {
+      const { error: deleteError } = await supabase
+        .from('ranked_queue')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (deleteError) {
+        console.error("Error deleting user from ranked queue:", deleteError);
+      } else {
+        console.log("User removed from ranked queue.");
+      }
+    } catch (error) {
+      console.error("Error in delete operation:", error);
+    }
+
+    fetchPlayerCount();
   };
 
   const fetchPlayerCount = async () => {
@@ -232,6 +132,24 @@ const RankedScreen = () => {
     fetchPlayerCount();
   }, []);
 
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      fetchPlayerCount();
+    }, 10000); // Update every 10 seconds (adjust as needed)
+
+    return () => clearInterval(intervalId); // Clear interval on unmount
+  }, []);
+
+
+  const generateMatchPassword = () => {
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let password = '';
+    for (let i = 0; i < 10; i++) {
+      password += characters.charAt(Math.floor(Math.random() * characters.length));
+    }
+    return password;
+  };
+
   const handleRankedMatch = async () => {
     if (!user) {
       console.log("User not logged in.");
@@ -242,12 +160,32 @@ const RankedScreen = () => {
     setIsSearching(true);
     setIsCancelButtonVisible(true);
     setIsButtonVisible(false);
-    let matchFound = false;
 
     const startTime = new Date();
     setMatchStartTime(startTime);
 
     try {
+      // Check if the user is already in the ranked queue
+      const { data: existingUser, error: existingUserError } = await supabase
+        .from('ranked_queue')
+        .select('user_id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (existingUserError && existingUserError.code !== 'PGRST116') {
+        console.error("Error checking for existing user in ranked queue:", existingUserError);
+        setIsSearching(false);
+        setIsCancelButtonVisible(false);
+        return;
+      }
+
+      if (existingUser) {
+        console.log("User already in ranked queue.");
+        setIsSearching(false);
+        setIsCancelButtonVisible(false);
+        return;
+      }
+
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('username')
@@ -303,7 +241,6 @@ const RankedScreen = () => {
             clearInterval(timerRef.current);
             setIsSearching(false);
             setIsCancelButtonVisible(false);
-            setIsMatchFound(true);
 
             const opponentId = existingMatch.player1 === user.id ? existingMatch.player2 : existingMatch.player1;
 
@@ -315,21 +252,26 @@ const RankedScreen = () => {
 
             if (opponentProfileError) {
               console.error("Error fetching opponent profile:", opponentProfileError);
-              setOpponentName('Sconosciuto');
-            } else {
-              setOpponentName(opponentProfile?.username);
-              setOpponentProfileImage(opponentProfile?.profile_image);
-              setOpponentId(opponentId);
+              return;
             }
 
-            setMatchPassword(existingMatch.match_password);
-            setMatchReady(true);
-            setIsMatchFound(true);
-            console.log("Existing match ID:", existingMatch.match_id);
-            setMatchId(existingMatch.match_id);
+            const opponentName = opponentProfile?.username;
+            const opponentProfileImage = opponentProfile?.profile_image;
+            const matchPassword = existingMatch.match_password;
+            const matchId = existingMatch.match_id;
+
+            navigation.navigate('Match', {
+              opponentName,
+              matchPassword,
+              opponentProfileImage,
+              matchId,
+              opponentId,
+            });
+
             return;
           }
 
+          console.log("Searching for available match..."); // ADDED LOG
           const { data: availableMatch, error: matchError } = await supabase
             .from('ranked_queue')
             .select('user_id, username')
@@ -338,7 +280,11 @@ const RankedScreen = () => {
             .single();
 
           if (matchError) {
-            console.error("Error finding available match:", matchError);
+            if (matchError.code === 'PGRST116') {
+              console.log("No available players in queue."); // MORE SPECIFIC LOG
+            } else {
+              console.error("Error finding available match:", matchError);
+            }
             if (matchError.code !== 'PGRST116') {
               clearInterval(searchIntervalRef.current);
               clearInterval(timerRef.current);
@@ -360,7 +306,6 @@ const RankedScreen = () => {
 
             clearInterval(searchIntervalRef.current);
             clearInterval(timerRef.current);
-            matchFound = true;
 
             console.log(`Matched users: ${user1} and ${user2}`);
             setIsInQueue(false);
@@ -388,6 +333,7 @@ const RankedScreen = () => {
             await createRankedMatch(user1, user2, matchIdGenerated, matchPasswordGenerated);
 
             const deleteFromRankedQueue = async (userId) => {
+              console.log(`Attempting to delete user ${userId} from ranked_queue`); // LOG BEFORE DELETE
               const { error: deleteError } = await supabase
                 .from('ranked_queue')
                 .delete()
@@ -396,7 +342,7 @@ const RankedScreen = () => {
               if (deleteError) {
                 console.error(`Error deleting user ${userId} from ranked_queue:`, deleteError);
               } else {
-                console.log(`User ${userId} deleted from ranked_queue`);
+                console.log(`User ${userId} deleted from ranked_queue successfully`); // SUCCESS LOG
               }
             };
 
@@ -405,7 +351,6 @@ const RankedScreen = () => {
 
             setIsSearching(false);
             setIsCancelButtonVisible(false);
-            setOpponentName(opponentUsername);
 
             const { data: opponentProfile, error: opponentProfileError } = await supabase
               .from('profiles')
@@ -415,15 +360,18 @@ const RankedScreen = () => {
 
             if (opponentProfileError) {
               console.error("Error fetching opponent profile image:", opponentProfileError);
-              setOpponentProfileImage(null);
-            } else {
-              setOpponentProfileImage(opponentProfile?.profile_image);
+              return;
             }
 
-            setMatchPassword(matchPasswordGenerated);
-            setMatchReady(true);
-            setIsMatchFound(true);
-            setOpponentId(user2);
+            const opponentProfileImage = opponentProfile?.profile_image;
+
+            navigation.navigate('Match', {
+              opponentName: opponentUsername,
+              matchPassword: matchPasswordGenerated,
+              opponentProfileImage: opponentProfileImage,
+              matchId: matchIdGenerated,
+              opponentId: user2,
+            });
           } else {
             console.log("Waiting for another player...");
           }
@@ -443,236 +391,63 @@ const RankedScreen = () => {
     }
   };
 
-  const transferMatchToStorage = async (matchId) => {
-    try {
-      const { data: matchData, error: fetchError } = await supabase
-        .from('ranked')
-        .select('*')
-        .eq('match_id', matchId)
-        .single();
-
-      if (fetchError) {
-        console.error("Error fetching match data:", fetchError);
-        return;
-      }
-
-      const { error: insertError } = await supabase
-        .from('ranked_storage')
-        .insert([matchData]);
-
-      if (insertError) {
-        console.error("Error inserting into ranked_storage:", insertError);
-        return;
-      }
-
-      const { error: deleteError } = await supabase
-        .from('ranked')
-        .delete()
-        .eq('match_id', matchId);
-
-      if (deleteError) {
-        console.error("Error deleting from ranked:", deleteError);
-        return;
-      }
-
-      console.log("Match transferred to ranked_storage and deleted from ranked.");
-    } catch (error) {
-      console.error("Error transferring match:", error);
-    }
-  };
-
   useFocusEffect(
     useCallback(() => {
-      fetchPlayerCount();
-      return () => {
-        const checkAndCancelSearch = async () => {
-          const { data: rankedData, error: selectError } = await supabase
-            .from('ranked_queue')
-            .select('user_id')
-            .eq('user_id', user.id)
-            .single();
+      // mounted.current = true; // Set mounted to true when the screen comes into focus
 
-          if (selectError) {
-            console.error("Error selecting ranked data:", selectError);
-            return;
-          }
+      const checkAndCancelSearch = async () => {
+        // if (!mounted.current) {
+        //   console.log("Component not fully mounted, skipping queue check.");
+        //   return;
+        // }
 
-          if (rankedData) {
-            handleCancelSearch();
-          } else {
-            console.log("User not in ranked queue.");
-          }
-        };
-
-        checkAndCancelSearch();
-      };
-    }, [user])
-  );
-
-  const handleProfilePress = (userId) => {
-    navigation.navigate('Profile', { userId: userId });
-  };
-
-  const handleUserImagePress = async () => {
-    setUserImageClicked(prev => !prev);
-    setOpponentImageClicked(false);
-    setIsConfirmButtonActive(true);
-    setUserWinnerSelection(user.id);
-    console.log("User selected as winner:", user.id);
-    setWinnerId(user.id);
-    try {
-      const { error } = await supabase
-        .from('ranked')
-        .update({ confirmed: 'awaiting' })
-        .eq('match_id', matchId);
-
-      if (error) {
-        console.error("Error updating confirmed status:", error);
-      } else {
-        console.log("Confirmed status updated to awaiting.");
-      }
-    } catch (error) {
-      console.error("Error updating confirmed status:", error);
-    }
-  };
-
-  const handleOpponentImagePress = async () => {
-    setOpponentImageClicked(prev => !prev);
-    setUserImageClicked(false);
-    setIsConfirmButtonActive(true);
-    setUserWinnerSelection(opponentId);
-    console.log("Opponent selected as winner:", opponentId);
-    setWinnerId(opponentId);
-    try {
-      const { error } = await supabase
-        .from('ranked')
-        .update({ confirmed: 'awaiting' })
-        .eq('match_id', matchId);
-
-      if (error) {
-        console.error("Error updating confirmed status:", error);
-      } else {
-        console.log("Confirmed status updated to awaiting.");
-      }
-    } catch (error) {
-      console.error("Error updating confirmed status:", error);
-    }
-  };
-
-  const handleConfirmWinner = async () => {
-    if (!userWinnerSelection) {
-      return;
-    }
-
-    try {
-      const checkWinnerSelection = async (matchId) => {
-        console.log("Checking winner selection for matchId:", matchId);
-        const { data, error } = await supabase
-          .from('ranked')
-          .select('winner, confirmed')
-          .eq('match_id', matchId)
+        const { data: rankedData, error: selectError } = await supabase
+          .from('ranked_queue')
+          .select('user_id')
+          .eq('user_id', user.id)
           .single();
 
-        if (error) {
-          console.error("Error fetching winner selection:", error);
-          return null;
-        }
-        console.log("Existing winner selection:", data?.winner);
-        return { winner: data?.winner, confirmed: data?.confirmed };
-      };
-
-      const storeWinnerSelection = async (matchId, winner) => {
-        console.log("Storing winner selection for matchId:", matchId, "winner:", winner);
-        const { error } = await supabase
-          .from('ranked')
-          .update({ winner: winner })
-          .eq('match_id', matchId);
-
-        if (error) {
-          console.error("Error storing winner selection:", error);
-          return false;
-        }
-        console.log("Winner selection stored successfully.");
-        return true;
-      };
-
-      const existingWinnerData = await checkWinnerSelection(matchId);
-      const existingWinner = existingWinnerData?.winner;
-      const confirmedStatus = existingWinnerData?.confirmed;
-
-      if (existingWinner === null) {
-        const storeResult = await storeWinnerSelection(matchId, userWinnerSelection);
-        if (!storeResult) {
-          return;
-        }
-        setAwaitingConfirmation(true);
-
-        setTimer(60);
-        const intervalId = setInterval(() => {
-          setTimer((prevTimer) => {
-            if (prevTimer > 0) {
-              return prevTimer - 1;
-            } else {
-              clearInterval(intervalId);
-              return 0;
-            }
-          });
-        }, 1000);
-        setIntervalIdRef(intervalId);
-
-        return () => clearInterval(intervalId);
-      } else if (existingWinner === userWinnerSelection && confirmedStatus === 'awaiting') {
-        const { error: confirmedError } = await supabase
-          .from('ranked')
-          .update({ confirmed: 'confirmed' })
-          .eq('match_id', matchId);
-
-        if (confirmedError) {
-          console.error("Error updating confirmed status:", confirmedError);
+        if (selectError) {
+          console.error("Error selecting ranked data:", selectError);
           return;
         }
 
-        setWinnerConfirmed(true);
-        setAwaitingConfirmation(false);
-        if (intervalIdRef) {
-          clearInterval(intervalIdRef);
+        if (rankedData) {
+          // handleCancelSearch();
+        } else {
+          console.log("User not in ranked queue.");
         }
-      } else {
-      }
+      };
 
-    } catch (error) {
-      console.error("Error confirming winner:", error);
-    }
-  };
-
-  useEffect(() => {
-    let intervalId;
-    if (awaitingConfirmation && matchId) {
-      intervalId = setInterval(async () => {
-        try {
-          const { data, error } = await supabase
-            .from('ranked')
-            .select('confirmed')
-            .eq('match_id', matchId)
-            .single();
-
-          if (error) {
-            console.error("Error fetching confirmed status:", error);
-          } else if (data?.confirmed === 'confirmed') {
-            setMatchConfirmed(true);
-            clearInterval(intervalId);
-            setAwaitingConfirmation(false);
-            setShowTimer(false);
-          }
-        } catch (error) {
-          console.error("Error checking confirmed status:", error);
-          clearInterval(intervalId);
+      // checkAndCancelSearch();
+      const blurListener = navigation.addListener('blur', () => {
+        if (isSearching) {
+          Alert.alert(
+            "Interruzione Ricerca",
+            "Se cambi pagina, la ricerca verrà interrotta. Vuoi continuare?",
+            [
+              {
+                text: "Annulla",
+                style: "cancel"
+              },
+              {
+                text: "OK",
+                onPress: () => {
+                  handleCancelSearch(); // Call handleCancelSearch when the user confirms
+                }
+              }
+            ],
+            { cancelable: false }
+          );
         }
-      }, 3000);
-    }
+      });
 
-    return () => clearInterval(intervalId);
-  }, [awaitingConfirmation, matchId]);
+      return () => {
+        blurListener(); // Clean up the listener when the component unmounts or loses focus
+      };
+
+    }, [user, handleCancelSearch, isSearching, navigation]) // Include isSearching and navigation in the dependency array
+  );
 
   return (
     <View style={{ flex: 1 }}>
@@ -686,44 +461,33 @@ const RankedScreen = () => {
           />
         }
       >
-        <Text style={[styles.text, { color: theme.text }]}>Giocatori in coda: {playerCount}</Text>
-        <RankedSearch
-          isSearching={isSearching}
-          searchDuration={searchDuration}
-          isCancelButtonVisible={isCancelButtonVisible}
-          buttonText={buttonText}
-          animatedText={animatedText}
-          onPressSearch={handleRankedMatch}
-          onPressCancel={handleCancelSearch}
-          isMatchFound={isMatchFound} // Pass isMatchFound prop
-        />
-        {opponentName && matchPassword && (
-          <MatchConfirmation
-            opponentName={opponentName}
-            matchPassword={matchPassword}
-            opponentProfileImage={opponentProfileImage}
-            userProfileImage={userProfileImage}
-            userImageClicked={userImageClicked}
-            opponentImageClicked={opponentImageClicked}
-            isConfirmButtonActive={isConfirmButtonActive}
-            winnerConfirmed={winnerConfirmed}
-            animatedImageStyle={animatedImageStyle}
-            theme={theme}
-            handleCopyToClipboard={handleCopyToClipboard}
-            handleUserImagePress={handleUserImagePress}
-            handleOpponentImagePress={handleOpponentImagePress}
-            handleConfirmWinner={handleConfirmWinner}
-            awaitingConfirmation={awaitingConfirmation}
-            timer={timer}
-            showTimer={showTimer}
+        <Text style={[styles.playerCountText, { color: theme.text }]}>Giocatori in coda: {playerCount}</Text>
+        {isSearching ? (
+          <View style={styles.animationContainer}>
+            <RankedSearchAnimation isDarkMode={isDarkMode} />
+            <Text style={[styles.searchingText, { color: theme.text }]}>{animatedText}</Text>
+            <Text style={[styles.searchDurationText, { color: theme.text }]}>
+              Tempo di ricerca: {searchDuration} secondi
+            </Text>
+            {isCancelButtonVisible && (
+              <TouchableOpacity style={styles.cancelButton} onPress={handleCancelSearch}>
+                <Text style={styles.cancelButtonText}>Annulla Ricerca</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : (
+          <RankedSearch
+            isSearching={isSearching}
+            searchDuration={searchDuration}
+            isCancelButtonVisible={isCancelButtonVisible}
+            buttonText={buttonText}
+            animatedText={animatedText}
+            onPressSearch={handleRankedMatch}
+            onPressCancel={handleCancelSearch}
+            isMatchFound={false}
           />
         )}
       </ScrollView>
-      {isMatchFound && (
-        <TouchableOpacity style={styles.searchAnotherButton} onPress={handleSearchAnotherMatch}>
-          <Text style={styles.searchAnotherButtonText}>Cerca un'altra partita</Text>
-        </TouchableOpacity>
-      )}
     </View>
   );
 };
@@ -733,81 +497,42 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingTop: 20,
   },
   text: {
     fontSize: 20,
-    fontWeight:'bold',
-  },
-  searchAnotherButton: {
-    backgroundColor: '#28a745',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 5,
-    marginBottom: 20,
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-  },
-  searchAnotherButtonText: {
-    color: 'white',
-    fontSize: 18,
     fontWeight: 'bold',
   },
-  winnerContainer: {
+  playerCountText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  animationContainer: {
     alignItems: 'center',
     marginTop: 20,
   },
-  winnerLabel: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    textAlign: 'center',
+  searchingText: {
+    fontSize: 18,
+    marginTop: 10,
   },
-  winnerImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    marginBottom: 10,
+  searchDurationText: {
+    fontSize: 14,
+    marginTop: 5,
+    color: 'grey',
   },
-  winnerUsername: {
+  cancelButton: {
+    backgroundColor: '#dc3545',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 5,
+    marginTop: 20,
+  },
+  cancelButtonText: {
+    color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
-  },
-  centeredView: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 22,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  modalView: {
-    margin: 20,
-    borderRadius: 20,
-    padding: 35,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  button: {
-    borderRadius: 20,
-    padding: 10,
-    elevation: 2,
-  },
-  buttonClose: {
-    backgroundColor: '#2196F3',
-  },
-  textStyle: {
-    color: 'white',
-    fontWeight: 'bold',
-    textAlign: 'center',
   },
 });
 

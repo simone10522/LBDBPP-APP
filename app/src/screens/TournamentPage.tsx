@@ -10,6 +10,7 @@ import { supabase } from '../lib/supabase';
 import TournamentList from '../components/TournamentList';
 import { useAuth } from '../hooks/useAuth'; // Import useAuth hook
 import { lightPalette, darkPalette } from '../context/themes'; // Import lightPalette and darkPalette
+import { useFocusEffect } from '@react-navigation/native'; // Import useFocusEffect
 
 interface Tournament {
   id: string;
@@ -68,6 +69,13 @@ const TournamentPage = () => {
       : tournamentsToFilter;
     setTournaments(filtered);
   };
+
+  // Fetch tournaments when the component is focused
+  useFocusEffect(
+    useCallback(() => {
+      fetchTournaments();
+    }, [fetchTournaments])
+  );
 
   useEffect(() => {
     fetchTournaments();

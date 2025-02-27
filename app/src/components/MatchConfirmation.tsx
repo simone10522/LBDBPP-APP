@@ -1,29 +1,9 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
-import { Copy, Check } from 'lucide-react-native';
-import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import React, { useRef, useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Clipboard, Image } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming, withSpring } from 'react-native-reanimated';
+import { Copy, Check, X } from 'lucide-react-native'; // Importa l'icona X
 
-interface MatchConfirmationProps {
-  opponentName: string | null;
-  matchPassword: string | null;
-  opponentProfileImage: string | null;
-  userProfileImage: string | null;
-  userImageClicked: boolean;
-  opponentImageClicked: boolean;
-  isConfirmButtonActive: boolean;
-  winnerConfirmed: boolean;
-  animatedImageStyle: Animated.AnimatedStyle<any>;
-  theme: any;
-  handleCopyToClipboard: (text: string) => void;
-  handleUserImagePress: () => void;
-  handleOpponentImagePress: () => void;
-  handleConfirmWinner: () => void;
-  awaitingConfirmation: boolean;
-  timer: number;
-  showTimer: boolean;
-}
-
-const MatchConfirmation: React.FC<MatchConfirmationProps> = ({
+const MatchConfirmation = ({
   opponentName,
   matchPassword,
   opponentProfileImage,
@@ -41,153 +21,233 @@ const MatchConfirmation: React.FC<MatchConfirmationProps> = ({
   awaitingConfirmation,
   timer,
   showTimer,
+  winnerNotConfirmed, // Nuova prop
 }) => {
+  const translateXUser = useSharedValue(-300);
+  const translateXOpponent = useSharedValue(300);
+  const [isButtonHidden, setIsButtonHidden] = useState(false); // Nuovo stato per nascondere il pulsante
+
+  const animatedUserImageStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateX: translateXUser.value }],
+    };
+  });
+
+  const animatedOpponentImageStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateX: translateXOpponent.value }],
+    };
+  });
+
+  useEffect(() => {
+    translateXUser.value = withSpring(0, { damping: 10, stiffness: 90 });
+    translateXOpponent.value = withSpring(0, { damping: 10, stiffness: 90 });
+  }, []);
+
+
+  const handleConfirmWinnerPress = () => {
+    if (!isButtonHidden) {
+      setIsButtonHidden(true); // Nascondi il pulsante immediatamente
+      handleConfirmWinner(); // Chiama la funzione originale per confermare il vincitore
+    }
+  };
+
+
   return (
-    <View style={styles.matchFoundContainer}>
-      <Animated.Image
-        source={{ uri: opponentProfileImage }}
-        style={[styles.opponentProfileImage, animatedImageStyle]}
-      />
-      <Text style={styles.matchFoundText}>Avversario trovato: {opponentName}</Text>
-      <View style={styles.passwordContainer}>
-        <Text style={styles.matchFoundText}>Match Password:</Text>
-        <View style={styles.passwordBox}>
-          <Text style={[styles.passwordText, { color: theme.text }]}>{matchPassword}</Text>
-        </View>
-        <TouchableOpacity onPress={() => handleCopyToClipboard(matchPassword)} style={styles.copyButton}>
-          <Copy color="#fff" size={20} />
-        </TouchableOpacity>
+    <View style={[styles.matchContainer, { backgroundColor: theme.cardBackground }]}>
+      <View style={styles.header}>
+        <Text style={[styles.headerText, { color: theme.text }]}>Match Found!</Text>
       </View>
-      <Text style={[styles.centeredText, { color: theme.text }]}>chi ha vinto?</Text>
-      <View style={styles.profileImagesContainer}>
-        <View style={styles.imageContainer}>
-          <TouchableOpacity onPress={handleUserImagePress}>
-            <Image
-              source={{ uri: userProfileImage }}
-              style={styles.profileImage}
-            />
-          </TouchableOpacity>
-          {userImageClicked && <Check color="green" size={24} />}
+
+      <View style={styles.playersContainer}>
+        <TouchableOpacity onPress={handleUserImagePress} style={styles.playerBox}>
+          <Animated.Image
+            style={[
+              styles.profileImage,
+              userImageClicked && styles.selectedImage,
+              animatedUserImageStyle,
+            ]}
+            source={{ uri: userProfileImage }}
+          />
+          <Text style={[styles.playerName, { color: theme.text }]}>You</Text>
+        </TouchableOpacity>
+
+        <View style={styles.vsContainer}>
+          <Text style={[styles.vsText, { color: theme.text }]}>VS</Text>
         </View>
-        <View style={styles.imageContainer}>
-          <TouchableOpacity onPress={handleOpponentImagePress}>
-            <Image
+
+        <TouchableOpacity onPress={handleOpponentImagePress} style={styles.playerBox}>
+          {opponentProfileImage ? (
+            <Animated.Image
+              style={[
+                styles.profileImage,
+                opponentImageClicked && styles.selectedImage,
+                animatedOpponentImageStyle,
+              ]}
               source={{ uri: opponentProfileImage }}
-              style={styles.profileImage}
             />
+          ) : (
+            <View style={[styles.profileImage, { backgroundColor: 'gray' }]} />
+          )}
+          <Text style={[styles.playerName, { color: theme.text }]}>{opponentName}</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.matchInfoContainer}>
+        <View style={styles.infoRow}>
+          <Text style={[styles.infoLabel, { color: theme.text }]}>Opponent:</Text>
+          <Text style={[styles.infoText, { color: theme.text }]}>{opponentName}</Text>
+        </View>
+        <View style={styles.infoRow}>
+          <Text style={[styles.infoLabel, { color: theme.text }]}>Match Password:</Text>
+          <TouchableOpacity onPress={() => handleCopyToClipboard(matchPassword)}>
+            <View style={styles.copyContainer}>
+              <Text style={[styles.infoText, { color: theme.text, marginRight: 10 }]}>{matchPassword}</Text>
+              <Copy size={16} color={theme.text} />
+            </View>
           </TouchableOpacity>
-          {opponentImageClicked && <Check color="green" size={24} />}
         </View>
       </View>
-      {isConfirmButtonActive && (
-        <TouchableOpacity style={styles.confirmButton} onPress={handleConfirmWinner}>
-          <Text style={styles.confirmButtonText}>Conferma Vincitore</Text>
-        </TouchableOpacity>
-      )}
-      {winnerConfirmed && (
-        <Text style={[styles.matchFoundText, { color: 'blue' }]}>Vincitore Confermato!</Text>
-      )}
+
       {awaitingConfirmation && showTimer && (
-        <View style={styles.awaitingConfirmationContainer}>
-          <Text style={[styles.awaitingConfirmationText, { color: theme.text }]}>
-            In attesa della conferma dell'avversario...
-          </Text>
+        <View style={styles.timerContainer}>
           <Text style={[styles.timerText, { color: theme.text }]}>
-            Tempo rimanente: {timer} secondi
+            Awaiting confirmation: {timer}
+            {console.log("Timer prop in MatchConfirmation:", timer)}
           </Text>
         </View>
+      )}
+
+      {winnerConfirmed && !winnerNotConfirmed && ( // Condizione aggiornata
+        <View style={styles.confirmationContainer}>
+          <Text style={[styles.confirmationText, { color: theme.text }]}>
+            Winner confirmed!
+          </Text>
+          <Check size={24} color={theme.text} />
+        </View>
+      )}
+
+      {winnerNotConfirmed && ( // Nuovo blocco per "Winner not confirmed!"
+        <View style={styles.confirmationContainer}>
+          <Text style={[styles.confirmationText, { color: theme.text }]}>
+            Winner not confirmed!
+          </Text>
+          <X size={24} color={theme.text} />  {/* Usa l'icona X per indicare non confermato */}
+        </View>
+      )}
+
+      {!isButtonHidden && (
+        <TouchableOpacity
+          style={[
+            styles.confirmButton,
+            {
+              backgroundColor: isConfirmButtonActive ? theme.buttonBackground : theme.inputBackground,
+            },
+          ]}
+          onPress={handleConfirmWinnerPress}
+          disabled={!isConfirmButtonActive}
+        >
+          <Text style={[styles.confirmButtonText, { color: theme.text }]}>Confirm Winner</Text>
+        </TouchableOpacity>
       )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  matchFoundContainer: {
-    marginTop: 30,
+  matchContainer: {
+    borderRadius: 10,
+    padding: 20,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    width: '90%',
+    maxWidth: 400,
   },
-  matchFoundText: {
-    fontSize: 22,
+  header: {
+    marginBottom: 20,
+  },
+  headerText: {
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#28a745', // Verde per indicare successo
   },
-  opponentProfileImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginBottom: 10,
-  },
-  passwordContainer: {
+  playersContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 10,
+    justifyContent: 'space-around',
+    width: '100%',
+    marginBottom: 20,
   },
-  passwordBox: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 5,
-    marginRight: 10,
-  },
-  passwordText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  copyButton: {
-    backgroundColor: '#007bff',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 5,
-  },
-  copyButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  centeredText: {
-    textAlign: 'center',
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginTop: 10,
-  },
-  profileImagesContainer: {
-    flexDirection: 'row', // Display images side by side
-    justifyContent: 'center', // Center images horizontally
-    marginTop: 10, // Add some space above the images
-  },
-  profileImage: {
-    width: 50, // Adjust size as needed
-    height: 50, // Adjust size asneeded
-    borderRadius: 25, // Make images circular
-    marginHorizontal: 10, // Add some horizontal spacing between images
-  },
-  imageContainer: {
-    alignItems: 'center', // Center items horizontally
-  },
-  confirmButton: {
-    backgroundColor: '#28a745',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 5,
-    marginTop: 20,
-  },
-  confirmButtonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  awaitingConfirmationContainer: {
-    marginTop: 20,
+  playerBox: {
     alignItems: 'center',
   },
-  awaitingConfirmationText: {
-    fontSize: 18,
+  profileImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: 10,
+  },
+  selectedImage: {
+    borderColor: 'blue',
+    borderWidth: 2,
+  },
+  playerName: {
+    fontSize: 16,
+  },
+  vsContainer: {
+    marginHorizontal: 10,
+  },
+  vsText: {
+    fontSize: 20,
     fontWeight: 'bold',
+  },
+  matchInfoContainer: {
+    width: '100%',
+    marginBottom: 20,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 5,
+  },
+  infoLabel: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  infoText: {
+    fontSize: 14,
+  },
+  copyContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  timerContainer: {
     marginBottom: 10,
   },
   timerText: {
     fontSize: 16,
+  },
+  confirmationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  confirmationText: {
+    fontSize: 16,
+    marginRight: 5,
+  },
+  confirmButton: {
+    padding: 10,
+    borderRadius: 5,
+    width: '100%',
+    alignItems: 'center',
+  },
+  confirmButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 
