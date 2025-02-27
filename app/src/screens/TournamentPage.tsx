@@ -5,6 +5,7 @@ import {
   ScrollView,
   RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
 import TournamentList from '../components/TournamentList';
 import { useAuth } from '../hooks/useAuth'; // Import useAuth hook
@@ -89,7 +90,7 @@ const TournamentPage = () => {
 
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView
         style={[styles.scrollView, { backgroundColor: theme.background }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.text} />}
@@ -105,7 +106,7 @@ const TournamentPage = () => {
           toggleCardSize={toggleCardSize}
         />
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 };
 
