@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
@@ -91,10 +92,11 @@ const LeaderboardScreen = () => {
 
 
   if (loading) {
-    return <View style={[styles.container, { backgroundColor: theme.background }]}><Text style={{ color: theme.text }}>Caricamento...</Text></View>;
+    return <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}><Text style={{ color: theme.text }}>Caricamento...</Text></SafeAreaView>;
   }
 
   return (
+  <SafeAreaView style={ {flex:1, backgroundColor: theme.background }}>
     <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
       <Text style={[styles.title, { color: theme.text }]}>Leaderboard</Text>
       <View style={[styles.headerRow, { borderBottomColor: theme.borderColor }]}>
@@ -118,6 +120,7 @@ const LeaderboardScreen = () => {
         </View>
       ))}
     </ScrollView>
+  </SafeAreaView>
   );
 };
 
