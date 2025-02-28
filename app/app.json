@@ -40,5 +40,9 @@
       "supabaseUrl": "https://pmgibubmmyjadiltkmax.supabase.co",
       "supabaseKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBtZ2lidWJtbXlqYWRpbHRrbWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU5MjQ0ODksImV4cCI6MjA1MTUwMDQ4OX0.YTmPshWZBxX1zeKncOAgakpf_p7Pv26GS-c4E9ut8e0"
     }
+  },
+  "react-native-google-mobile-ads": {
+    "android_app_id": "ca-app-pub-3518274030390186~7173130626",
+    "ios_app_id": "ca-app-pub-3518274030390186~7173130626"
   }
 }
