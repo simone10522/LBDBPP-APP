@@ -8,6 +8,7 @@ import { lightPalette, darkPalette } from '../context/themes'; // Import lightPa
 
 interface Match {
   id: string;
+  id: string;
   player1: string;
   player1_id: string;
   player2: string;
@@ -27,8 +28,9 @@ interface MatchListProps {
   tournamentStatus: 'draft' | 'in_progress' | 'completed';
   onMatchUpdate?: () => void;
   bestOf: number | null;
-  isCreator: boolean; // Prop rinominata in isCreator
-  allTournamentMatches: Match[]; // NEW PROP: All matches of the tournament
+  isCreator: boolean;
+  allTournamentMatches: Match[];
+  user: any | null;
 }
 
 Notifications.setNotificationHandler({
@@ -39,8 +41,8 @@ Notifications.setNotificationHandler({
   }),
 });
 
-export default function MatchList({ matches, onSetWinner, tournamentStatus, onMatchUpdate, bestOf, isCreator, allTournamentMatches }: MatchListProps) { // Prop rinominata qui e nuova prop
-  const { user, isDarkMode } = useAuth(); // Use useAuth hook to get isDarkMode
+export default function MatchList({ matches, onSetWinner, tournamentStatus, onMatchUpdate, bestOf, isCreator, allTournamentMatches, user }: MatchListProps) {
+  const { isDarkMode } = useAuth();
   const [profileImages, setProfileImages] = useState<{ [key: string]: string }>({});
   const [matchScores, setMatchScores] = useState<{ [matchId: string]: string }>({});
   const [isModalVisible, setModalVisible] = useState(false);
@@ -51,10 +53,29 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [currentRound, setCurrentRound] = useState<number>(1);
   const [notificationStatus, setNotificationStatus] = useState<string | null>(null);
-  const backendServerURL = 'https://lbdb-server.onrender.com'; // *** IMPORTANTE: INSERISCI QUI L'IP DEL TUO COMPUTER ***
-  const [isNotifyButtonDisabled, setIsNotifyButtonDisabled] = useState(false); // Stato per disabilitare il pulsante
+  const backendServerURL = 'https://lbdb-server.onrender.com';
+  const [isNotifyButtonDisabled, setIsNotifyButtonDisabled] = useState(false);
 
-  const theme = isDarkMode ? darkPalette : lightPalette; // Determine current theme
+  const theme = isDarkMode ? darkPalette : lightPalette;
+
+  // Function to order matches: user's match first
+  const orderMatches = (currentRoundMatches: Match[]) => {
+    if (!user) return currentRoundMatches;
+    let userMatch = null;
+    let otherMatches = [];
+    for (const match of currentRoundMatches) {
+      if (match.player1_id === user.id || match.player2_id === user.id) {
+        userMatch = match;
+      } else {
+        otherMatches.push(match);
+      }
+    }
+    return userMatch ? [userMatch, ...otherMatches] : otherMatches;
+  };
+
+  const orderedMatches = orderMatches(matches); // Use matches prop directly
+
+  console.log("MatchList - matches prop:", matches);
 
   useEffect(() => {
     registerForPushNotificationsAsync().then(token => setNotificationStatus(token));
@@ -135,26 +156,16 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
 
   useEffect(() => {
     // Determine the current round based on ALL scheduled matches in the tournament
-    const scheduledMatches = allTournamentMatches.filter(match => match.status === 'scheduled'); // Use allTournamentMatches here
+    const scheduledMatches = allTournamentMatches.filter(match => match.status === 'scheduled');
     if (scheduledMatches.length > 0) {
       const minRound = Math.min(...scheduledMatches.map(match => match.round));
       setCurrentRound(minRound);
     } else {
       // If no scheduled matches, all rounds are considered completed, or no rounds started
-      setCurrentRound(allTournamentMatches.length > 0 ? Math.max(...allTournamentMatches.map(match => match.round)) + 1 : 1); // Use allTournamentMatches here
+      setCurrentRound(allTournamentMatches.length > 0 ? Math.max(...allTournamentMatches.map(match => match.round)) + 1 : 1);
     }
-  }, [allTournamentMatches]); // Depend on allTournamentMatches
+  }, [allTournamentMatches]);
 
-
-  const roundsMap = matches.reduce((acc, match) => {
-    if (!acc[match.round]) {
-      acc[match.round] = [];
-    }
-    acc[match.round].push(match);
-    return acc;
-  }, {} as Record<number, Match[]>);
-
-  const rounds = Object.entries(roundsMap).sort(( [a], [b] ) => Number(a) - Number(b));
 
   const toggleModal = (matchId: string | null = null) => {
     setSelectedMatchId(matchId);
@@ -167,13 +178,13 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
 
   const validateScore = (score: string): string => {
     const parsedScore = parseInt(score, 10) || 0;
-    if (bestOf === 5 && parsedScore > 3) { // For best of 5, max score is 3 per player per match
+    if (bestOf === 5 && parsedScore > 3) {
       return '3';
     }
-    if (bestOf === 3 && parsedScore > 2) { // For best of 3, max score is 2 per player per match
+    if (bestOf === 3 && parsedScore > 2) {
       return '2';
     }
-     if (bestOf !== 3 && bestOf !== 5 && parsedScore > maxScore) { // For best of X, max score is maxScore
+     if (bestOf !== 3 && bestOf !== 5 && parsedScore > maxScore) {
       return String(maxScore);
     }
     return score;
@@ -292,7 +303,7 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
       // Fetch sender's profile to get match_password
       const { data: senderProfile, error: senderProfileError } = await supabase
         .from('profiles')
-        .select('match_password') // Select match_password of the sender
+        .select('match_password')
         .eq('id', user?.id)
         .single();
 
@@ -302,11 +313,11 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
         return;
       }
 
-      const senderMatchPassword = senderProfile?.match_password; // Get sender's match_password
+      const senderMatchPassword = senderProfile?.match_password;
 
       const { data: opponentProfile, error: profileError } = await supabase
         .from('profiles')
-        .select('push_token') // Select push_token of the opponent
+        .select('push_token')
         .eq('id', opponentId)
         .single();
 
@@ -324,7 +335,6 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
         return;
       }
 
-      // Include sender's match_password in the message
       const message = `È il tuo turno di giocare contro ${match.player1} nel torneo! La password per il match è "${senderMatchPassword || 'Password non impostata'}".`;
 
       const response = await fetch(`${backendServerURL}/send-notification`, {
@@ -376,10 +386,10 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
 
   const handleTestBackendConnection = async () => {
     try {
-      const response = await fetch(`${backendServerURL}/test`); // CHIAMATA AL BACKEND
+      const response = await fetch(`${backendServerURL}/test`);
       if (response.ok) {
         const text = await response.text();
-        Alert.alert("Connessione OK dall'App!", text); // MOSTRA IL RISULTATO IN UN ALERT
+        Alert.alert("Connessione OK dall'App!", text);
       } else {
         Alert.alert("Errore di connessione dall'App", `Status: ${response.status}`);
       }
@@ -440,89 +450,100 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
           </TouchableOpacity>
         </View>
       </Modal>
-      {rounds.map(([round, matches]) => (
-        <View key={round}>
-          <Text style={[styles.roundTitle, { color: theme.text }]}>Round {round}</Text>
+
           <View style={styles.matchesContainer}>
-            {matches.map((match) => (
-              <View
-                key={match.id}
-                style={[styles.matchItem, { backgroundColor: theme.cardBackground }]}
-              >
-                {onSetWinner && tournamentStatus === 'in_progress' && match.status === 'scheduled' ? (
-                  <View style={[styles.winnerButtons, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' }]}>
-                    <View style={styles.playerContainer}>
-                      <Image
-                        source={{ uri: profileImages[match.player1_id] || '/icons/profile1.png' }}
-                        style={styles.profileImage}
-                      />
-                      <Text style={[styles.playerName, { width: 100, color: theme.text }]}>{match.player1}</Text>
-                    </View>
-                    <View style={{ flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                      <TouchableOpacity
-                        style={[
-                          styles.setResultsButton,
-                          { backgroundColor: theme.buttonBackground, padding: 10, marginTop: 5 },
-                          match.round !== currentRound || (!isCreator && user && user.id !== match.player1_id && user.id !== match.player2_id) ? styles.disabledButton : {}, // Stili condizionali con isCreator
-                          !user ? styles.disabledButton : {} // Disable if user is not logged in
-                        ]}
-                        onPress={() => toggleModal(match.id)}
-                        disabled={
-                          match.round !== currentRound || // Round check
-                          (!isCreator && user && user.id !== match.player1_id && user.id !== match.player2_id) || // Permission check, ora con isCreator
-                          !user // Disable if user is not logged in
-                        }
-                      >
-                        <Text style={[styles.setResultsText, { color: theme.buttonText }]}>Set Results</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[
-                          styles.setResultsButton,
-                          { backgroundColor: theme.buttonBackground, padding: 10, marginTop: 5 },
-                          isNotifyButtonDisabled ? styles.disabledButton : {}, // Stile condizionale per disabilitazione
-                          !user ? styles.disabledButton : {} // Disable if user is not logged in
-                        ]}
-                        onPress={() => handleNotifyOpponent(match)}
-                        disabled={!(user && (user.id === match.player1_id || user.id === match.player2_id) && match.round === currentRound) || isNotifyButtonDisabled || !user} // Condizione pulsante notifica + disabilitazione timer + disable if user is not logged in
-                      >
-                        <Image
-                          source={require('../../assets/bell-icon.png')}
-                          style={{ width: 20, height: 20 }}
-                        />
-                      </TouchableOpacity>
-                    </View>
-                    <View style={styles.playerContainer}>
-                      <Image
-                        source={{ uri: profileImages[match.player2_id] || '/icons/profile1.png' }}
-                        style={styles.profileImage}
-                      />
-                      <Text style={[styles.playerName, { width: 100, color: theme.text }]}>{match.player2}</Text>
-                    </View>
+            {orderedMatches.map((match, index) => {
+              const isMyMatch = orderedMatches[0] === match;
+              const showOtherMatchesText = !isMyMatch && index === 1 && orderedMatches.length > 1;
+
+              return (
+                <View key={match.id}>
+                  {isMyMatch && (
+                    <Text style={[styles.myMatchText, { color: theme.text }]}>My Match</Text>
+                  )}
+                  {showOtherMatchesText && (
+                    <Text style={[styles.otherMatchesText, { color: theme.text }]}>Other Matches</Text>
+                  )}
+                  <View style={[styles.matchItem, { backgroundColor: theme.cardBackground }]}>
+                    {onSetWinner && tournamentStatus === 'in_progress' && match.status === 'scheduled' ? (
+                      <View style={styles.matchContent}>
+                        <View style={[styles.winnerButtons, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' }]}>
+                          <View style={styles.playerContainer}>
+                            <Image
+                              source={{ uri: profileImages[match.player1_id] || '/icons/profile1.png' }}
+                              style={styles.profileImage}
+                            />
+                            <Text style={[styles.playerName, { width: 100, color: theme.text }]}>{match.player1}</Text>
+                          </View>
+                          <View style={{ flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                            <TouchableOpacity
+                              style={[
+                                styles.setResultsButton,
+                                { backgroundColor: theme.buttonBackground, padding: 10, marginTop: 5 },
+                                match.round !== currentRound || (!isCreator && user && user.id !== match.player1_id && user.id !== match.player2_id) ? styles.disabledButton : {},
+                                !user ? styles.disabledButton : {}
+                              ]}
+                              onPress={() => toggleModal(match.id)}
+                              disabled={
+                                match.round !== currentRound ||
+                                (!isCreator && user && user.id !== match.player1_id && user.id !== match.player2_id) ||
+                                !user
+                              }
+                            >
+                              <Text style={[styles.setResultsText, { color: theme.buttonText }]}>Set Results</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={[
+                                styles.setResultsButton,
+                                { backgroundColor: theme.buttonBackground, padding: 10, marginTop: 5 },
+                                isNotifyButtonDisabled ? styles.disabledButton : {},
+                                !user ? styles.disabledButton : {}
+                              ]}
+                              onPress={() => handleNotifyOpponent(match)}
+                              disabled={!(user && (user.id === match.player1_id || user.id === match.player2_id) && match.round === currentRound) || isNotifyButtonDisabled || !user}
+                            >
+                              <Image
+                                source={require('../../assets/bell-icon.png')}
+                                style={{ width: 20, height: 20 }}
+                              />
+                            </TouchableOpacity>
+                          </View>
+                          <View style={styles.playerContainer}>
+                            <Image
+                              source={{ uri: profileImages[match.player2_id] || '/icons/profile1.png' }}
+                              style={styles.profileImage}
+                            />
+                            <Text style={[styles.playerName, { width: 100, color: theme.text }]}>{match.player2}</Text>
+                          </View>
+                        </View>
+                      </View>
+                    ) : (
+                      <View style={styles.matchContent}>
+                        <View style={[styles.completedMatch, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
+                          <View style={styles.playerContainer}>
+                            <Image
+                              source={{ uri: profileImages[match.player1_id] || '/icons/profile1.png' }}
+                              style={[styles.profileImage, match.winner_id !== match.player1_id ? styles.dimmedImage : {}]}
+                            />
+                            <Text style={[styles.playerName, { width: 100, color: theme.text }]}>{match.player1}</Text>
+                          </View>
+                          <Text style={[styles.scoreText, { width: 50, color: theme.text }]}>{matchScores[match.id] || '0 - 0'}</Text>
+                          <View style={styles.playerContainer}>
+                            <Image
+                              source={{ uri: profileImages[match.player2_id] || '/icons/profile1.png' }}
+                              style={[styles.profileImage, match.winner_id !== match.player2_id ? styles.dimmedImage : {}]}
+                            />
+                            <Text style={[styles.playerName, { width: 100, color: theme.text }]}>{match.player2}</Text>
+                          </View>
+                        </View>
+                      </View>
+                    )}
                   </View>
-                ) : (
-                  <View style={[styles.completedMatch, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
-                    <View style={styles.playerContainer}>
-                      <Image
-                        source={{ uri: profileImages[match.player1_id] || '/icons/profile1.png' }}
-                        style={[styles.profileImage, match.winner_id !== match.player1_id ? styles.dimmedImage : {}]}
-                      />
-                      <Text style={[styles.playerName, { width: 100, color: theme.text }]}>{match.player1}</Text>
-                    </View>
-                    <Text style={[styles.scoreText, { width: 50, color: theme.text }]}>{matchScores[match.id] || '0 - 0'}</Text>
-                    <View style={styles.playerContainer}>
-                      <Image
-                        source={{ uri: profileImages[match.player2_id] || '/icons/profile1.png' }}
-                        style={[styles.profileImage, match.winner_id !== match.player2_id ? styles.dimmedImage : {}]}
-                      />
-                      <Text style={[styles.playerName, { width: 100, color: theme.text }]}>{match.player2}</Text>
-                    </View>
-                  </View>
-                )}
-              </View>
-            ))}
+                </View>
+              );
+            })}
           </View>
-        </View>
-      ))}
+
     </View>
   );
 };
@@ -540,9 +561,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   matchItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     padding: 10,
     borderRadius: 5,
     marginBottom: 5,
@@ -551,6 +569,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 1,
     elevation: 3,
+  },
+  matchContent: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
   },
   playersContainer: {
     flexDirection: 'row',
@@ -565,8 +587,8 @@ const styles = StyleSheet.create({
   },
   winnerButtons: {
     alignItems: 'center',
-    flexDirection: 'row', // Changed to row
-    justifyContent: 'space-around', // Changed to space-around
+    flexDirection: 'row',
+    justifyContent: 'space-around',
   },
   winnerButton: {
     padding: 5,
@@ -623,7 +645,7 @@ const styles = StyleSheet.create({
   modalContent: {
     padding: 20,
     borderRadius: 10,
-    width: '90%', // Increased width
+    width: '90%',
   },
   modalTitle: {
     fontSize: 20,
@@ -659,6 +681,21 @@ const styles = StyleSheet.create({
   disabledButton: {
     backgroundColor: 'gray',
     opacity: 0.6,
+  },
+  myMatchText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 5,
+    marginLeft: 0,
+    textAlign: 'left',
+  },
+  otherMatchesText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginTop: 10,
+    marginBottom: 5,
+    marginLeft: 0,
+    textAlign: 'left',
   },
   testButton: {
     backgroundColor: 'green',

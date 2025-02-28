@@ -8,6 +8,7 @@ import ParticipantList from '../components/ParticipantList';
 import { Trash2, Edit } from 'lucide-react';
 import Constants from 'expo-constants';
 import { lightPalette, darkPalette } from '../context/themes'; // Import lightPalette and darkPalette
+import Accordion from '../components/Accordion';
 
 interface Tournament {
   id: string;
@@ -57,7 +58,7 @@ export default function TournamentDetailsScreen() {
   const [participantId, setParticipantId] = useState<string | null>(null);
   const [tournamentStatus, setTournamentStatus] = useState<'draft' | 'in_progress' | 'completed'>('draft');
   const [refreshing, setRefreshing] = useState(false);
-  const [showUserMatches, setShowUserMatches] = useState<boolean>(false); // Added state for filtering matches
+  // Removed showUserMatches state
 
   const theme = isDarkMode ? darkPalette : lightPalette; // Determine current theme
 
@@ -85,7 +86,7 @@ export default function TournamentDetailsScreen() {
             deck: p.deck,
             points: 0
           }))
-        );
+                );
       } else {
         setParticipants([]);
       }
@@ -297,15 +298,15 @@ export default function TournamentDetailsScreen() {
   const handleStartTournament = async () => {
     try {
       // Check if all participants have decks
-      const participantsWithoutDecks = participants.filter(p => !p.deck || !p.deck.deck1 || p.deck.deck1.length === 0 || !p.deck.deck2 || p.deck.deck2.length === 0);
-      if (participantsparticipantsWithoutDecks.length > 0) {
-        const names = participantsWithoutDecks.map(p => p.username).join(', ');
-        setError(`Giocatore ${names} non ha selezionato i deck`);
-        return;
-      }
+      // const participantsWithoutDecks = participants.filter(p => !p.deck || !p.deck.deck1 || p.deck.deck1.length === 0 || !p.deck.deck2 || p.deck.deck2.length === 0);
+      // if (participantsparticipantsWithoutDecks.length > 0) {
+      //   const names = participantsWithoutDecks.map(p => p.username).join(', ');
+      //   setError(`Giocatore ${names} non ha selezionato i deck`);
+      //   return;
+      // }
 
       if (tournament?.max_players !== null && participants.length < tournament.max_players) {
-        setError(`Mancano ${missingPlayers} giocatori per avviare il torneo`);
+        setError(`Mancano ${tournament.max_players - participants.length} giocatori per avviare il torneo`);
         return;
       }
 
@@ -333,7 +334,7 @@ export default function TournamentDetailsScreen() {
       const { error: matchError } = await supabase
         .from('matches')
         .update({ winner_id: winnerId, status: 'completed' })
-        .eq('id', id);
+        .eq('id', matchId); // Corrected to use matchId
       if (matchError) throw matchError;
 
       // 2. Increment points for the winner
@@ -343,13 +344,13 @@ export default function TournamentDetailsScreen() {
       });
       if (pointsError) throw pointsError;
 
-      // 3. Check if all matches are completed and update tournament status
-      if (await allMatchesCompleted()) {
-        await supabase
-          .from('tournaments')
-          .update({ status: 'completed' })
-          .eq('id', id);
-      }
+      // 3. No longer updating tournament status here
+      // if (await allMatchesCompleted()) {
+      //   await supabase
+      //     .from('tournaments')
+      //     .update({ status: 'completed' })
+      //     .eq('id', id);
+      // }
 
       // 4. Fetch updated data
       fetchTournamentData();
@@ -397,271 +398,328 @@ export default function TournamentDetailsScreen() {
     fetchTournamentData().then(() => setRefreshing(false));
   }, [fetchTournamentData]);
 
-  const filteredMatches = showUserMatches
-    ? matches.filter(match => match.player1_id === user?.id || match.player2_id === user?.id)
-    : matches;
-
-  if (loading) {
-    return <View style={styles.container}><Text style={[styles.loadingText, { color: theme.text }]}>Caricamento...</Text></View>;
-  }
-
-  if (!tournament) {
-    return <View style={styles.container}><Text style={styles.errorText}>Tournament not found</Text></View>;
-  }
-
-  const isOwner = tournament.created_by === user?.id;
-  const isCreator = isOwner; // Define isCreator based on isOwner
-
-  const getWinner = () => {
-    if (tournament.status !== 'completed' || participants.length === 0) return null;
-    return participants.reduce((prev, current) => (prev.points > current.points) ? prev : current);
-  };
-
-  const winner = getWinner();
-  const paddingTop = Platform.OS === 'android' ? Constants.statusBarHeight : 0;
-
-  return (
-    <ScrollView
-      style={[styles.container, { paddingTop, backgroundColor: theme.background }]}
-      contentContainerStyle={styles.scrollContent}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.text} />
+  // Determine the user's next round
+    let userNextRound = null;
+    if (user) {
+      for (const match of matches) {
+        if ((match.player1_id === user.id || match.player2_id === user.id) && match.status === 'scheduled') {
+          userNextRound = match.round;
+          break;
+        }
       }
-    >
-      {error && (
-        <View style={styles.errorContainer}>
-          <Text style={[styles.error, { color: theme.error }]}>{error}</Text>
-        </View>
-      )}
-      <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>{tournament.name}</Text>
-        <Text style={[styles.headerDescription, { color: theme.text }]}>{tournament.description}</Text>
-        <Text style={[styles.headerDate, { color: theme.text }]}>
-          Start Date: {new Date(tournament.start_date!).toLocaleDateString()}
-          {tournament.best_of && ` (Best of ${tournament.best_of})`}
-        </Text>
-        <Text style={[styles.headerStatus, {
-          backgroundColor: tournament.status === 'completed' ? '#2ecc71' : tournament.status === 'in_progress' ? '#e67e22' : '#7f8c8d',
-          color: theme.text
-        }]}>
-          {tournament.status.replace('_', ' ')}
-        </Text>
-        {isOwner && tournament.status === 'draft' && (
-          <TouchableOpacity
-            onPress={handleEditTournament}
-            style={[styles.editButton, { backgroundColor: theme.buttonBackground }]}
-          >
-            <Text style={[styles.editButtonText, { color: theme.buttonText }]}>Modifica Torneo</Text>
-          </TouchableOpacity>
-        )}
+    }
+
+    const isOwner = tournament?.created_by === user?.id;
+    const isCreator = isOwner;
+
+    const getWinner = () => {
+      if (tournament?.status !== 'completed' || participants.length === 0) return null;
+      return participants.reduce((prev, current) => (prev.points > current.points) ? prev : current);
+    };
+
+    const winner = getWinner();
+    const paddingTop = Platform.OS === 'android' ? Constants.statusBarHeight : 0;
+
+    if (loading) {
+    return (
+      <View style={[styles.container, { paddingTop, backgroundColor: theme.background }]}>
+        <Text style={[styles.loadingText, { color: theme.text }]}>Loading...</Text>
       </View>
-      <View style={styles.content}>
-        <View style={styles.section}>
-          <View style={styles.sectionTitleContainer}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Matches</Text>
-            <TouchableOpacity onPress={() => setShowUserMatches(!showUserMatches)} style={{ position: 'absolute', right: 10, top: 0 }}>
-              <Text style={[styles.sectionTitleRight, { fontSize: 24, fontWeight: showUserMatches ? 'bold' : 'normal', color: theme.text }]}>Your Matches</Text>
-            </TouchableOpacity>
+    );
+  }
+
+    // Group matches by round
+    const matchesByRound = matches.reduce((acc, match) => {
+      const round = match.round;
+      if (!acc[round]) {
+        acc[round] = [];
+      }
+      acc[round].push(match);
+      return acc;
+    }, {});
+
+    const handleGenerateNextRound = async () => {
+      // Alert.alert('Genera Prossimo Round', 'Funzionalità in arrivo!');
+      // Qui andremo a chiamare la funzione backend per generare il prossimo round
+      try {
+        // Find the last completed round number
+        const lastRoundMatches = matches.filter(match => match.status === 'completed');
+        const lastRoundNumber = lastRoundMatches.reduce((maxRound, match) => Math.max(maxRound, match.round), 0);
+
+        const { error: generateMatchesError } = await supabase.rpc('generate_next_round_matches', {
+          tournament_id_param: id,
+          previous_round_number: lastRoundNumber
+        });
+
+        if (generateMatchesError) {
+          throw generateMatchesError;
+        }
+
+        fetchTournamentData(); // Refresh tournament data to show new matches
+      } catch (error: any) {
+        setError(error.message);
+      }
+    };
+
+    const canGenerateNextRound = isCreator && tournament?.status === 'in_progress';
+
+    return (
+      <ScrollView
+        style={[styles.container, { paddingTop, backgroundColor: theme.background }]}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.text} />
+        }
+      >
+        {error && (
+          <View style={styles.errorContainer}>
+            <Text style={[styles.error, { color: theme.error }]}>{error}</Text>
           </View>
-          {(tournament.status === 'in_progress' || tournament.status === 'completed') && (
-            <MatchList
-              matches={filteredMatches}
-              onSetWinner={tournament.status === 'in_progress' ? handleSetWinner : undefined}
-              tournamentStatus={tournament.status}
-              bestOf={tournament.best_of}
-              isCreator={isCreator} // Pass isCreator prop here
-              onMatchUpdate={fetchTournamentData}
-              allTournamentMatches={matches} // Pass all matches here
-            />
+        )}
+
+        {tournament ? (
+          <>
+        <View style={styles.header}>
+          <Text style={[styles.headerTitle, { color: theme.text }]}>{tournament.name}</Text>
+          <Text style={[styles.headerDescription, { color: theme.text }]}>{tournament.description}</Text>
+          <Text style={[styles.headerDate, { color: theme.text }]}>
+            Start Date: {new Date(tournament.start_date!).toLocaleDateString()}
+            {tournament.best_of && ` (Best of ${tournament.best_of})`}
+          </Text>
+          <Text style={[styles.headerStatus, {
+            backgroundColor: tournament.status === 'completed' ? '#2ecc71' : tournament.status === 'in_progress' ? '#e67e22' : '#7f8c8d',
+            color: theme.text
+          }]}>
+            {tournament.status.replace('_', ' ')}
+          </Text>
+          {isOwner && tournament.status === 'draft' && (
+            <TouchableOpacity
+              onPress={handleEditTournament}
+              style={[styles.editButton, { backgroundColor: theme.buttonBackground }]}
+            >
+              <Text style={[styles.editButtonText, { color: theme.buttonText }]}>Modifica Torneo</Text>
+            </TouchableOpacity>
           )}
         </View>
-      </View>
-      <View style={styles.actions}>
-        <TouchableOpacity onPress={() => navigation.navigate('ManageParticipants', { id: id })} style={[styles.manageButton, { backgroundColor: theme.buttonBackground }]}>
-          <Text style={[styles.manageButtonText, { color: theme.buttonText }]}>Lista Giocatori</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => navigation.navigate('Leaderboard', { id: id })} style={[styles.manageButton, { backgroundColor: theme.buttonBackground }]}>
-          <Text style={[styles.manageButtonText, { color: theme.buttonText }]}>Leaderboard</Text>
-        </TouchableOpacity>
-        {isOwner && tournament.status === 'draft' && (
-          <TouchableOpacity onPress={handleStartTournament} style={[styles.startButton, { backgroundColor: theme.buttonBackground }]}>
-            <Text style={[styles.startButtonText, { color: theme.buttonText }]}>Start Tournament</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-    </ScrollView>
-  );
-};
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 10,
-    marginTop: 0,
-  },
-  scrollContent: {
-    paddingBottom: 100,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 20,
-    paddingTop: 20,
-  },
-  headerTitle: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    textShadowColor: 'black',
-    textShadowOffset: { width: 3, height: 3 },
-    textShadowRadius: 0,
-    textAlign: 'center',
-  },
-  headerDescription: {
-    fontSize: 18,
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  headerDate: {
-    fontSize: 14,
-    marginBottom: 10,
-  },
-  headerStatus: {
-    padding: 5,
-    borderRadius: 5,
-    color: lightPalette.text, // Default color, will be overridden by theme
-    fontSize: 14,
-  },
-  content: {
-    paddingHorizontal: 10,
-  },
-  section: {
-    marginBottom: 20,
-    position: 'relative',
-  },
-  sectionTitleContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  sectionTitleCenter: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'right',
-    flex: 1,
-  },
-  sectionTitleRight: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    textAlign: 'right',
-  },
-  participantItem: {
-    fontSize: 16,
-    marginBottom: 5,
-  },
-  matchItem: {
-    backgroundColor: 'white', // Default background, will be overridden by theme
-    padding: 10,
-    borderRadius: 5,
-    marginBottom: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 3,
-  },
-  error: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: 10,
-  },
-  actions: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 20,
-  },
-  backButton: {
-    backgroundColor: '#95a5a6',
-    padding: 10,
-    borderRadius: 5,
-    marginBottom: 10,
-    display: 'none',
-  },
-  backButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  manageButton: {
-    backgroundColor: lightPalette.buttonBackground, // Default background, will be overridden by theme
-    padding: 10,
-    borderRadius: 5,
-  },
-  manageButtonText: {
-    color: lightPalette.buttonText, // Default color, will be overridden by theme
-    fontWeight: 'bold',
-  },
-  startButton: {
-    backgroundColor: '#2ecc71', // Default background, will be overridden by theme
-    padding: 10,
-    borderRadius: 5,
-  },
-  startButtonText: {
-    color: lightPalette.buttonText, // Default color, will be overridden by theme
-    fontWeight: 'bold',
-  },
-  winnerContainer: {
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  winnerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#2ecc71',
-    textShadowColor: 'black',
-    textShadowOffset: { width: 2, height: 2 },
-    textShadowRadius: 0,
-  },
-  winnerCrown: {
-    height: 80,
-    width: 100,
-  },
-  winnerName: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    textAlign: 'center',
-  },
-  editButton: {
-    backgroundColor: lightPalette.buttonBackground, // Default background, will be overridden by theme
-    padding: 10,
-    borderRadius: 5,
-    marginTop: 10,
-  },
-  editButtonText: {
-    color: lightPalette.buttonText, // Default color, will be overridden by theme
-    fontWeight: 'bold',
-  },
-  participantList: {
-    backgroundColor: 'white', // Default background, will be overridden by theme
-    padding: 10,
-    borderRadius: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 3,
-  },
-  loadingText: {
-    color: lightPalette.text, // Default color, will be overridden by theme
-    textAlign: 'center',
-    padding: 20,
-  },
-  errorText: {
-    color: 'red',
-    textAlign: 'center',
-    padding: 20,
-  },
-});
+        <View style={styles.content}>
+          <View style={styles.section}>
+            <View style={styles.sectionTitleContainer}>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>Matches</Text>
+            </View>
+
+            {Object.entries(matchesByRound).sort(([roundA], [roundB]) => parseInt(roundA) - parseInt(roundB)).map(([round, roundMatches]) => (
+              <Accordion key={round} title={`Round ${round}`}>
+                <MatchList
+                  matches={roundMatches}
+                  onSetWinner={tournament.status === 'in_progress' ? handleSetWinner : undefined}
+                  tournamentStatus={tournament.status}
+                  bestOf={tournament.best_of}
+                  isCreator={isCreator}
+                  onMatchUpdate={fetchTournamentData}
+                  allTournamentMatches={matches}
+                  user={user} // Pass user prop
+                />
+              </Accordion>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.actions}>
+          <TouchableOpacity onPress={() => navigation.navigate('ManageParticipants', { id: id })} style={[styles.manageButton, { backgroundColor: theme.buttonBackground }]}>
+            <Text style={[styles.manageButtonText, { color: theme.buttonText }]}>Lista Giocatori</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('Leaderboard', { id: id })} style={[styles.manageButton, { backgroundColor: theme.buttonBackground }]}>
+            <Text style={[styles.manageButtonText, { color: theme.buttonText }]}>Leaderboard</Text>
+          </TouchableOpacity>
+          {isOwner && tournament.status === 'draft' && (
+            <TouchableOpacity onPress={handleStartTournament} style={[styles.startButton, { backgroundColor: theme.buttonBackground }]}>
+              <Text style={[styles.startButtonText, { color: theme.buttonText }]}>Start Tournament</Text>
+            </TouchableOpacity>
+          )}
+          {canGenerateNextRound && (
+            <TouchableOpacity onPress={handleGenerateNextRound} style={[styles.startButton, { backgroundColor: theme.buttonBackground }]}>
+              <Text style={[styles.startButtonText, { color: theme.startButtonText }]}>Genera Prossimo Round</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+          </>
+        ) : (
+          <Text style={[styles.errorText, { color: theme.error }]}>Tournament not found.</Text>
+        )}
+      </ScrollView>
+    );
+  };
+
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      padding: 10,
+      marginTop: 0,
+    },
+    scrollContent: {
+      paddingBottom: 100,
+    },
+    header: {
+      alignItems: 'center',
+      marginBottom: 20,
+      paddingTop: 20,
+    },
+    headerTitle: {
+      fontSize: 32,
+      fontWeight: 'bold',
+      textShadowColor: 'black',
+      textShadowOffset: { width: 3, height: 3 },
+      textShadowRadius: 0,
+      textAlign: 'center',
+    },
+    headerDescription: {
+      fontSize: 18,
+      marginBottom: 10,
+      textAlign: 'center',
+    },
+    headerDate: {
+      fontSize: 14,
+      marginBottom: 10,
+    },
+    headerStatus: {
+      padding: 5,
+      borderRadius: 5,
+      color: lightPalette.text, // Default color, will be overridden by theme
+      fontSize: 14,
+    },
+    content: {
+      paddingHorizontal: 10,
+    },
+    section: {
+      marginBottom: 20,
+      position: 'relative',
+    },
+    sectionTitleContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 10,
+    },
+    sectionTitle: {
+      fontSize: 24,
+      fontWeight: 'bold',
+    },
+    sectionTitleCenter: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      textAlign: 'right',
+      flex: 1,
+    },
+    sectionTitleRight: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      textAlign: 'right',
+    },
+    participantItem: {
+      fontSize: 16,
+      marginBottom: 5,
+    },
+    matchItem: {
+      backgroundColor: 'white', // Default background, will be overridden by theme
+      padding: 10,
+      borderRadius: 5,
+      marginBottom: 5,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 2,
+      elevation: 3,
+    },
+    error: {
+      fontSize: 16,
+      textAlign: 'center',
+      marginTop: 10,
+    },
+    actions: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      marginTop: 20,
+    },
+    backButton: {
+      backgroundColor: '#95a5a6',
+      padding: 10,
+      borderRadius: 5,
+      marginBottom: 10,
+      display: 'none',
+    },
+    backButtonText: {
+      color: 'white',
+      fontWeight: 'bold',
+    },
+    manageButton: {
+      backgroundColor: lightPalette.buttonBackground, // Default background, will be overridden by theme
+      padding: 10,
+      borderRadius: 5,
+    },
+    manageButtonText: {
+      color: lightPalette.buttonText, // Default color, will be overridden by theme
+      fontWeight: 'bold',
+    },
+    startButton: {
+      backgroundColor: '#2ecc71', // Default background, will be overridden by theme
+      padding: 10,
+      borderRadius: 5,
+    },
+    startButtonText: {
+      color: lightPalette.buttonText, // Default color, will be overridden by theme
+      fontWeight: 'bold',
+    },
+    winnerContainer: {
+      alignItems: 'center',
+      marginTop: 20,
+    },
+    winnerTitle: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: '#2ecc71',
+      textShadowColor: 'black',
+      textShadowOffset: { width: 2, height: 2 },
+      textShadowRadius: 0,
+    },
+    winnerCrown: {
+      height: 80,
+      width: 100,
+    },
+    winnerName: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: '#333',
+      textAlign: 'center',
+    },
+    editButton: {
+      backgroundColor: lightPalette.buttonBackground, // Default background, will be overridden by theme
+      padding: 10,
+      borderRadius: 5,
+      marginTop: 10,
+    },
+    editButtonText: {
+      color: lightPalette.buttonText, // Default color, will be overridden by theme
+      fontWeight: 'bold',
+    },
+    participantList: {
+      backgroundColor: 'white', // Default background, will be overridden by theme
+      padding: 10,
+      borderRadius: 5,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 2,
+      elevation: 3,
+    },
+    loadingText: {
+      color: lightPalette.text, // Default color, will be overridden by theme
+      textAlign: 'center',
+      padding: 20,
+    },
+    errorText: {
+      color: 'red',
+      textAlign: 'center',
+      padding: 20,
+    },
+  });

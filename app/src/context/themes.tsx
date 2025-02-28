@@ -8,6 +8,9 @@ export const lightPalette = {
   error: '#FF0000',
   borderColor: '#CCCCCC',
   cardBackground: '#e3e3e3', // Aggiunto per il tema chiaro
+  primary: '#5DADE2',
+  secondary: '#F0F0F0',
+  timerText: '#9c4141',
 };
 
 export const darkPalette = {
@@ -21,4 +24,6 @@ export const darkPalette = {
   borderColor: '#555555',
   cardBackground: '#333333', // Aggiunto per il tema scuro
   secondaryText: '#A9A9A9', // Grigio chiaro per testo secondario tema scuro
+  primary: '#4a90e2',
+  secondary: '#333333',
 };

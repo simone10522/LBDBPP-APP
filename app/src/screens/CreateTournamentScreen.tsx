@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth';
 import { Calendar } from 'react-native-calendars';
 import { format } from 'date-fns';
 import { lightPalette, darkPalette } from '../context/themes'; // Importa i temi
+import { Picker } from '@react-native-picker/picker';
 
 export default function CreateTournamentScreen() {
   const { user, isDarkMode } = useAuth(); // Usa useAuth per il tema
@@ -15,7 +16,7 @@ export default function CreateTournamentScreen() {
   const [startDate, setStartDate] = useState('');
   const [maxPlayers, setMaxPlayers] = useState('');
   const [maxRounds, setMaxRounds] = useState('');
-  const [bestOf, setBestOf] = useState<number | null>(null);
+  const [bestOf, setBestOf] = useState<string | null>(null); // Cambiato a string | null
   const [error, setError] = useState('');
   const [isDatePickerVisible, setDatePickerVisible] = useState(false);
 
@@ -35,9 +36,15 @@ export default function CreateTournamentScreen() {
       if (bestOf === null) {
         throw new Error("Seleziona un'opzione per Best of.");
       }
+
+      const bestOfValue = parseInt(bestOf, 10); // Converti bestOf in un numero
+      if (isNaN(bestOfValue)) {
+          throw new Error("Valore Best of non valido.");
+      }
+
       const { data: tournament, error: tournamentError } = await supabase
         .from('tournaments')
-        .insert([{ name, description, created_by: user?.id, start_date: startDate, max_players: maxPlayersValue, max_rounds: maxRoundsValue, best_of: bestOf }])
+        .insert([{ name, description, created_by: user?.id, start_date: startDate, max_players: maxPlayersValue, max_rounds: maxRoundsValue, best_of: bestOfValue }]) // Usa bestOfValue
         .select()
         .single();
       if (tournamentError) throw tournamentError;
@@ -132,20 +139,18 @@ export default function CreateTournamentScreen() {
           placeholderTextColor="#aaa"
         />
         <Text style={[styles.label, { color: theme.text }]}>Best of</Text>
-        <View style={styles.bestOfContainer}>
-          <TouchableOpacity
-            style={[styles.button, { backgroundColor: theme.buttonBackground }, bestOf === 3 && styles.selectedButton]}
-            onPress={() => setBestOf(3)}
-          >
-            <Text style={[styles.buttonText, { color: theme.buttonText }, bestOf === 3 && styles.selectedButtonText]}>Best of 3</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.button, { backgroundColor: theme.buttonBackground }, bestOf === 5 && styles.selectedButton]}
-            onPress={() => setBestOf(5)}
-          >
-            <Text style={[styles.buttonText, { color: theme.buttonText }, bestOf === 5 && styles.selectedButtonText]}>Best of 5</Text>
-          </TouchableOpacity>
-        </View>
+        <Picker
+          selectedValue={bestOf}
+          onValueChange={(itemValue) => setBestOf(itemValue)}
+          style={[styles.picker, { backgroundColor: theme.inputBackground, color: theme.text }]} // Aggiunto stile al picker
+          itemStyle={{ color: theme.text }} // Stile per gli elementi del picker
+        >
+          <Picker.Item label="Select an option" value={null} />
+          <Picker.Item label="Best of 1" value="1" />
+          <Picker.Item label="Best of 3" value="3" />
+          <Picker.Item label="Best of 5" value="5" />
+        </Picker>
+
         <TouchableOpacity style={[styles.button, { backgroundColor: theme.buttonBackground }]} onPress={handleSubmit}>
           <Text style={[styles.buttonText, { color: theme.buttonText }]}>Crea Torneo</Text>
         </TouchableOpacity>
@@ -250,6 +255,8 @@ const styles = StyleSheet.create({
   selectedButtonText: {
     color: 'white',
   },
+  picker: {
+    marginBottom: 10,
+    // Aggiungi altri stili se necessario
+  },
 });
-
-export default CreateTournamentScreen;
