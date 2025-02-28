@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
@@ -20,12 +20,32 @@ import RankedScreen from './src/screens/RankedScreen'; // Import RankedScreen
 // Import React Native components for UI and styling
 import { Platform, View, StyleSheet, SafeAreaView } from 'react-native';
 
+//ADS
+import mobileAds from 'react-native-google-mobile-ads';
+import {
+  getTrackingPermissionsAsync,
+  PermissionStatus,
+  requestTrackingPermissionsAsync,
+} from 'expo-tracking-transparency';
+
 //Utils
 import { useAuth } from './src/hooks/_useAuth';
 const user = true; // Set to true for now, to test both scenarios
 
 // Create a stack navigator for screen navigation
 const Stack = createNativeStackNavigator();
+
+useEffect(() => {
+  (async () => {
+    // Google AdMob will show any messages here that you just set up on the AdMob Privacy & Messaging page
+    const { status: trackingStatus } = await requestTrackingPermissionsAsync();
+    if (trackingStatus !== 'granted') {
+      // Do something here such as turn off Sentry tracking, store in context/redux to allow for personalized ads, etc.
+    }
+    // Initialize the ads
+    await mobileAds().initialize();
+  })();
+}, [])
 
 const App = () => {
   return (

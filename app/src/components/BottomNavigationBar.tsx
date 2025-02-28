@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import Banner from './Banner';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../hooks/useAuth'; // Import useAuth
 import { Home, List, User, BarChart4 } from 'lucide-react-native'; // Import BarChart4 for Ranked icon
@@ -16,24 +17,28 @@ const BottomNavigationBar = () => {
     }
   };
 
+  
   return (
-    <View style={styles.container}>
-      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Home')}>
-        <Home color="#fff" size={24} />
-        <Text style={styles.buttonText}>Home</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('TournamentPage')}>
-        <List color="#fff" size={24} />
-        <Text style={styles.buttonText}>Tornei</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('RankedScreen')}>
-        <BarChart4 color="#fff" size={24} />
-        <Text style={styles.buttonText}>Ranked</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.button} onPress={handleProfilePress}>
-        <User color="#fff" size={24} />
-        <Text style={styles.buttonText}>Profile</Text>
-      </TouchableOpacity>
+    <View style={{flex: 1}}>
+      <Banner></Banner>
+      <View style={styles.container}>
+        <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Home')}>
+          <Home color="#fff" size={24} />
+          <Text style={styles.buttonText}>Home</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('TournamentPage')}>
+          <List color="#fff" size={24} />
+          <Text style={styles.buttonText}>Tornei</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('RankedScreen')}>
+          <BarChart4 color="#fff" size={24} />
+          <Text style={styles.buttonText}>Ranked</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.button} onPress={handleProfilePress}>
+          <User color="#fff" size={24} />
+          <Text style={styles.buttonText}>Profile</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
