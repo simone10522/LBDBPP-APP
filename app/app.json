@@ -77,6 +77,7 @@
           ]
         }
       ]
+    }
     },
     "android": {
       "adaptiveIcon": {
@@ -155,7 +156,12 @@
           ]
         }
       ],
-      "expo-tracking-transparency"
+      [
+        "expo-tracking-transparency",
+        {
+          "userTrackingPermission": "Allow this app to collect app-related data that can be used for tracking you or your device and deliver personalized ads to you."
+        }
+      ]
     ]
   }
 }
