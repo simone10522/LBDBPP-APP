@@ -27,6 +27,7 @@ interface Tournament {
   created_at: string;
   created_by: string;
   max_players: number | null;
+  format: string | null; // Add format property
 }
 
 interface TournamentListProps {
@@ -143,6 +144,9 @@ const TournamentList: React.FC<TournamentListProps> = ({
                     </Text>
                   </View>
                   <Text style={[styles.cardTitle, { color: theme.text }]}>{tournament.name}</Text>
+                  <Text style={[styles.cardFormat, { color: theme.secondaryText }]}>
+                    {tournament.format ? (tournament.format === 'swiss' ? 'Swiss Tournament' : 'Round-Robin') : 'Format Not Set'}
+                  </Text>
                   {!isCardMinimized && (
                     <View>
                       <Text style={[styles.cardDescription, { color: theme.secondaryText }]}>{tournament.description}</Text>
@@ -250,6 +254,10 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 20,
     fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  cardFormat: {
+    fontSize: 14,
     marginBottom: 5,
   },
   cardDescription: {

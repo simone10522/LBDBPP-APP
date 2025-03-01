@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, ScrollView, Modal } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { Calendar } from 'react-native-calendars';
@@ -8,19 +8,51 @@ import { format } from 'date-fns';
 import { lightPalette, darkPalette } from '../context/themes'; // Importa i temi
 import { Picker } from '@react-native-picker/picker';
 
+const calculateSwissRounds = (players: number | null): number | null => {
+  if (!players) return null;
+  return Math.ceil(Math.log(players) / Math.log(4));
+};
+
 export default function CreateTournamentScreen() {
-  const { user, isDarkMode } = useAuth(); // Usa useAuth per il tema
+  const { user, isDarkMode } = useAuth();
   const navigation = useNavigation();
+  const route = useRoute();
+  const { tournamentData } = route.params || {};
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [startDate, setStartDate] = useState('');
   const [maxPlayers, setMaxPlayers] = useState('');
   const [maxRounds, setMaxRounds] = useState('');
-  const [bestOf, setBestOf] = useState<string | null>(null); // Cambiato a string | null
+  const [bestOf, setBestOf] = useState<string | null>(null);
+  const [tournamentType, setTournamentType] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [isDatePickerVisible, setDatePickerVisible] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
-  const theme = isDarkMode ? darkPalette : lightPalette; // Determina il tema corrente
+  const theme = isDarkMode ? darkPalette : lightPalette;
+
+  useEffect(() => {
+    if (tournamentData) {
+      setIsEditing(true);
+      setName(tournamentData.name || '');
+      setDescription(tournamentData.description || '');
+      setStartDate(tournamentData.start_date || '');
+      setMaxPlayers(tournamentData.max_players?.toString() || '');
+      setMaxRounds(tournamentData.max_rounds?.toString() || '');
+      setBestOf(tournamentData.best_of?.toString() || null);
+      setTournamentType(tournamentData.format || null);
+    } else {
+      setIsEditing(false);
+    }
+  }, [tournamentData]);
+
+  useEffect(() => {
+    if (tournamentType === 'swiss') {
+      const rounds = calculateSwissRounds(parseInt(maxPlayers) || null);
+      setMaxRounds(rounds ? rounds.toString() : '');
+    }
+  }, [tournamentType, maxPlayers]);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,25 +62,45 @@ export default function CreateTournamentScreen() {
         throw new Error("Numero massimo di giocatori non valido.");
       }
       const maxRoundsValue = maxRounds === '' ? null : parseInt(maxRounds, 10);
-      if (maxRoundsValue !== null && isNaN(maxRoundsValue)) {
+      if (maxRoundsValue !== null && isNaN(maxRoundsValue) && tournamentType !== 'round-robin') {
         throw new Error("Numero massimo di turni non valido.");
       }
       if (bestOf === null) {
         throw new Error("Seleziona un'opzione per Best of.");
       }
 
-      const bestOfValue = parseInt(bestOf, 10); // Converti bestOf in un numero
+      const bestOfValue = parseInt(bestOf, 10);
       if (isNaN(bestOfValue)) {
           throw new Error("Valore Best of non valido.");
       }
 
-      const { data: tournament, error: tournamentError } = await supabase
-        .from('tournaments')
-        .insert([{ name, description, created_by: user?.id, start_date: startDate, max_players: maxPlayersValue, max_rounds: maxRoundsValue, best_of: bestOfValue }]) // Usa bestOfValue
-        .select()
-        .single();
-      if (tournamentError) throw tournamentError;
-      navigation.navigate('TournamentDetails', { id: tournament.id });
+      if (tournamentType === null) {
+        throw new Error("Select a tournament type.");
+      }
+
+      if (isEditing && tournamentData) {
+        const { data: updatedTournament, error: updateError } = await supabase
+          .from('tournaments')
+          .update({ name, description, start_date: startDate, max_players: maxPlayersValue, max_rounds: maxRoundsValue, best_of: bestOfValue, format: tournamentType })
+          .eq('id', tournamentData.id)
+          .select()
+          .single();
+
+        if (updateError) throw updateError;
+        navigation.navigate('TournamentDetails', { id: updatedTournament.id, refresh: true });
+
+
+      } else {
+        const { data: tournament, error: tournamentError } = await supabase
+          .from('tournaments')
+          .insert([{ name, description, created_by: user?.id, start_date: startDate, max_players: maxPlayersValue, max_rounds: maxRoundsValue, best_of: bestOfValue, format: tournamentType }])
+          .select()
+          .single();
+        if (tournamentError) throw tournamentError;
+        navigation.navigate('TournamentDetails', { id: tournament.id });
+      }
+
+
     } catch (error: any) {
       setError(error.message);
       Alert.alert('Errore', error.message);
@@ -61,9 +113,29 @@ export default function CreateTournamentScreen() {
     setDatePickerVisible(false);
   };
 
+  const handleTournamentTypeChange = useCallback((itemValue) => {
+    setTournamentType(itemValue);
+    if (itemValue === 'swiss') {
+      const rounds = calculateSwissRounds(parseInt(maxPlayers) || null);
+      setMaxRounds(rounds ? rounds.toString() : '');
+    } else if (itemValue === 'round-robin') {
+      if (maxPlayers) {
+        const players = parseInt(maxPlayers, 10);
+        if (!isNaN(players) && players > 0) {
+          setMaxRounds((players - 1).toString());
+        } else {
+          setMaxRounds(''); // Clear maxRounds if maxPlayers is invalid
+        }
+      } else {
+        setMaxRounds(''); // Clear maxRounds if maxPlayers is empty
+      }
+    }
+  }, [maxPlayers, setMaxRounds, setTournamentType]);
+
+
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
-      <Text style={[styles.title, { color: theme.text }]}>Crea Torneo</Text>
+      <Text style={[styles.title, { color: theme.text }]}>{isEditing ? 'Modifica Torneo' : 'Crea Torneo'}</Text>
       {error && (
         <View style={styles.errorContainer}>
           <Text style={styles.error}>{error}</Text>
@@ -78,6 +150,19 @@ export default function CreateTournamentScreen() {
           onChangeText={setName}
           required
         />
+
+        <Text style={[styles.label, { color: theme.text }]}>Tournament Type</Text>
+        <Picker
+          selectedValue={tournamentType}
+          onValueChange={handleTournamentTypeChange}
+          style={[styles.picker, { backgroundColor: theme.inputBackground, color: theme.text }]}
+          itemStyle={{ color: theme.text }}
+        >
+          <Picker.Item label="Select an option" value={null} />
+          <Picker.Item label="Swiss Tournament" value="swiss" />
+          <Picker.Item label="Round-Robin" value="round-robin" />
+        </Picker>
+
         <Text style={[styles.label, { color: theme.text }]}>Description</Text>
         <TextInput
           style={[styles.input, { backgroundColor: theme.inputBackground, color: theme.text, borderColor: theme.borderColor }]}
@@ -135,15 +220,16 @@ export default function CreateTournamentScreen() {
           keyboardType="number-pad"
           value={maxRounds}
           onChangeText={setMaxRounds}
-          placeholder="Unlimited"
+          placeholder={tournamentType === 'round-robin' ? 'N/A for Round-Robin' : (tournamentType === 'swiss' ? 'Calculated Automatically (Min: ' + maxRounds + ')' : 'Unlimited')}
           placeholderTextColor="#aaa"
+          editable={tournamentType !== 'round-robin'}
         />
         <Text style={[styles.label, { color: theme.text }]}>Best of</Text>
         <Picker
           selectedValue={bestOf}
           onValueChange={(itemValue) => setBestOf(itemValue)}
-          style={[styles.picker, { backgroundColor: theme.inputBackground, color: theme.text }]} // Aggiunto stile al picker
-          itemStyle={{ color: theme.text }} // Stile per gli elementi del picker
+          style={[styles.picker, { backgroundColor: theme.inputBackground, color: theme.text }]}
+          itemStyle={{ color: theme.text }}
         >
           <Picker.Item label="Select an option" value={null} />
           <Picker.Item label="Best of 1" value="1" />
@@ -152,7 +238,7 @@ export default function CreateTournamentScreen() {
         </Picker>
 
         <TouchableOpacity style={[styles.button, { backgroundColor: theme.buttonBackground }]} onPress={handleSubmit}>
-          <Text style={[styles.buttonText, { color: theme.buttonText }]}>Crea Torneo</Text>
+          <Text style={[styles.buttonText, { color: theme.buttonText }]}>{isEditing ? 'Salva Modifiche' : 'Crea Torneo'}</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -163,12 +249,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#f0f0f0', // Sarà sovrascritto dal tema
+    backgroundColor: '#f0f0f0',
   },
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#333', // Sarà sovrascritto dal tema
+    color: '#333',
     marginBottom: 30,
     textAlign: 'center',
   },
@@ -178,36 +264,36 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333', // Sarà sovrascritto dal tema
+    color: '#333',
     marginBottom: 5,
   },
   input: {
-    backgroundColor: 'white', // Sarà sovrascritto dal tema
+    backgroundColor: 'white',
     padding: 15,
     marginBottom: 10,
     borderRadius: 5,
     borderWidth: 1,
-    borderColor: '#ddd', // Sarà sovrascritto dal tema
+    borderColor: '#ddd',
   },
   selectButton: {
-    backgroundColor: 'white', // Sarà sovrascritto dal tema
+    backgroundColor: 'white',
     padding: 15,
     marginBottom: 10,
     borderRadius: 5,
     borderWidth: 1,
-    borderColor: '#ddd', // Sarà sovrascritto dal tema
+    borderColor: '#ddd',
   },
   selectButtonText: {
-    color: '#333', // Sarà sovrascritto dal tema
+    color: '#333',
   },
   button: {
-    backgroundColor: '#333', // Sarà sovrascritto dal tema
+    backgroundColor: '#333',
     padding: 15,
     borderRadius: 5,
     alignItems: 'center',
   },
   buttonText: {
-    color: 'white', // Sarà sovrascritto dal tema
+    color: 'white',
     fontWeight: 'bold',
   },
   errorContainer: {
@@ -231,7 +317,7 @@ const styles = StyleSheet.create({
   },
   modalView: {
     margin: 20,
-    backgroundColor: 'white', // Sarà sovrascritto dal tema
+    backgroundColor: 'white',
     borderRadius: 20,
     padding: 35,
     alignItems: 'center',
@@ -257,6 +343,5 @@ const styles = StyleSheet.create({
   },
   picker: {
     marginBottom: 10,
-    // Aggiungi altri stili se necessario
   },
 });
