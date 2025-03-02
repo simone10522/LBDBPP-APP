@@ -10,12 +10,12 @@ import RegisterScreen from './src/screens/RegisterScreen';
 import ManageParticipantsScreen from './src/screens/ManageParticipantsScreen';
 import ManageDecksScreen from './src/screens/ManageDecksScreen';
 import CreateTournamentScreen from './src/screens/CreateTournamentScreen';
-import EditTournamentScreen from './src/screens/EditTournamentScreen';
 import LeaderboardScreen from './src/screens/LeaderboardScreen';
 import ProfileScreen from './src/screens/ProfileScreen'; // Import ProfileScreen
 import BottomNavigationBar from './src/components/BottomNavigationBar'; // Import BottomNavigationBar
 import TournamentPage from './src/screens/TournamentPage'; // Import TournamentPage
 import RankedScreen from './src/screens/RankedScreen'; // Import RankedScreen
+import MyDecksScreen from './src/screens/MyDecksScreen';
 
 // Import React Native components for UI and styling
 import { Platform, View, StyleSheet, SafeAreaView } from 'react-native';
@@ -89,8 +89,6 @@ const App = () => {
             <Stack.Screen name="ManageDecks" component={ManageDecksScreen} />
             {/* Screen for creating a new tournament */}
             <Stack.Screen name="CreateTournament" component={CreateTournamentScreen} />
-            {/* Screen for editing an existing tournament */}
-            <Stack.Screen name="EditTournament" component={EditTournamentScreen} />
             {/* Screen for view leaderboard tournament */}
             <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
             {/* Profile Screen */}
@@ -99,6 +97,7 @@ const App = () => {
             <Stack.Screen name="TournamentPage" component={TournamentPage} />
             {/* Ranked Screen */}
             <Stack.Screen name="RankedScreen" component={RankedScreen} />
+            <Stack.Screen name="MyDecks" component={MyDecksScreen} />
           </Stack.Navigator>
         </SafeAreaView>
         <BottomNavigationBar />

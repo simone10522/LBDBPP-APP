@@ -177,17 +177,19 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
   };
 
   const validateScore = (score: string): string => {
-    const parsedScore = parseInt(score, 10) || 0;
-    if (bestOf === 5 && parsedScore > 3) {
-      return '3';
+    let parsedScore = parseInt(score, 10) || 0;
+
+    if (bestOf === 1) {
+      parsedScore = Math.min(parsedScore, 1);
+    } else if (bestOf === 3) {
+      parsedScore = Math.min(parsedScore, 2);
+    } else if (bestOf === 5) {
+      parsedScore = Math.min(parsedScore, 3);
+    } else if (bestOf !== null) {
+      parsedScore = Math.min(parsedScore, maxScore);
     }
-    if (bestOf === 3 && parsedScore > 2) {
-      return '2';
-    }
-     if (bestOf !== 3 && bestOf !== 5 && parsedScore > maxScore) {
-      return String(maxScore);
-    }
-    return score;
+
+    return String(parsedScore);
   };
 
 
@@ -201,6 +203,15 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
         scoreLimit = 2;
       } else if (bestOf === 5) {
         scoreLimit = 3;
+      }
+
+      if (bestOf === 1 && (parsedPlayer1Score > 1 || parsedPlayer2Score > 1)) {
+        Alert.alert(
+          "Invalid Score",
+          "For best of 1, scores cannot exceed 1.",
+          [{ text: "OK" }]
+        );
+        return;
       }
 
       if (parsedPlayer1Score > scoreLimit || parsedPlayer2Score > scoreLimit) {
@@ -231,10 +242,10 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
       }
 
 
-      if (parsedPlayer1Score + parsedPlayer2Score > (bestOf === 5 ? 5 : bestOf === 3 ? 3 : maxScore * 2 )) {
+      if (parsedPlayer1Score + parsedPlayer2Score > (bestOf === 5 ? 5 : bestOf === 3 ? 3 : bestOf === 1 ? 1 : maxScore * 2 )) {
         Alert.alert(
           "Invalid Score",
-          `The sum of scores cannot exceed the best of value (${bestOf === 5 ? 5 : bestOf === 3 ? 3 : maxScore * 2 }). Please adjust the scores.`,
+          `The sum of scores cannot exceed the best of value (${bestOf === 5 ? 5 : bestOf === 3 ? 3 : bestOf === 1 ? 1 : maxScore * 2 }). Please adjust the scores.`,
           [{ text: "OK" }]
         );
         return;

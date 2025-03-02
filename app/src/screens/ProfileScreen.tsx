@@ -117,9 +117,22 @@ const ProfileScreen = () => {
     setIsDarkMode(!isDarkMode);
   };
 
+  const goToMyDeck = () => {
+    navigation.navigate('MyDecks');
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-      <Text style={[styles.title, { color: theme.text }]}>Profile Settings</Text>
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: theme.text }]}>Profile Settings</Text>
+        <Switch
+          trackColor={{ false: '#767577', true: '#81b0ff' }}
+          thumbColor={isDarkMode ? '#f5dd4b' : '#f4f3f4'}
+          ios_backgroundColor="#3e3e3e"
+          onValueChange={toggleTheme}
+          value={isDarkMode}
+        />
+      </View>
 
       {loading ? (
         <Text style={[styles.text, { color: theme.text }]}>Loading profile...</Text>
@@ -160,7 +173,7 @@ const ProfileScreen = () => {
 
           {/* Match Password field */}
           <View style={styles.inputGroup}>
-            <Text style={[styles.inputLabel, { color: theme.text }]}>Match password</Text>
+            <Text style={[styles.inputLabel, { color: theme.text }]}>Codice Amico</Text>
             <TextInput
               style={[styles.input, { backgroundColor: theme.inputBackground, color: theme.text }]}
               value={matchPassword}
@@ -170,17 +183,10 @@ const ProfileScreen = () => {
             />
           </View>
 
-          {/* Theme Switch */}
-          <View style={styles.themeSwitchContainer}>
-            <Text style={[styles.themeSwitchLabel, { color: theme.text }]}>{isDarkMode ? 'Dark Mode' : 'Light Mode'}</Text>
-            <Switch
-              trackColor={{ false: '#767577', true: '#81b0ff' }}
-              thumbColor={isDarkMode ? '#f5dd4b' : '#f4f3f4'}
-              ios_backgroundColor="#3e3e3e"
-              onValueChange={toggleTheme}
-              value={isDarkMode}
-            />
-          </View>
+          {/* My Deck Button */}
+          <TouchableOpacity style={[styles.myDeckButton, { backgroundColor: theme.buttonBackground }]} onPress={goToMyDeck}>
+            <Text style={[styles.myDeckButtonText, { color: theme.buttonText }]}>My Deck</Text>
+          </TouchableOpacity>
 
           <View style={styles.buttonContainer}>
             <TouchableOpacity style={[styles.saveButton, { backgroundColor: theme.buttonBackground }]} onPress={handleSaveProfile} disabled={loading}>
@@ -202,10 +208,16 @@ const styles = StyleSheet.create({
     padding: 20,
     alignItems: 'center',
   },
+  header: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 20,
   },
   text: {
     fontSize: 16,
@@ -289,6 +301,17 @@ const styles = StyleSheet.create({
   },
   themeSwitchLabel: {
     fontSize: 16,
+  },
+  myDeckButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 8,
+    marginTop: 10,
+  },
+  myDeckButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 });
 
