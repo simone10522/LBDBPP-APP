@@ -1,21 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TextInput, Dimensions, Modal, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Image, TextInput, Modal, TouchableOpacity, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { lightPalette, darkPalette } from '../context/themes'; // Importa palette colori (ma non ThemeContext)
+import { lightPalette, darkPalette } from '../context/themes';
+import { useAuth } from '../hooks/useAuth';
+import Accordion from '../components/Accordion'; // Import the Accordion component
 
 const MyDecksScreen = () => {
-  const [setsData, setSetsData] = useState([]); // Array to hold sets data
+  const [setsData, setSetsData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchText, setSearchText] = useState('');
-  const theme = 'dark'; // Tema predefinito: dark
-  const currentPalette = theme === 'dark' ? darkPalette : lightPalette; // Usa darkPalette
-  const [imageCache, setImageCache] = useState({}); // In-memory cache for images
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedCard, setSelectedCard] = useState(null);
+  const [animatedValue] = useState(new Animated.Value(0));
+  const [selectedTypes, setSelectedTypes] = useState([]);
+
+  const { isDarkMode } = useAuth();
+  const currentPalette = isDarkMode ? darkPalette : lightPalette;
 
   useEffect(() => {
-    fetchCardSets(); // Fetch sets instead of combined cards
+    fetchCardSets();
   }, []);
 
   const fetchCardSets = async () => {
@@ -36,38 +40,35 @@ const MyDecksScreen = () => {
         const setData = await response.json();
         const cardsData = setData?.cards || [];
 
-        const filteredCards = searchText
-          ? cardsData.filter(card =>
-              card.name && card.name.toLowerCase().includes(searchText.toLowerCase())
-            )
-          : cardsData;
+        console.log('Initial cardsData length:', cardsData.length);
 
-        if (filteredCards.length > 0) { // Only add set if it has cards after filtering
+        let filteredCards = cardsData;
+
+        console.log('searchText:', searchText, 'selectedTypes:', selectedTypes);
+
+        if (searchText) {
+          filteredCards = filteredCards.filter(card =>
+            card.name && card.name.toLowerCase().includes(searchText.toLowerCase())
+          );
+          console.log('filteredCards length after searchText:', filteredCards.length);
+        }
+
+        if (selectedTypes.length > 0) {
+          filteredCards = filteredCards.filter(card => {
+            if (!card.types || !Array.isArray(card.types)) {
+              return false;
+            }
+            return selectedTypes.every(type => card.types.includes(type));
+          });
+          console.log('filteredCards length after selectedTypes:', filteredCards.length);
+        }
+
+        if (filteredCards.length > 0) {
           const setWithCachedImages = {
-            setName: setData.name, // Or setId if name is not needed
-            cards: await Promise.all(filteredCards.map(async card => {
-              const webpImage = `${card.image}/low.webp`;
-              if (imageCache[webpImage]) {
-                return { ...card, cachedImage: imageCache[webpImage] }; // Use cached image
-              } else {
-                // In a real app, you might want to actually check if the webp image exists
-                // For simplicity, we'll assume webp exists and fallback to png if it fails.
-                try {
-                  const response = await fetch(webpImage);
-                  if (response.ok) {
-                    imageCache[webpImage] = webpImage; // Cache webp image url
-                    return { ...card, cachedImage: webpImage };
-                  } else {
-                    const pngImage = `${card.image}/low.png`; // Fallback to png
-                    imageCache[pngImage] = pngImage; // Cache png image url for fallback
-                    return { ...card, cachedImage: pngImage };
-                  }
-                } catch (error) {
-                  const pngImage = `${card.image}/low.png`; // Fallback to png on fetch error
-                  imageCache[pngImage] = pngImage; // Cache png image url for fallback
-                  return { ...card, cachedImage: pngImage };
-                }
-              }
+            setName: setData.name,
+            cards: filteredCards.map(card => ({
+              ...card,
+              cachedImage: `${card.image}/low.webp`,
             })),
           };
           fetchedSets.push(setWithCachedImages);
@@ -82,34 +83,96 @@ const MyDecksScreen = () => {
     }
   };
 
-
   useEffect(() => {
-    fetchCardSets(); // Refetch sets when searchText changes
-  }, [searchText]);
+    fetchCardSets();
+  }, [searchText, selectedTypes]);
 
   const handleCardPress = (card) => {
     setSelectedCard(card);
     setIsModalVisible(true);
+    Animated.sequence([
+      Animated.timing(animatedValue, {
+        toValue: 1.1,
+        duration: 200,
+        useNativeDriver: false,
+      }),
+      Animated.timing(animatedValue, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: false,
+      }),
+    ]).start();
   };
 
   const closeModal = () => {
-    setIsModalVisible(false);
+    Animated.timing(animatedValue, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: false,
+    }).start(() => setIsModalVisible(false));
   };
 
+  const handleTypeSelection = (type) => {
+    setSelectedTypes((prevSelectedTypes) => {
+      if (prevSelectedTypes.includes(type)) {
+        return prevSelectedTypes.filter((t) => t !== type);
+      } else {
+        return [...prevSelectedTypes, type];
+      }
+    });
+  };
+
+  const handleAllSelection = () => {
+    setSelectedTypes([]);
+  };
+
+  const cardTypes = ['Grass', 'Fire', 'Water', 'Lightning', 'Psychic', 'Fighting', 'Darkness', 'Metal', 'Fairy', 'Dragon', 'Colorless'];
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: currentPalette.background }]}>
       <TextInput
-        style={[styles.searchInput, {
-          backgroundColor: currentPalette.inputBackground,
-          borderColor: currentPalette.borderColor,
-          color: currentPalette.text
-        }]}
+        style={[styles.searchInput, { backgroundColor: currentPalette.inputBackground, borderColor: currentPalette.borderColor, color: currentPalette.text }]}
         placeholder="Search for cards..."
-        placeholderTextColor={theme === 'dark' ? '#aaa' : '#888'}
+        placeholderTextColor={isDarkMode ? '#aaa' : '#888'}
         value={searchText}
         onChangeText={setSearchText}
       />
+
+      {/* Accordion for Type Filters */}
+      <Accordion title="Types">
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={[styles.typeFilterContainer, { backgroundColor: currentPalette.cardBackground }]}
+        >
+          <TouchableOpacity
+            key="all"
+            style={[
+              styles.typeButton,
+              styles.allButton,
+              selectedTypes.length === 0 && styles.typeButtonSelected,
+              { backgroundColor: currentPalette.buttonBackground }
+            ]}
+            onPress={handleAllSelection}
+          >
+            <Text style={[styles.typeButtonText, { color: currentPalette.buttonText }]}>All</Text>
+          </TouchableOpacity>
+          {cardTypes.map((type) => (
+            <TouchableOpacity
+              key={type}
+              style={[
+                styles.typeButton,
+                selectedTypes.includes(type) && styles.typeButtonSelected,
+                { backgroundColor: currentPalette.buttonBackground }
+              ]}
+              onPress={() => handleTypeSelection(type)}
+            >
+              <Text style={[styles.typeButtonText, { color: currentPalette.buttonText }]}>{type}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </Accordion>
+
       {loading ? (
         <Text style={[styles.text, { color: currentPalette.text }]}>Loading cards...</Text>
       ) : error ? (
@@ -147,19 +210,30 @@ const MyDecksScreen = () => {
         onRequestClose={closeModal}
       >
         <TouchableOpacity
-          style={styles.modalOverlay}
+          style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}
           activeOpacity={1}
           onPress={closeModal}
         >
-          <View style={styles.modalContent}>
+          <Animated.View style={[
+            styles.modalContent,
+            {
+              backgroundColor: currentPalette.cardBackground,
+              transform: [{
+                scale: animatedValue.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.5, 1],
+                }),
+              }],
+            },
+          ]}>
             {selectedCard && (
               <Image
-                source={{ uri: selectedCard.image }} // Use high-resolution image here
+                source={{ uri: selectedCard.image + "/low.webp" }}
                 style={styles.fullSizeCardImage}
                 resizeMode="contain"
               />
             )}
-          </View>
+          </Animated.View>
         </TouchableOpacity>
       </Modal>
     </SafeAreaView>
@@ -177,14 +251,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   scrollViewContent: {
-    flexDirection: 'column', // Change to column to stack sets vertically
-    paddingBottom: 20, // Add padding at the bottom for better scroll view aesthetics
+    flexDirection: 'column',
+    paddingBottom: 20,
   },
   setContainer: {
-    marginBottom: 0, // Spacing will be handled by setSpacing style
+    marginBottom: 0,
   },
   setSpacing: {
-    marginTop: 20, // Adds vertical space between sets
+    marginTop: 20,
   },
   setLabel: {
     fontSize: 18,
@@ -226,20 +300,39 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)', // Semi-transparent background
   },
   modalContent: {
-    backgroundColor: 'white',
     padding: 0,
     borderRadius: 5,
     width: '90%',
-    maxWidth: 400, // Optional max width for larger screens
+    maxWidth: 400,
   },
   fullSizeCardImage: {
     width: '100%',
     height: undefined,
-    aspectRatio: 3 / 4, // Maintain card aspect ratio
+    aspectRatio: 3 / 4,
   },
+  typeFilterContainer: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 5,
+    margin: 5,
+  },
+  typeButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 6,
+  },
+  typeButtonSelected: {
+    backgroundColor: 'blue', // Change to your selected color
+  },
+  typeButtonText: {
+    fontSize: 14,
+  },
+  allButton: {
+    backgroundColor: 'grey',
+  }
 });
 
 export default MyDecksScreen;
