@@ -16,6 +16,7 @@ import BottomNavigationBar from './src/components/BottomNavigationBar'; // Impor
 import TournamentPage from './src/screens/TournamentPage'; // Import TournamentPage
 import RankedScreen from './src/screens/RankedScreen'; // Import RankedScreen
 import MyDecksScreen from './src/screens/MyDecksScreen';
+import Decklistscreen from './src/screens/Decklistscreen';
 
 // Import React Native components for UI and styling
 import { Platform, View, StyleSheet, SafeAreaView } from 'react-native';
@@ -98,6 +99,7 @@ const App = () => {
             {/* Ranked Screen */}
             <Stack.Screen name="RankedScreen" component={RankedScreen} />
             <Stack.Screen name="MyDecks" component={MyDecksScreen} />
+            <Stack.Screen name="Decklistscreen" component={Decklistscreen} />
           </Stack.Navigator>
         </SafeAreaView>
         <BottomNavigationBar />

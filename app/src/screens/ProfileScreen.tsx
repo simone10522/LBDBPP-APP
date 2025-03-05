@@ -117,8 +117,8 @@ const ProfileScreen = () => {
     setIsDarkMode(!isDarkMode);
   };
 
-  const goToMyDeck = () => {
-    navigation.navigate('MyDecks');
+  const goToDecklistscreen = () => {
+    navigation.navigate('Decklistscreen');
   };
 
   return (
@@ -184,7 +184,7 @@ const ProfileScreen = () => {
           </View>
 
           {/* My Deck Button */}
-          <TouchableOpacity style={[styles.myDeckButton, { backgroundColor: theme.buttonBackground }]} onPress={goToMyDeck}>
+          <TouchableOpacity style={[styles.myDeckButton, { backgroundColor: theme.buttonBackground }]} onPress={goToDecklistscreen}>
             <Text style={[styles.myDeckButtonText, { color: theme.buttonText }]}>My Deck</Text>
           </TouchableOpacity>
 
