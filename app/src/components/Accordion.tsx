@@ -1,7 +1,7 @@
 import React, { useState, ReactNode } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { ChevronDown } from 'lucide-react-native'; // Assuming you have lucide-react-native installed
-import { lightPalette, darkPalette } from '../context/themes'; // Import lightPalette and darkPalette
+import { View, Text, TouchableOpacity, StyleSheet, Pressable } from 'react-native';
+import { ChevronDown } from 'lucide-react-native';
+import { lightPalette, darkPalette } from '../context/themes';
 import { useAuth } from '../hooks/useAuth';
 
 interface AccordionProps {
@@ -20,15 +20,18 @@ const Accordion: React.FC<AccordionProps> = ({ title, children }) => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.cardBackground }]}>
-      <TouchableOpacity onPress={toggleAccordion} style={styles.header}>
+    <View style={[styles.container, { borderBottomColor: theme.borderColor }]}>
+      <Pressable onPress={toggleAccordion} style={({ pressed }) => [
+        styles.header,
+        { backgroundColor: pressed ? theme.secondary : 'transparent' }
+      ]}>
         <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
         <ChevronDown
-          size={24}
+          size={20}
           color={theme.text}
           style={{ transform: [{ rotate: expanded ? '180deg' : '0deg' }] }}
         />
-      </TouchableOpacity>
+      </Pressable>
       <View style={[styles.content, { display: expanded ? 'flex' : 'none' }]}>
         {children}
       </View>
@@ -38,24 +41,22 @@ const Accordion: React.FC<AccordionProps> = ({ title, children }) => {
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 10,
-    borderRadius: 5,
-    overflow: 'hidden', // Ensures the content respects the border radius
+    borderBottomWidth: 1,
+    marginBottom: 0, // Remove margin, handle in parent
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
   },
   title: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 14, // Slightly smaller font
+    fontWeight: '500', // Less bold
   },
   content: {
-    // Removed height: 0 and overflow: hidden
-    // overflow: 'hidden', // Keep this if you want to clip content that exceeds the container
-    padding: 10, // Add some padding to the content
+    padding: 10,
   },
 });
 
