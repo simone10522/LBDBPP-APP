@@ -4,6 +4,7 @@ export const lightPalette = {
   text: '#000000',
   inputBackground: '#F0F0F0',
   buttonBackground: '#5DADE2',
+  buttonBackground2: 'green', // You can adjust this
   buttonText: '#FFFFFF',
   error: '#FF0000',
   borderColor: '#CCCCCC',
@@ -17,7 +18,8 @@ export const darkPalette = {
   background: '#121212',
   text: '#FFFFFF',
   inputBackground: '#333333',
-  buttonBackground: '#4a90e2', // You can adjust this
+  buttonBackground: '#333333', // You can adjust this
+  buttonBackground2: 'green', // You can adjust this
   button: '#3700B3', // Add the button color
   buttonText: '#FFFFFF',
   error: '#FF0000',

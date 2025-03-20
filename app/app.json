@@ -9,7 +9,7 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#grey"
+      "backgroundColor": "#383838"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -21,7 +21,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#grey"
+        "backgroundColor": "#969696",
       },
       "softwareKeyboardLayoutMode": "pan",
       "package": "com.example.lbdbpp",

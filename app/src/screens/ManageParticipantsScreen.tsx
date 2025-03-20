@@ -226,11 +226,6 @@ export default function ManageParticipantsScreen() {
       {loading && <Text style={{ color: palette.text }}>Caricamento...</Text>}
       {user && (
         <View style={styles.actions}>
-          {!isParticipating && (
-            <TouchableOpacity onPress={handleJoinTournament} style={[styles.joinButton, { backgroundColor: palette.buttonBackground }]} disabled={isTournamentActive}>
-              <Text style={[styles.joinButtonText, { color: palette.buttonText }]}>Partecipa al Torneo</Text>
-            </TouchableOpacity>
-          )}
           {isParticipating && (
             <TouchableOpacity onPress={handleLeaveTournament} style={[styles.leaveButton, { backgroundColor: palette.buttonBackground }]} disabled={isTournamentActive}>
               <Text style={[styles.leaveButtonText, { color: palette.buttonText }]}>Esci dal Torneo</Text>

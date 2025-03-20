@@ -1,11 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, Image, TextInput, Modal, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Image, TextInput, Modal, TouchableOpacity, Animated, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { lightPalette, darkPalette } from '../context/themes';
 import { useAuth } from '../hooks/useAuth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import cardDataSetsA1 from '../../assets/cards/A1.json';
+import cardDataSetsA1a from '../../assets/cards/A1a.json';
+import cardDataSetsA2a from '../../assets/cards/A2a.json';
+import cardDataSetsA2 from '../../assets/cards/A2.json';
+import cardDataSetsPA from '../../assets/cards/PA.json';
 
 const MyDecksScreen = () => {
   const [setsData, setSetsData] = useState([]);
@@ -33,6 +38,8 @@ const MyDecksScreen = () => {
     const { deckNumber } = route.params || {};
 
   useEffect(() => {
+    console.log("MyDecksScreen useEffect: route.params =", route.params); // ADDED LOG
+    console.log("MyDecksScreen useEffect: deckNumber =", deckNumber);     // ADDED LOG
     fetchCardSets();
   }, []);
 
@@ -70,54 +77,55 @@ const MyDecksScreen = () => {
     setLoading(true);
     setError(null);
     try {
-      const cacheKey = 'cardSetsCache';
-      const cachedData = await AsyncStorage.getItem(cacheKey);
-      const now = Date.now();
-
-      if (cachedData) {
-        const { data, timestamp } = JSON.parse(cachedData);
-        if (now - timestamp < 86400000) {
-          setSetsData(data);
-          setLoading(false);
-          return;
+      const sets = [
+        {
+          setName: "Genetic Apex",
+          cards: cardDataSetsA1.cards.map(card => ({
+            ...card,
+            cachedImage: card.image + "/low.webp",
+          }))
+        },
+        {
+          setName: "Mythical Island",
+          cards: cardDataSetsA1a.cards.map(card => ({
+            ...card,
+            cachedImage: card.image + "/low.webp",
+          }))
+        },
+        {
+          setName: "Triumphant Light",
+          cards: cardDataSetsA2a.cards.map(card => ({
+            ...card,
+            cachedImage: card.image + "/low.webp",
+          }))
+        },
+        {
+          setName: "Space-Time Smackdown",
+          cards: cardDataSetsA2.cards.map(card => ({
+            ...card,
+            cachedImage: card.image + "/low.webp",
+          }))
+        },
+        {
+          setName: "Promos-A Old",
+          cards: cardDataSetsPA.cards.map(card => ({
+            ...card,
+            cachedImage: card.image + "/low.webp",
+          }))
         }
-      }
+      ];
 
-      const setIds = ['A1', 'A2', 'A1a', 'A2a', 'P-A'];
-      const fetchedSets = [];
+      let filteredSets = sets;
 
-      for (const setId of setIds) {
-        const url = `https://api.tcgdex.net/v2/en/sets/${setId}`;
-        console.log('Fetching URL:', url);
-
-        const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const setData = await response.json();
-        const cardsData = setData?.cards || [];
-
-        let filteredCards = cardsData;
-
-        if (searchText) {
-          filteredCards = filteredCards.filter(card =>
+      if (searchText) {
+        filteredSets = sets.map(set => ({
+          ...set,
+          cards: set.cards.filter(card =>
             card.name && card.name.toLowerCase().includes(searchText.toLowerCase())
-          );
-        }
-
-        if (filteredCards.length > 0) {
-          const setWithCachedImages = {
-            setName: setData.name,
-            cards: filteredCards.map(card => ({
-              ...card,
-              cachedImage: `${card.image}/low.webp`,
-            })),
-          };
-          fetchedSets.push(setWithCachedImages);
-        }
+          )
+        })).filter(set => set.cards.length > 0);
       }
-      setSetsData(fetchedSets);
-      await AsyncStorage.setItem(cacheKey, JSON.stringify({ data: fetchedSets, timestamp: now }));
+      setSetsData(filteredSets);
 
     } catch (err) {
       console.error("Error fetching cards:", err);
@@ -173,6 +181,8 @@ const MyDecksScreen = () => {
   };
 
     const handleSaveDeck = async () => {
+    console.log("handleSaveDeck: deckNumber =", deckNumber);
+    console.log("handleSaveDeck: route.params =", route.params);
     if (!user) {
       console.error("User not authenticated.");
       return;
@@ -183,10 +193,11 @@ const MyDecksScreen = () => {
       return;
     }
 
-        if (!deckNumber) {
-            console.error("Deck number not provided for editing.");
-            return;
-        }
+        // REMOVED THIS CHECK - Now handle both create and edit cases
+        // if (!deckNumber) {
+        //     console.error("Deck number not provided for editing.");
+        //     return;
+        // }
 
     try {
       const deckData = {
@@ -194,23 +205,68 @@ const MyDecksScreen = () => {
         cards: currentDeck,
       };
 
-      const { error: updateError } = await supabase
-        .from('profiles')
-                .update({ [`DECK_LIST_${deckNumber}`]: deckData })
-        .eq('id', user.id);
+      if (deckNumber) {
+        // Editing existing deck
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ [`DECK_LIST_${deckNumber}`]: deckData })
+          .eq('id', user.id);
 
-      if (updateError) {
-        console.error("Error saving deck to Supabase:", updateError);
-        return;
+        if (updateError) {
+          console.error("Error saving deck to Supabase (edit):", updateError);
+          return;
+        }
+
+        console.log(`Deck "${deckName}" updated to DECK_LIST_${deckNumber}`);
+        Alert.alert("Success", `Deck "${deckName}" updated!`);
+
+      } else {
+        // Creating new deck
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (profileError) {
+          console.error("Error fetching profile for new deck:", profileError);
+          return;
+        }
+
+        let availableDeckSlot = null;
+        for (let i = 1; i <= 10; i++) {
+          if (!profile[`DECK_LIST_${i}`]) {
+            availableDeckSlot = i;
+            break;
+          }
+        }
+
+        if (availableDeckSlot) {
+          const { error: insertError } = await supabase
+            .from('profiles')
+            .update({ [`DECK_LIST_${availableDeckSlot}`]: deckData })
+            .eq('id', user.id);
+
+          if (insertError) {
+            console.error("Error saving new deck to Supabase:", insertError);
+            return;
+          }
+
+          console.log(`New deck "${deckName}" saved to DECK_LIST_${availableDeckSlot}`);
+          Alert.alert("Success", `New deck "${deckName}" created!`);
+        } else {
+          Alert.alert("Deck List Full", "You have reached the maximum number of decks (10). Please delete an existing deck to create a new one.");
+          return;
+        }
       }
 
-      console.log(`Deck "${deckName}" saved to DECK_LIST_${deckNumber}`);
-      alert(`Deck "${deckName}" updated`);
+
       closeSaveModal();
       navigation.navigate('Decklistscreen');
 
     } catch (error) {
       console.error("Error saving deck:", error);
+      Alert.alert("Error", "Failed to save deck. Please try again.");
     }
   };
 

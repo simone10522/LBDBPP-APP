@@ -1,11 +1,9 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
-import { Platform } from 'react-native';
-import Constants from 'expo-constants';
-import { persist, createJSONStorage } from 'zustand/middleware'; // Import persist middleware
+import { Platform, AppState } from 'react-native';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import { useEffect, useRef } from 'react';
 
 interface AuthState {
   user: any | null;
@@ -14,142 +12,111 @@ interface AuthState {
   setLoading: (loading: boolean) => void;
   isDarkMode: boolean;
   setIsDarkMode: (isDarkMode: boolean) => void;
+  userId: string | null;
 }
 
 export const useAuth = create<AuthState>()(
-  persist( // Wrap with persist
+  persist(
     (set) => ({
       user: null,
-      setUser: (user) => set({ user }),
+      setUser: (user) => {
+        set({ user, userId: user ? user.id : null });
+      },
       loading: true,
-      setLoading: (loading) => set({ loading }),
-      isDarkMode: true, // Initial value
+      setLoading: (loading) => {
+        set({ loading });
+      },
+      isDarkMode: true,
       setIsDarkMode: (isDarkMode: boolean) => set({ isDarkMode }),
+      userId: null,
     }),
     {
-      name: 'auth-storage', // Choose a name for your storage
-      storage: createJSONStorage(() => AsyncStorage), // Use AsyncStorage
+      name: 'auth-storage',
+      storage: createJSONStorage(() => AsyncStorage),
     }
   )
 );
 
-// ... (rest of your registerForPushNotificationsAsync function and onAuthStateChange logic) ...
+const updateUserStatus = async (userId: string, status: 'online' | 'offline') => {
+  if (userId) {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ status })
+        .eq('id', userId);
 
-// Remove the loadTheme function.  The persist middleware handles loading.
+      if (error) {
+        console.error("Error updating user status:", error);
+      } else {
+        console.log(`User status updated to ${status}`);
+      }
+    } catch (err) {
+      console.error("Exception during status update:", err);
+    }
+  }
+};
 
 supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("onAuthStateChange: Starting auth state change process");
-      useAuth.getState().setLoading(true);
-      if (session) {
-        useAuth.getState().setUser(session.user);
-        try {
-          await AsyncStorage.setItem('supabase.auth.session', JSON.stringify(session));
-          console.log("onAuthStateChange: Session saved to AsyncStorage");
-        } catch (error) {
-          console.error("onAuthStateChange: Error saving session:", error);
-        }
+  useAuth.getState().setLoading(true);
 
-        // Push notification logic (re-introduced with logging and error handling)
-        try {
-          console.log("onAuthStateChange: Attempting to register for push notifications");
-          const pushToken = await registerForPushNotificationsAsync();
-          console.log("onAuthStateChange: Push token registration result:", pushToken);
-
-          if (pushToken) {
-            console.log("onAuthStateChange: Attempting to update profile with push token");
-            console.log("onAuthStateChange: About to call supabase update...");
-            supabase
-              .from('profiles')
-              .update({ push_token: pushToken })
-              .eq('id', session.user.id)
-              .then((response) => {
-                if (response.error) {
-                  console.error("onAuthStateChange: Error updating profile with push token (in then block):", response.error);
-                  console.log("onAuthStateChange: Profile update failed in then block"); // Explicit error log
-                } else {
-                  console.log("onAuthStateChange: Profile updated successfully with push token (in then block):", response.data);
-                  console.log("onAuthStateChange: Profile update successful in then block"); // Explicit success log
-                }
-              })
-              .catch(error => {
-                console.error("onAuthStateChange: Error updating profile with push token (in catch block):", error);
-                console.log("onAuthStateChange: Profile update failed in catch block"); // Explicit error log
-              });
-          }
-        } catch (notificationError) {
-          console.error("onAuthStateChange: Error during push notification registration/update:", notificationError);
-        }
-
-
-      } else {
-        console.log("onAuthStateChange: User logged out - Attempting to remove push token"); // Log for logout start
-        const previousUser = useAuth.getState().user; // Get the current user before setting to null
-        console.log("onAuthStateChange: Previous user before logout:", previousUser); // Log previous user info
-        if (previousUser) {
-          console.log("onAuthStateChange: Previous user exists, proceeding with push token removal"); // Log if previous user exists
-          supabase
-            .from('profiles')
-            .update({ push_token: null })
-            .eq('id', previousUser.id)
-            .then(response => {
-              if (response.error) {
-                console.error("onAuthStateChange: Error removing push token on logout:", response.error);
-                console.log("onAuthStateChange: Push token removal failed - error response"); // Log error response
-              } else {
-                console.log("onAuthStateChange: Push token removed from profile on logout - success");
-                console.log("onAuthStateChange: Push token removal successful:", response.data); // Log success response
-              }
-            })
-            .catch(error => {
-              console.error("onAuthStateChange: Error removing push token on logout (catch block):", error);
-              console.log("onAuthStateChange: Push token removal failed - catch block error"); // Log catch block error
-            });
-        } else {
-          console.log("onAuthStateChange: No previous user found on logout, skipping push token removal"); // Log if no previous user
-        }
-        useAuth.getState().setUser(null);
-        try {
-          await AsyncStorage.removeItem('supabase.auth.session');
-          console.log("onAuthStateChange: Session removed from AsyncStorage (logout)");
-        } catch (error) {
-          console.error("onAuthStateChange: Error removing session:", error);
-        }
-      }
-      useAuth.getState().setLoading(false);
-      console.log("onAuthStateChange: Auth state change process completed"); // Log at the end of the function
-    });
-
-    async function registerForPushNotificationsAsync() {
-      console.log("registerForPushNotificationsAsync: Starting push token registration");
-      let token;
-
-      if (Platform.OS === 'android') {
-        await Notifications.setNotificationChannelAsync('default', {
-          name: 'default',
-          importance: Notifications.AndroidImportance.MAX,
-          vibrationPattern: [0, 250, 250, 250],
-          lightColor: '#FF231F7C',
-        });
-      }
-
-      if (Device.isDevice) {
-        const { status: existingStatus } = await Notifications.getPermissionsAsync();
-        let finalStatus = existingStatus;
-        if (existingStatus !== 'granted') {
-          const { status } = await Notifications.requestPermissionsAsync();
-          finalStatus = status;
-        }
-        if (finalStatus !== 'granted') {
-          alert('Failed to get push token for push notification!');
-          return;
-        }
-        token = await Notifications.getExpoPushTokenAsync({
-          projectId: Constants.expoConfig?.extra?.eas.projectId,
-        });
-        console.log("registerForPushNotificationsAsync: Push token received:", token);
-      } else {
-        alert('Must use physical device for Push Notifications');
-      }
-
-      return token?.data;
+  if (session) {
+    useAuth.getState().setUser(session.user);
+    try {
+      await AsyncStorage.setItem('supabase.auth.session', JSON.stringify(session));
+    } catch (error) {
+      console.error("Error saving session:", error);
     }
+  } else {
+    useAuth.getState().setUser(null);
+    try {
+      await AsyncStorage.removeItem('supabase.auth.session');
+    } catch (error) {
+      console.error("Error removing session:", error);
+    }
+  }
+  useAuth.getState().setLoading(false);
+});
+
+// Custom hook to manage online status
+export const useOnlineStatus = () => {
+  const userId = useAuth((state) => state.userId);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+    useEffect(() => {
+    if (userId) {
+      // Update status to online when the component mounts (app opens)
+      updateUserStatus(userId, 'online');
+
+      // Set up the 5-minute ping
+      intervalRef.current = setInterval(() => {
+        updateUserStatus(userId, 'online');
+      }, 300000); // 5 minutes = 300000 milliseconds
+
+      // Add AppState change listener
+      const handleAppStateChange = (nextAppState: string) => {
+        if (nextAppState === 'active') {
+          updateUserStatus(userId, 'online');
+          // Reset the interval when app becomes active
+          if (intervalRef.current) clearInterval(intervalRef.current);
+          intervalRef.current = setInterval(() => {
+            updateUserStatus(userId, 'online');
+          }, 300000);
+        } else {
+          updateUserStatus(userId, 'offline');
+          // Clear the interval when app goes to background or closes
+          if (intervalRef.current) clearInterval(intervalRef.current);
+        }
+      };
+
+      const appStateSubscription = AppState.addEventListener('change', handleAppStateChange);
+
+      // Cleanup function
+      return () => {
+        if (intervalRef.current) clearInterval(intervalRef.current);
+        appStateSubscription.remove();
+        // Update status to offline when the component unmounts (app closes)
+        updateUserStatus(userId, 'offline');
+      };
+    }
+  }, [userId]);
+};

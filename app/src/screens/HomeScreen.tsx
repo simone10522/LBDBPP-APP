@@ -278,7 +278,7 @@ const HomeScreen = () => {
               onPressOut={() => resetButton(createButtonScale)}
             >
               <Animated.Text style={[styles.createButtonText, { transform: [{ scale: createButtonScale }], color: theme.buttonText }]}>
-                Crea Torneo
+                Create Tournament
               </Animated.Text>
             </TouchableOpacity>
           )}

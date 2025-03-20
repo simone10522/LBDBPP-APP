@@ -11,6 +11,7 @@ CREATE OR REPLACE FUNCTION generate_Robin_tournament_matches(tournament_id_param
       j integer;
       player1_id uuid;
       player2_id uuid;
+      match_password TEXT;
     BEGIN
       -- Get all participants for the tournament
       SELECT array_agg(participant_id) INTO participants_arr
@@ -40,8 +41,11 @@ CREATE OR REPLACE FUNCTION generate_Robin_tournament_matches(tournament_id_param
 
           -- Insert the match
           IF player1_id IS NOT NULL AND player2_id IS NOT NULL THEN
-            INSERT INTO matches (tournament_id, player1_id, player2_id, round)
-            VALUES (tournament_id_param, player1_id, player2_id, i);
+            -- Generate a random alphanumeric password
+            match_password := encode(gen_random_bytes(5), 'hex'); -- Generates a 10-character alphanumeric password
+
+            INSERT INTO matches (tournament_id, player1_id, player2_id, round, match_password)
+            VALUES (tournament_id_param, player1_id, player2_id, i, match_password);
           END IF;
         END LOOP;
 

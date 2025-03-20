@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../hooks/useAuth';
@@ -16,15 +16,12 @@ const Decklistscreen = () => {
   const [deckList, setDeckList] = useState(null);
   const [isDeckListVisible, setIsDeckListVisible] = useState(false);
   const [deckNames, setDeckNames] = useState({}); // Store deck names
+  const [loading, setLoading] = useState(false); // Add loading state
 
-  useEffect(() => {
-    fetchDeckCount();
-    fetchDeckNames();
-  }, [user]);
-
-  const fetchDeckCount = async () => {
+  const fetchDeckCount = useCallback(async () => {
     if (!user) return;
 
+    setLoading(true); // Set loading to true before fetching
     try {
       const { data: profile, error } = await supabase
         .from('profiles')
@@ -46,12 +43,15 @@ const Decklistscreen = () => {
       setDeckCount(count);
     } catch (error) {
       console.error("Error fetching deck count:", error);
+    } finally {
+      setLoading(false); // Set loading to false after fetching (success or error)
     }
-  };
+  }, [user]);
 
-  const fetchDeckNames = async () => {
+  const fetchDeckNames = useCallback(async () => {
     if (!user) return;
 
+    setLoading(true);
     try {
       const { data: profile, error } = await supabase
         .from('profiles')
@@ -74,8 +74,23 @@ const Decklistscreen = () => {
       setDeckNames(names);
     } catch (error) {
       console.error("Error fetching deck names:", error);
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    fetchDeckCount();
+    fetchDeckNames();
+
+    const intervalId = setInterval(() => {
+      fetchDeckCount();
+      fetchDeckNames();
+    }, 1000); // Fetch every 1 second
+
+    return () => clearInterval(intervalId); // Cleanup interval on unmount
+  }, [fetchDeckCount, fetchDeckNames]);
+
 
   const handleAddDeck = () => {
     navigation.navigate('MyDecks');
@@ -163,14 +178,15 @@ const Decklistscreen = () => {
     );
   };
 
-    const handleEditDeck = (deckNumber) => {
-        // Navigate to MyDecksScreen and pass the deckNumber as a parameter
-        navigation.navigate('MyDecks', { deckNumber: deckNumber });
-    };
+  const handleEditDeck = (deckNumber) => {
+    // Navigate to MyDecksScreen and pass the deckNumber as a parameter
+    navigation.navigate('MyDecks', { deckNumber: deckNumber });
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <Text style={[styles.title, { color: theme.text }]}>My Deck Lists</Text>
+
       {deckCount > 0 &&
         Array.from({ length: deckCount }, (_, i) => i + 1).map((deckNumber) => (
           <View key={deckNumber} style={styles.deckRow}>
@@ -290,7 +306,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 5,
   },
-    editButton: {
+  editButton: {
     backgroundColor: 'blue', // Different color for edit
     marginLeft: 10,
     padding: 10,

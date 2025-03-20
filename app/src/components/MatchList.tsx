@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, TextInput, Alert, Clipboard } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
 import Modal from 'react-native-modal';
 import * as Notifications from 'expo-notifications';
 import { lightPalette, darkPalette } from '../context/themes'; // Import lightPalette and darkPalette
+import { ClipboardIcon } from "lucide-react-native"; // IMPORT ClipboardIcon from lucide-react-native
+import messaging from '@react-native-firebase/messaging'; // ADDED Firebase Messaging
 
 interface Match {
   id: string;
@@ -20,6 +22,7 @@ interface Match {
   player2_win: number;
   player1_loss: number;
   player2_loss: number;
+  match_password?: string | null; // ADDED match_password
 }
 
 interface MatchListProps {
@@ -55,6 +58,8 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
   const [notificationStatus, setNotificationStatus] = useState<string | null>(null);
   const backendServerURL = 'https://lbdb-server.onrender.com';
   const [isNotifyButtonDisabled, setIsNotifyButtonDisabled] = useState(false);
+  const [matchPasswords, setMatchPasswords] = useState<{ [matchId: string]: string | null }>({}); // ADDED matchPasswords state
+  const [firebaseToken, setFirebaseToken] = useState<string | null>(null); // ADDED firebaseToken state
 
   const theme = isDarkMode ? darkPalette : lightPalette;
 
@@ -78,7 +83,7 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
   console.log("MatchList - matches prop:", matches);
 
   useEffect(() => {
-    registerForPushNotificationsAsync().then(token => setNotificationStatus(token));
+    //registerForPushNotificationsAsync().then(token => setNotificationStatus(token));
 
     // Listener per le notifiche in foreground e background
     const subscription = Notifications.addNotificationResponseReceivedListener(response => {
@@ -165,6 +170,50 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
       setCurrentRound(allTournamentMatches.length > 0 ? Math.max(...allTournamentMatches.map(match => match.round)) + 1 : 1);
     }
   }, [allTournamentMatches]);
+
+  useEffect(() => {
+    const fetchMatchPasswords = async () => {
+      const matchIds = matches.map(match => match.id);
+      try {
+        const { data, error } = await supabase
+          .from('matches')
+          .select('id, match_password')
+          .in('id', matchIds);
+
+        if (error) {
+          console.error("Error fetching match passwords:", error);
+        } else {
+          const passwordsMap: { [matchId]: string | null } = {};
+          data.forEach(match => {
+            passwordsMap[match.id] = match.match_password;
+          });
+          setMatchPasswords(passwordsMap);
+        }
+      } catch (error) {
+        console.error("Error fetching match passwords:", error);
+      }
+    };
+
+    fetchMatchPasswords();
+  }, [matches]);
+
+  useEffect(() => {
+    const getFirebaseToken = async () => {
+      try {
+        const fcmToken = await messaging().getToken();
+        if (fcmToken) {
+          setFirebaseToken(fcmToken);
+          console.log("Firebase Token in MatchList:", fcmToken);
+        } else {
+          console.log("Firebase token not available.");
+        }
+      } catch (error) {
+        console.error("Error getting Firebase token:", error);
+      }
+    };
+
+    getFirebaseToken();
+  }, []);
 
 
   const toggleModal = (matchId: string | null = null) => {
@@ -311,21 +360,6 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
       const opponentId = user?.id === match.player1_id ? match.player2_id : match.player1_id;
       const opponentName = user?.id === match.player1_id ? match.player2 : match.player1;
 
-      // Fetch sender's profile to get match_password
-      const { data: senderProfile, error: senderProfileError } = await supabase
-        .from('profiles')
-        .select('match_password')
-        .eq('id', user?.id)
-        .single();
-
-      if (senderProfileError) {
-        console.error("Errore nel recupero del profilo del mittente:", senderProfileError);
-        Alert.alert("Errore", "Impossibile recuperare il profilo del mittente.");
-        return;
-      }
-
-      const senderMatchPassword = senderProfile?.match_password;
-
       const { data: opponentProfile, error: profileError } = await supabase
         .from('profiles')
         .select('push_token')
@@ -346,17 +380,19 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
         return;
       }
 
-      const message = `È il tuo turno di giocare contro ${match.player1} nel torneo! La password per il match è "${senderMatchPassword || 'Password non impostata'}".`;
+      const message = `È il tuo turno di giocare contro ${opponentName} nel torneo!`;
 
+      // Use Firebase token instead of Expo token
       const response = await fetch(`${backendServerURL}/send-notification`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          pushToken: opponentPushToken,
+          pushToken: opponentPushToken, // Use opponent's push token
           message: message,
           userId: opponentId,
+          notificationType: 'match', // ADDED notificationType for match
         }),
       });
 
@@ -377,7 +413,7 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
     }
   };
 
-  async function registerForPushNotificationsAsync() {
+  /*async function registerForPushNotificationsAsync() {
     let token;
 
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -393,7 +429,7 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
     token = (await Notifications.getExpoPushTokenAsync()).data;
     console.log("Your expo push token:", token);
     return token;
-  }
+  }*/
 
   const handleTestBackendConnection = async () => {
     try {
@@ -466,6 +502,7 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
             {orderedMatches.map((match, index) => {
               const isMyMatch = orderedMatches[0] === match;
               const showOtherMatchesText = !isMyMatch && index === 1 && orderedMatches.length > 1;
+              const isPlayerInMatch = user && (user.id === match.player1_id || user.id === match.player2_id); // ADDED check
 
               return (
                 <View key={match.id}>
@@ -518,6 +555,22 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
                                 style={{ width: 20, height: 20 }}
                               />
                             </TouchableOpacity>
+                            {/* Display match password if available AND user is a player in the match */}
+                            {isPlayerInMatch ? (
+                              matchPasswords[match.id] ? (
+                                <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                                  <Text style={{ color: theme.text, marginRight: 5 }}>{matchPasswords[match.id]}</Text>
+                                  <TouchableOpacity onPress={() => {
+                                    Clipboard.setString(matchPasswords[match.id] || '');
+                                    Alert.alert("Password Copied", "Password copied to clipboard!");
+                                  }}>
+                                    <ClipboardIcon color={theme.text} />
+                                  </TouchableOpacity>
+                                </View>
+                              ) : (
+                                <Text style={{ color: theme.text }}>Generating...</Text>
+                              )
+                            ) : null}
                           </View>
                           <View style={styles.playerContainer}>
                             <Image

@@ -1,8 +1,11 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Platform, View, StyleSheet, SafeAreaView, LogBox, Alert, PermissionsAndroid } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import axios from 'axios';
+import messaging from '@react-native-firebase/messaging';
 
-// Import screens for navigation
+// Import screens
 import HomeScreen from './src/screens/HomeScreen';
 import TournamentDetailsScreen from './src/screens/TournamentDetailsScreen';
 import LoginScreen from './src/screens/LoginScreen';
@@ -11,30 +14,89 @@ import ManageParticipantsScreen from './src/screens/ManageParticipantsScreen';
 import ManageDecksScreen from './src/screens/ManageDecksScreen';
 import CreateTournamentScreen from './src/screens/CreateTournamentScreen';
 import LeaderboardScreen from './src/screens/LeaderboardScreen';
-import ProfileScreen from './src/screens/ProfileScreen'; // Import ProfileScreen
-import BottomNavigationBar from './src/components/BottomNavigationBar'; // Import BottomNavigationBar
-import TournamentPage from './src/screens/TournamentPage'; // Import TournamentPage
-import RankedScreen from './src/screens/RankedScreen'; // Import RankedScreen
+import ProfileScreen from './src/screens/ProfileScreen';
+import BottomNavigationBar from './src/components/BottomNavigationBar';
+import TournamentPage from './src/screens/TournamentPage';
+import RankedScreen from './src/screens/RankedScreen';
 import MyDecksScreen from './src/screens/MyDecksScreen';
 import Decklistscreen from './src/screens/Decklistscreen';
+import TradeScreen from './src/screens/TradeScreen';
+import TradeCompletedAnimation from './src/components/TradeCompletedAnimation';
 
-// Import React Native components for UI and styling
-import { Platform, View, StyleSheet, SafeAreaView } from 'react-native';
+// Utils
+import { useAuth, useOnlineStatus } from './src/hooks/useAuth';
+import { supabase } from './src/lib/supabase';
 
-//Utils
-import { useAuth } from './src/hooks/_useAuth';
-const user = true; // Set to true for now, to test both scenarios
-
-// Create a stack navigator for screen navigation
 const Stack = createNativeStackNavigator();
 
 const App = () => {
+  const { userId, user } = useAuth();
+
+  async function requestUserPermission() {
+    const authStatus = await messaging().requestPermission();
+    const enabled =
+      authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+      authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+
+    if (enabled) {
+      console.log('Authorization status:', authStatus);
+    }
+  }
+
+  const getToken = async () => {
+    try {
+      const token = await messaging().getToken();
+      console.log("Token = ", token);
+      if (user) {
+        await updatePushToken(token, user.id);
+      }
+    } catch (error) {
+      console.error("Error getting or updating token:", error);
+    }
+  };
+
+  const updatePushToken = async (token: string, userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({ push_token: token })
+        .eq('id', userId);
+
+      if (error) {
+        console.error("Error updating push token:", error);
+      } else {
+        console.log("Push token updated successfully");
+      }
+    } catch (error) {
+      console.error("Error updating push token:", error);
+    }
+  };
+
+  useEffect(() => {
+    requestUserPermission();
+    getToken();
+
+    // Listen for incoming messages when the app is in the foreground
+    const unsubscribe = messaging().onMessage(async remoteMessage => {
+      Alert.alert(
+        remoteMessage.notification.title,
+        remoteMessage.notification.body,
+      );
+      console.log('Message handled in the foreground!', remoteMessage);
+    });
+
+    return unsubscribe;
+  }, [user]);
+
+  useOnlineStatus();
+  LogBox.ignoreLogs(['Setting a timer']);
+
+  useEffect(() => {}, [userId]);
+
   return (
     <NavigationContainer>
-      {/* Background for the entire application */}
       <View style={styles.background}>
         <SafeAreaView style={{ flex: 1 }}>
-          {/* Stack Navigator setup */}
           <Stack.Navigator
             initialRouteName="Home"
             screenOptions={{
@@ -43,63 +105,31 @@ const App = () => {
                 fontWeight: 'bold',
               },
               headerStyle: {
-                backgroundColor: 'transparent', // Make header transparent to blend with background
-                paddingTop: Platform.OS === 'android' ? 25 : 0, // Add paddingTop for Android status bar
+                backgroundColor: 'transparent',
+                paddingTop: Platform.OS === 'android' ? 25 : 0,
               },
-              headerTintColor: '#fff', // Set header text color to white
-              headerTitleAlign: 'center', // Center align header title
-              headerShadowVisible: false, // Hide header shadow for cleaner look
-              headerTransparent: Platform.OS === 'android', // Make header transparent for Android
-              headerShown: false, // Hide default header to use custom header in components
-              transitionSpec: {  // Define transition animations for screen transitions
-                open: { animation: 'timing', config: { duration: 300 } },
-                close: { animation: 'timing', config: { duration: 300 } },
-              },
-              cardStyleInterpolator: ({ current, next, layouts }) => {
-                // Custom card style interpolation for slide animation
-                const translateX = next
-                  ? next.progress.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0, -layouts.screen.width], // Slide out to the left when next screen comes in
-                    })
-                  : current.progress.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [layouts.screen.width, 0], // Slide in from the right when current screen is active
-                    });
-                return {
-                  cardStyle: {
-                    opacity: current.progress, // Fade in/out animation
-                    transform: [{ translateX }], // Slide animation
-                  },
-                };
-              },
+              headerTintColor: '#fff',
+              headerTitleAlign: 'center',
+              headerShadowVisible: false,
+              headerTransparent: Platform.OS === 'android',
+              headerShown: false,
             }}
           >
-            {/* Define each screen in the stack navigator */}
-            {/* Explicitly include both Login and Home screens */}
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Home" component={HomeScreen} />
-
-            {/* Screen for displaying tournament details */}
             <Stack.Screen name="TournamentDetails" component={TournamentDetailsScreen} />
-            {/* Screen for user registration */}
             <Stack.Screen name="Register" component={RegisterScreen} />
-            {/* Screen for managing tournament participants */}
             <Stack.Screen name="ManageParticipants" component={ManageParticipantsScreen} />
-            {/* Screen for managing decks */}
             <Stack.Screen name="ManageDecks" component={ManageDecksScreen} />
-            {/* Screen for creating a new tournament */}
             <Stack.Screen name="CreateTournament" component={CreateTournamentScreen} />
-            {/* Screen for view leaderboard tournament */}
             <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
-            {/* Profile Screen */}
             <Stack.Screen name="Profile" component={ProfileScreen} />
-            {/* Tournament Page */}
             <Stack.Screen name="TournamentPage" component={TournamentPage} />
-            {/* Ranked Screen */}
             <Stack.Screen name="RankedScreen" component={RankedScreen} />
             <Stack.Screen name="MyDecks" component={MyDecksScreen} />
             <Stack.Screen name="Decklistscreen" component={Decklistscreen} />
+            <Stack.Screen name="TradeScreen" component={TradeScreen} />
+            <Stack.Screen name="TradeCompletedAnimation" component={TradeCompletedAnimation} />
           </Stack.Navigator>
         </SafeAreaView>
         <BottomNavigationBar />
@@ -111,7 +141,7 @@ const App = () => {
 const styles = StyleSheet.create({
   background: {
     flex: 1,
-    backgroundColor: '#222', // Dark background color for the entire app
+    backgroundColor: '#222',
   },
 });
 

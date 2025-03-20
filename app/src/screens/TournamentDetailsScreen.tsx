@@ -196,11 +196,14 @@ export default function TournamentDetailsScreen() {
                 player1_win: m.player1_win || 0,
                 player2_win: m.player2_win || 0
             })) || []);
+
+            await checkIfParticipating(); // Call checkIfParticipating after fetching participants
         } catch (error: any) {
             setError(error.message);
         } finally {
             setLoading(false);
-        }    };
+        }
+    };
 
     const fetchMaxPlayers = async () => {
         try {
@@ -246,6 +249,11 @@ export default function TournamentDetailsScreen() {
             setParticipantId(null);
         }
     };
+
+    useEffect(() => {
+        fetchMaxPlayers();
+        checkIfParticipating();
+    }, [user, id]);
 
     const handleJoinTournament = async () => {
         if (!user) {
@@ -496,92 +504,110 @@ export default function TournamentDetailsScreen() {
 
 
     return (
-        <ScrollView
-            style={[styles.container, { paddingTop, backgroundColor: theme.background }]}
-            contentContainerStyle={styles.scrollContent}
-            refreshControl={
-                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.text} />
-            }
-        >
-            {error && (
-                <View style={styles.errorContainer}>
-                    <Text style={[styles.error, { color: theme.error }]}>{error}</Text>
-                </View>
-            )}
-
-            {tournament ? (
-                <>
-                    <View style={styles.header}>
-                        <Text style={[styles.headerTitle, { color: theme.text }]}>{tournament.name}</Text>
-                        <Text style={[styles.headerDescription, { color: theme.text }]}>{tournament.description}</Text>
-                        <Text style={[styles.headerDate, { color: theme.text }]}>
-                            Start Date: {new Date(tournament.start_date!).toLocaleDateString()}
-                            {tournament.best_of && ` (Best of ${tournament.best_of})`}
-                        </Text>
-                        <Text style={[styles.headerStatus, {
-                            backgroundColor: tournament.status === 'completed' ? '#2ecc71' : tournament.status === 'in_progress' ? '#e67e22' : '#7f8c8d',
-                            color: theme.text
-                        }]}>
-                            {tournament.status.replace('_', ' ')}
-                        </Text>
-                        {isOwner && tournament.status === 'draft' && (
-                            <TouchableOpacity
-                                onPress={handleEditTournament} // MODIFIED: handleEditTournament function
-                                style={[styles.editButton, { backgroundColor: theme.buttonBackground }]}
-                            >
-                                <Text style={[styles.editButtonText, { color: theme.buttonText }]}>Modifica Torneo</Text>
-                            </TouchableOpacity>
-                        )}
+        <View style={[styles.container, { paddingTop, backgroundColor: theme.background }]}>
+            <ScrollView
+                style={{ flex: 1, backgroundColor: theme.background }}
+                contentContainerStyle={[styles.scrollContent, { paddingBottom: 80 }]} // Added paddingBottom
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.text} />
+                }
+            >
+                {error && (
+                    <View style={styles.errorContainer}>
+                        <Text style={[styles.error, { color: theme.error }]}>{error}</Text>
                     </View>
+                )}
 
-                    <View style={styles.content}>
-                        <View style={styles.section}>
-                            <View style={styles.sectionTitleContainer}>
-                                <Text style={[styles.sectionTitle, { color: theme.text }]}>Matches</Text>
-                            </View>
-
-                            {Object.entries(matchesByRound).sort(([roundA], [roundB]) => parseInt(roundA) - parseInt(roundB)).map(([round, roundMatches]) => (
-                                <Accordion key={round} title={`Round ${round}`}>
-                                    <MatchList
-                                        matches={roundMatches}
-                                        onSetWinner={tournament.status === 'in_progress' ? handleSetWinner : undefined}
-                                        tournamentStatus={tournament.status}
-                                        bestOf={tournament.best_of}
-                                        isCreator={isCreator}
-                                        onMatchUpdate={fetchTournamentData}
-                                        allTournamentMatches={matches}
-                                        user={user}
-                                    />
-                                </Accordion>
-                            ))}
+                {tournament ? (
+                    <>
+                        <View style={styles.header}>
+                            <Text style={[styles.headerTitle, { color: theme.text }]}>{tournament.name}</Text>
+                            <Text style={[styles.headerDescription, { color: theme.text }]}>{tournament.description}</Text>
+                            <Text style={[styles.headerDate, { color: theme.text }]}>
+                                Start Date: {new Date(tournament.start_date!).toLocaleDateString()}
+                                {tournament.best_of && ` (Best of ${tournament.best_of})`}
+                            </Text>
+                            <Text style={[styles.headerStatus, {
+                                backgroundColor: tournament.status === 'completed' ? '#2ecc71' : tournament.status === 'in_progress' ? '#e67e22' : '#7f8c8d',
+                                color: theme.text
+                            }]}>
+                                {tournament.status.replace('_', ' ')}
+                            </Text>
+                            {isOwner && tournament.status === 'draft' && (
+                                <TouchableOpacity
+                                    onPress={handleEditTournament} // MODIFIED: handleEditTournament function
+                                    style={[styles.editButton, { backgroundColor: theme.buttonBackground }]}
+                                >
+                                    <Text style={[styles.editButtonText, { color: theme.buttonText }]}>Modifica Torneo</Text>
+                                </TouchableOpacity>
+                            )}
                         </View>
-                    </View>
 
-                    <View style={styles.actions}>
-                        <TouchableOpacity onPress={() => navigation.navigate('ManageParticipants', { id: id })} style={[styles.manageButton, { backgroundColor: theme.buttonBackground }]}>
-                            <Text style={[styles.manageButtonText, { color: theme.buttonText }]}>Lista Giocatori</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={() => navigation.navigate('Leaderboard', { id: id })} style={[styles.manageButton, { backgroundColor: theme.buttonBackground }]}>
-                            <Text style={[styles.manageButtonText, { color: theme.buttonText }]}>Leaderboard</Text>
-                        </TouchableOpacity>
-                        {isOwner && tournament.status === 'draft' && (
-                            <TouchableOpacity onPress={handleStartTournament} style={[styles.startButton, { backgroundColor: theme.buttonBackground }]}>
-                                <Text style={[styles.startButtonText, { color: theme.buttonText }]}>Start Tournament</Text>
+                        <View style={styles.content}>
+                            <View style={styles.section}>
+                                <View style={styles.sectionTitleContainer}>
+                                    <Text style={[styles.sectionTitle, { color: theme.text }]}>Matches</Text>
+                                </View>
+
+                                {Object.entries(matchesByRound).sort(([roundA], [roundB]) => parseInt(roundA) - parseInt(roundB)).map(([round, roundMatches]) => (
+                                    <Accordion key={round} title={`Round ${round}`}>
+                                        <MatchList
+                                            matches={roundMatches}
+                                            onSetWinner={tournament.status === 'in_progress' ? handleSetWinner : undefined}
+                                            tournamentStatus={tournament.status}
+                                            bestOf={tournament.best_of}
+                                            isCreator={isCreator}
+                                            onMatchUpdate={fetchTournamentData}
+                                            allTournamentMatches={matches}
+                                            user={user}
+                                        />
+                                    </Accordion>
+                                ))}
+                            </View>
+                        </View>
+
+                        <View style={styles.actions}>
+                            <TouchableOpacity onPress={() => navigation.navigate('ManageParticipants', { id: id })} style={[styles.manageButton, { backgroundColor: theme.buttonBackground }]}>
+                                <Text style={[styles.manageButtonText, { color: theme.buttonText }]}>Lista Giocatori</Text>
                             </TouchableOpacity>
-                        )}
-                        {canGenerateNextRound && (
-                            <TouchableOpacity onPress={currentRoundIncomplete ? () => {} : handleGenerateNextRound}
-                                style={[styles.startButton, { backgroundColor: theme.buttonBackground }, currentRoundIncomplete ? { opacity: 0.5 } : {}]}
-                                disabled={currentRoundIncomplete}>
-                                <Text style={[styles.startButtonText, { color: theme.startButtonText }]}>Genera Prossimo Round</Text>
+                            <TouchableOpacity onPress={() => navigation.navigate('Leaderboard', { id: id })} style={[styles.manageButton, { backgroundColor: theme.buttonBackground }]}>
+                                <Text style={[styles.manageButtonText, { color: theme.buttonText }]}>Leaderboard</Text>
                             </TouchableOpacity>
-                        )}
-                    </View>
-                </>
-            ) : (
-                <Text style={[styles.errorText, { color: theme.error }]}>Tournament not found.</Text>
-            )}
-        </ScrollView>
+                            {isOwner && tournament.status === 'draft' && (
+                                <TouchableOpacity onPress={handleStartTournament} style={[styles.startButton, { backgroundColor: theme.buttonBackground }]}>
+                                    <Text style={[styles.startButtonText, { color: theme.buttonText }]}>Start Tournament</Text>
+                                </TouchableOpacity>
+                            )}
+                            {canGenerateNextRound && (
+                                <TouchableOpacity onPress={currentRoundIncomplete ? () => {} : handleGenerateNextRound}
+                                    style={[styles.startButton, { backgroundColor: theme.buttonBackground }, currentRoundIncomplete ? { opacity: 0.5 } : {}]}
+                                    disabled={currentRoundIncomplete}>
+                                    <Text style={[styles.startButtonText, { color: theme.startButtonText }]}>Genera Prossimo Round</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                    </>
+                ) : (
+                    <Text style={[styles.errorText, { color: theme.error }]}>Tournament not found.</Text>
+                )}
+            </ScrollView>
+            {/* Join/Leave Tournament Button - Bottom, Full Width */}
+            <View style={styles.bottomButtonContainer}>
+                {user && tournament?.status === 'draft' && (
+                    isParticipating ? (
+                        <TouchableOpacity onPress={handleLeaveTournament} style={[styles.leaveButton, styles.fullWidthButton]}>
+                            <Text style={styles.bottomButtonText}>Leave Tournament</Text>
+                        </TouchableOpacity>
+                    ) : (
+                        maxPlayers === null || participants.length < maxPlayers ? (
+                            <TouchableOpacity onPress={handleJoinTournament} style={[styles.joinButton, styles.fullWidthButton]}>
+                                <Text style={styles.bottomButtonText}>Join Tournament</Text>
+                            </TouchableOpacity>
+                        ) : null
+                    )
+                )}
+            </View>
+        </View>
     );
 };
 
@@ -674,6 +700,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-around',
         marginTop: 20,
+        marginBottom: 20, // Add some margin to separate from the bottom button
     },
     backButton: {
         backgroundColor: '#95a5a6',
@@ -755,5 +782,40 @@ const styles = StyleSheet.create({
         color: 'red',
         textAlign: 'center',
         padding: 20,
+    },
+    bottomButtonContainer: {
+        position: 'absolute',
+        bottom: 0,
+        left: 10,
+        width: '100%',
+        padding: 10,
+        backgroundColor: 'transparent', // Or any background color you prefer
+        alignItems: 'center', // Center the button horizontally
+		overflow: 'hidden', // Per assicurarsi che il gradiente segua i bordi arrotondati
+
+    },
+    joinButton: {
+        backgroundColor: '#2ecc71', // Green background
+        paddingVertical: 15,
+        borderRadius: 5,
+    },
+    leaveButton: {
+        backgroundColor: '#e74c3c', // Red background
+        paddingVertical: 15,
+        borderRadius: 5,
+    },
+    fullWidthButton: {
+        width: '100%', // Full width
+    },
+	 gradient: {
+        paddingVertical: 12,
+        paddingHorizontal: 32,
+        borderRadius: 25,
+        alignItems: 'center',
+    },
+    bottomButtonText: {
+        color: 'white',
+        fontWeight: 'bold',
+        textAlign: 'center',
     },
 });
