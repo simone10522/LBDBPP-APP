@@ -45,6 +45,10 @@ app.get('/test', (req, res) => {
   res.send('Backend connesso correttamente! (Test endpoint)');
 });
 
+app.get('/keep-alive', (req, res) => {
+  res.send('Server is alive!');
+});
+
 
 app.listen(port, () => {
   console.log(`Server backend in ascolto sulla porta ${port}`);
