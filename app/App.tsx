@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import mobileAds from 'react-native-google-mobile-ads';
 
 // Import screens for navigation
 import HomeScreen from './src/screens/HomeScreen';
@@ -29,6 +30,15 @@ const user = true; // Set to true for now, to test both scenarios
 const Stack = createNativeStackNavigator();
 
 const App = () => {
+
+  // Initialize Google Mobile Ads SDK
+  useEffect(() => {
+    (async () => {
+      // Initialize the ads
+      await mobileAds().initialize();
+    })();
+  }, [])
+
   return (
     <NavigationContainer>
       {/* Background for the entire application */}
