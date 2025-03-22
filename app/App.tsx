@@ -22,7 +22,8 @@ import MyDecksScreen from './src/screens/MyDecksScreen';
 import Decklistscreen from './src/screens/Decklistscreen';
 import TradeScreen from './src/screens/TradeScreen';
 import TradeCompletedAnimation from './src/components/TradeCompletedAnimation';
-
+import ChatScreen from './src/screens/ChatScreen';
+import ChatListScreen from './src/screens/ChatListScreen';
 // Utils
 import { useAuth, useOnlineStatus } from './src/hooks/useAuth';
 import { supabase } from './src/lib/supabase';
@@ -130,6 +131,8 @@ const App = () => {
             <Stack.Screen name="Decklistscreen" component={Decklistscreen} />
             <Stack.Screen name="TradeScreen" component={TradeScreen} />
             <Stack.Screen name="TradeCompletedAnimation" component={TradeCompletedAnimation} />
+            <Stack.Screen name="ChatScreen" component={ChatScreen} />
+            <Stack.Screen name="ChatListScreen" component={ChatListScreen} />
           </Stack.Navigator>
         </SafeAreaView>
         <BottomNavigationBar />

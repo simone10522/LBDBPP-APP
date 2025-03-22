@@ -594,17 +594,24 @@ export default function TournamentDetailsScreen() {
             {/* Join/Leave Tournament Button - Bottom, Full Width */}
             <View style={styles.bottomButtonContainer}>
                 {user && tournament?.status === 'draft' && (
-                    isParticipating ? (
-                        <TouchableOpacity onPress={handleLeaveTournament} style={[styles.leaveButton, styles.fullWidthButton]}>
-                            <Text style={styles.bottomButtonText}>Leave Tournament</Text>
-                        </TouchableOpacity>
-                    ) : (
-                        maxPlayers === null || participants.length < maxPlayers ? (
-                            <TouchableOpacity onPress={handleJoinTournament} style={[styles.joinButton, styles.fullWidthButton]}>
-                                <Text style={styles.bottomButtonText}>Join Tournament</Text>
+                    <View style={styles.bottomButtonInnerContainer}>
+                        {isParticipating ? (
+                            <TouchableOpacity onPress={handleLeaveTournament} style={[styles.leaveButton, styles.bottomButton, styles.bottomButtonLeft]}>
+                                <Text style={styles.bottomButtonText}>Leave Tournament</Text>
                             </TouchableOpacity>
-                        ) : null
-                    )
+                        ) : (
+                            maxPlayers === null || participants.length < maxPlayers ? (
+                                <TouchableOpacity onPress={handleJoinTournament} style={[styles.joinButton, styles.bottomButton, styles.bottomButtonLeft]}>
+                                    <Text style={styles.bottomButtonText}>Join Tournament</Text>
+                                </TouchableOpacity>
+                            ) : null
+                        )}
+                        {isCreator && tournament.status === 'draft' && (
+                            <TouchableOpacity onPress={handleDeleteTournament} style={[styles.deleteButton, styles.bottomButton, styles.bottomButtonRight]}>
+                                <Text style={styles.bottomButtonText}>Delete Tournament</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
                 )}
             </View>
         </View>
@@ -786,32 +793,39 @@ const styles = StyleSheet.create({
     bottomButtonContainer: {
         position: 'absolute',
         bottom: 0,
-        left: 10,
+        left: 0, // Full width
         width: '100%',
         padding: 10,
-        backgroundColor: 'transparent', // Or any background color you prefer
-        alignItems: 'center', // Center the button horizontally
-		overflow: 'hidden', // Per assicurarsi che il gradiente segua i bordi arrotondati
-
+        backgroundColor: 'transparent',
+        alignItems: 'center',
+        overflow: 'hidden',
+    },
+    bottomButtonInnerContainer: {
+        flexDirection: 'row', // Arrange buttons horizontally
+        justifyContent: 'space-between', // Space them out
+        width: '100%', // Occupy full width
+    },
+    bottomButton: {
+        flex: 1, // Each button takes equal space
+        paddingVertical: 15,
+        borderRadius: 5,
+        marginHorizontal: 5, // Space between buttons
+        alignItems: 'center', // Center text horizontally
+    },
+    bottomButtonLeft: {
+        marginRight: 2.5, // Half of marginHorizontal to avoid double spacing
+    },
+    bottomButtonRight: {
+        marginLeft: 2.5, // Half of marginHorizontal to avoid double spacing
     },
     joinButton: {
         backgroundColor: '#2ecc71', // Green background
-        paddingVertical: 15,
-        borderRadius: 5,
     },
     leaveButton: {
         backgroundColor: '#e74c3c', // Red background
-        paddingVertical: 15,
-        borderRadius: 5,
     },
-    fullWidthButton: {
-        width: '100%', // Full width
-    },
-	 gradient: {
-        paddingVertical: 12,
-        paddingHorizontal: 32,
-        borderRadius: 25,
-        alignItems: 'center',
+    deleteButton: {
+        backgroundColor: '#c0392b', // Red, but a bit darker for delete
     },
     bottomButtonText: {
         color: 'white',

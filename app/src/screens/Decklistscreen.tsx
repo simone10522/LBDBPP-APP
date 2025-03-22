@@ -1,11 +1,108 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  Alert,
+  ActivityIndicator,
+  Dimensions,
+  Animated,
+  Easing,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../hooks/useAuth';
 import { lightPalette, darkPalette } from '../context/themes';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
-import Icon from 'react-native-vector-icons/FontAwesome'; // Import Icon
+import Icon from 'react-native-vector-icons/FontAwesome';
+
+const DeckCard = React.memo(({ deckNumber, deckName, isSelected, onSelect, onEdit, onDelete }) => {
+  const { isDarkMode } = useAuth();
+  const theme = isDarkMode ? darkPalette : lightPalette;
+  const cardScale = new Animated.Value(1);
+
+  const animateCard = () => {
+    Animated.timing(cardScale, {
+      toValue: 0.95,
+      duration: 100,
+      easing: Easing.ease,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const resetCard = () => {
+    Animated.timing(cardScale, {
+      toValue: 1,
+      duration: 150,
+      easing: Easing.ease,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  return (
+    <Animated.View style={{ transform: [{ scale: cardScale }] }}>
+      <TouchableOpacity
+        style={[
+          styles.deckCard,
+          { backgroundColor: theme.cardBackground },
+          isSelected && styles.selectedDeckCard,
+        ]}
+        onPress={onSelect}
+        onPressIn={animateCard}
+        onPressOut={resetCard}
+        activeOpacity={1}
+      >
+        <Text style={[styles.deckCardText, { color: theme.text }]}>
+          {deckName || `Deck #${deckNumber}`}
+        </Text>
+        <View style={styles.deckCardActions}>
+          <TouchableOpacity onPress={onEdit} style={styles.editButton}>
+            <Icon name="pencil" size={16} color={theme.text} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={onDelete} style={styles.deleteButton}>
+            <Icon name="trash" size={16} color={theme.text} />
+          </TouchableOpacity>
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+});
+
+const DeckList = React.memo(({ deckList, deckName, theme }) => {
+  if (!deckList) {
+    return (
+      <View style={styles.emptyDeckList}>
+        <Text style={{ color: theme.text }}>No cards in this deck.</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.deckListContainer}>
+      <Text style={[styles.deckListTitle, { color: theme.text }]}>{deckName} List:</Text>
+      <ScrollView>
+        {deckList.map((card, index) => (
+          <Text key={index} style={[styles.cardText, { color: theme.text }]}>
+            {card.name} {card.quantity > 1 ? `x${card.quantity}` : ''}
+          </Text>
+        ))}
+      </ScrollView>
+    </View>
+  );
+});
+
+const AddDeckButton = ({ onPress }) => {
+  const { isDarkMode } = useAuth();
+  const theme = isDarkMode ? darkPalette : lightPalette;
+
+  return (
+    <TouchableOpacity style={[styles.addButton, { backgroundColor: theme.primary }]} onPress={onPress}>
+      <Text style={styles.addButtonText}>+</Text>
+    </TouchableOpacity>
+  );
+};
 
 const Decklistscreen = () => {
   const { isDarkMode, user } = useAuth();
@@ -14,14 +111,14 @@ const Decklistscreen = () => {
   const [deckCount, setDeckCount] = useState(0);
   const [selectedDeck, setSelectedDeck] = useState(null);
   const [deckList, setDeckList] = useState(null);
-  const [isDeckListVisible, setIsDeckListVisible] = useState(false);
-  const [deckNames, setDeckNames] = useState({}); // Store deck names
-  const [loading, setLoading] = useState(false); // Add loading state
+  const [deckNames, setDeckNames] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [fetchingDeckList, setFetchingDeckList] = useState(false);
 
   const fetchDeckCount = useCallback(async () => {
     if (!user) return;
 
-    setLoading(true); // Set loading to true before fetching
+    setLoading(true);
     try {
       const { data: profile, error } = await supabase
         .from('profiles')
@@ -30,7 +127,8 @@ const Decklistscreen = () => {
         .single();
 
       if (error) {
-        console.error("Error fetching profile:", error);
+        console.error('Error fetching profile:', error);
+        Alert.alert('Error', 'Failed to fetch deck count.');
         return;
       }
 
@@ -42,9 +140,10 @@ const Decklistscreen = () => {
       }
       setDeckCount(count);
     } catch (error) {
-      console.error("Error fetching deck count:", error);
+      console.error('Error fetching deck count:', error);
+      Alert.alert('Error', 'An unexpected error occurred while fetching deck count.');
     } finally {
-      setLoading(false); // Set loading to false after fetching (success or error)
+      setLoading(false);
     }
   }, [user]);
 
@@ -60,7 +159,8 @@ const Decklistscreen = () => {
         .single();
 
       if (error) {
-        console.error("Error fetching profile:", error);
+        console.error('Error fetching profile:', error);
+        Alert.alert('Error', 'Failed to fetch deck names.');
         return;
       }
 
@@ -73,7 +173,8 @@ const Decklistscreen = () => {
       }
       setDeckNames(names);
     } catch (error) {
-      console.error("Error fetching deck names:", error);
+      console.error('Error fetching deck names:', error);
+      Alert.alert('Error', 'An unexpected error occurred while fetching deck names.');
     } finally {
       setLoading(false);
     }
@@ -82,29 +183,22 @@ const Decklistscreen = () => {
   useEffect(() => {
     fetchDeckCount();
     fetchDeckNames();
-
-    const intervalId = setInterval(() => {
-      fetchDeckCount();
-      fetchDeckNames();
-    }, 1000); // Fetch every 1 second
-
-    return () => clearInterval(intervalId); // Cleanup interval on unmount
   }, [fetchDeckCount, fetchDeckNames]);
-
 
   const handleAddDeck = () => {
     navigation.navigate('MyDecks');
   };
 
   const handleDeckPress = async (deckNumber) => {
-    if (selectedDeck === deckNumber && isDeckListVisible) {
-      setIsDeckListVisible(false);
+    if (selectedDeck === deckNumber) {
+      setSelectedDeck(null); // Toggle selection
       return;
     }
 
     setSelectedDeck(deckNumber);
     if (!user) return;
 
+    setFetchingDeckList(true);
     try {
       const { data: profile, error } = await supabase
         .from('profiles')
@@ -113,42 +207,43 @@ const Decklistscreen = () => {
         .single();
 
       if (error) {
-        console.error("Error fetching deck list:", error);
+        console.error('Error fetching deck list:', error);
+        Alert.alert('Error', 'Failed to fetch deck list.');
         return;
       }
 
       if (profile && profile[`DECK_LIST_${deckNumber}`]) {
         const deck = JSON.parse(profile[`DECK_LIST_${deckNumber}`]);
         const cardCounts = {};
-        deck.cards.forEach(card => {
+        deck.cards.forEach((card) => {
           cardCounts[card.name] = (cardCounts[card.name] || 0) + 1;
         });
 
         const countedDeckList = Object.entries(cardCounts).map(([name, quantity]) => ({
           name,
-          quantity
+          quantity,
         }));
 
         setDeckList(countedDeckList);
-        setIsDeckListVisible(true);
       } else {
         setDeckList(null);
-        setIsDeckListVisible(false);
       }
     } catch (error) {
-      console.error("Error parsing deck list:", error);
-      setIsDeckListVisible(false);
+      console.error('Error parsing deck list:', error);
+      Alert.alert('Error', 'An unexpected error occurred while parsing the deck list.');
+    } finally {
+      setFetchingDeckList(false);
     }
   };
 
   const handleDeleteDeck = async (deckNumber) => {
     Alert.alert(
-      "Confirm Deletion",
+      'Confirm Deletion',
       `Are you sure you want to delete ${deckNames[deckNumber] || `Deck #${deckNumber}`}?`,
       [
-        { text: "Cancel", style: "cancel" },
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: "Delete",
+          text: 'Delete',
           onPress: async () => {
             if (!user) return;
             try {
@@ -159,27 +254,25 @@ const Decklistscreen = () => {
                 .eq('id', user.id);
 
               if (error) {
-                console.error("Error deleting deck:", error);
-                Alert.alert("Error", "Failed to delete the deck.");
+                console.error('Error deleting deck:', error);
+                Alert.alert('Error', 'Failed to delete the deck.');
                 return;
               }
               await fetchDeckCount();
               await fetchDeckNames();
               setSelectedDeck(null);
-              setIsDeckListVisible(false);
-              Alert.alert("Success", `${deckNames[deckNumber] || `Deck #${deckNumber}`} has been deleted.`);
+              Alert.alert('Success', `${deckNames[deckNumber] || `Deck #${deckNumber}`} has been deleted.`);
             } catch (error) {
-              console.error("Error deleting deck:", error);
-              Alert.alert("Error", "An unexpected error occurred.");
+              console.error('Error deleting deck:', error);
+              Alert.alert('Error', 'An unexpected error occurred.');
             }
-          }
-        }
-      ]
+          },
+        },
+      ],
     );
   };
 
   const handleEditDeck = (deckNumber) => {
-    // Navigate to MyDecksScreen and pass the deckNumber as a parameter
     navigation.navigate('MyDecks', { deckNumber: deckNumber });
   };
 
@@ -187,52 +280,36 @@ const Decklistscreen = () => {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <Text style={[styles.title, { color: theme.text }]}>My Deck Lists</Text>
 
-      {deckCount > 0 &&
-        Array.from({ length: deckCount }, (_, i) => i + 1).map((deckNumber) => (
-          <View key={deckNumber} style={styles.deckRow}>
-            <TouchableOpacity
-              style={[
-                styles.deckNumberContainer,
-                { backgroundColor: theme.primary },
-                selectedDeck === deckNumber ? styles.selectedDeck : null,
-              ]}
-              onPress={() => handleDeckPress(deckNumber)}
-            >
-              <Text style={[styles.deckNumberText, { color: theme.text }]}>
-                {deckNames[deckNumber] || `Deck #${deckNumber}`}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.editButton}
-              onPress={() => handleEditDeck(deckNumber)}
-            >
-              <Icon name="pencil" size={20} color="white" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.deleteButton}
-              onPress={() => handleDeleteDeck(deckNumber)}
-            >
-              <Text style={styles.deleteButtonText}>X</Text>
-            </TouchableOpacity>
-          </View>
-        ))}
-      <TouchableOpacity style={styles.addButton} onPress={handleAddDeck}>
-        <Text style={styles.addButtonText}>+</Text>
-      </TouchableOpacity>
+      {loading ? (
+        <ActivityIndicator size="large" color={theme.primary} />
+      ) : (
+        <ScrollView style={styles.decksContainer}>
+          {deckCount > 0 ? (
+            Array.from({ length: deckCount }, (_, i) => i + 1).map((deckNumber) => (
+              <DeckCard
+                key={deckNumber}
+                deckNumber={deckNumber}
+                deckName={deckNames[deckNumber]}
+                isSelected={selectedDeck === deckNumber}
+                onSelect={() => handleDeckPress(deckNumber)}
+                onEdit={() => handleEditDeck(deckNumber)}
+                onDelete={() => handleDeleteDeck(deckNumber)}
+              />
+            ))
+          ) : (
+            <Text style={[styles.noDecksText, { color: theme.text }]}>No decks saved yet.</Text>
+          )}
+        </ScrollView>
+      )}
 
-      {selectedDeck && deckList && isDeckListVisible && (
-        <View style={styles.deckListContainer}>
-          <Text style={[styles.deckListTitle, { color: theme.text }]}>
-            {deckNames[selectedDeck] || `Deck #${selectedDeck}`} List:
-          </Text>
-          <ScrollView>
-            {deckList.map((card, index) => (
-              <Text key={index} style={[styles.cardText, { color: theme.text }]}>
-                {card.name} {card.quantity > 1 ? `X${card.quantity}` : ''}
-              </Text>
-            ))}
-          </ScrollView>
+      <AddDeckButton onPress={handleAddDeck} />
+
+      {fetchingDeckList ? (
+        <View style={styles.deckListLoading}>
+          <ActivityIndicator size="small" color={theme.primary} />
         </View>
+      ) : (
+        selectedDeck && <DeckList deckList={deckList} deckName={deckNames[selectedDeck]} theme={theme} />
       )}
     </SafeAreaView>
   );
@@ -241,7 +318,7 @@ const Decklistscreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
+    padding: 10,
   },
   title: {
     fontSize: 24,
@@ -249,53 +326,56 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: 'center',
   },
-  deckRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  decksContainer: {
     marginBottom: 20,
   },
-  deckNumberContainer: {
-    backgroundColor: '#5DADE2',
-    padding: 10,
-    borderRadius: 5,
-    flex: 1,
+  deckCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 10,
   },
-  deckNumberText: {
+  selectedDeckCard: {
+    borderColor: 'yellow',
+    borderWidth: 2,
+  },
+  deckCardText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: 'white',
+  },
+  deckCardActions: {
+    flexDirection: 'row',
+  },
+  editButton: {
+    marginRight: 10,
+    padding: 5,
+  },
+  deleteButton: {
+    padding: 5,
   },
   addButton: {
     position: 'absolute',
     bottom: 20,
-    alignSelf: 'center',
-    backgroundColor: '#5DADE2',
+    right: 20,
     width: 50,
     height: 50,
     borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
   },
   addButtonText: {
     color: 'white',
     fontSize: 30,
     fontWeight: 'bold',
   },
-  selectedDeck: {
-    borderWidth: 2,
-    borderColor: 'yellow',
-  },
   deckListContainer: {
-    marginTop: 20,
+    marginTop: 10,
     padding: 10,
+    borderRadius: 10,
     borderWidth: 1,
-    borderRadius: 5,
   },
   deckListTitle: {
     fontSize: 18,
@@ -306,22 +386,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 5,
   },
-  editButton: {
-    backgroundColor: 'blue', // Different color for edit
-    marginLeft: 10,
-    padding: 10,
-    borderRadius: 5,
+  noDecksText: {
+    textAlign: 'center',
+    marginTop: 20,
   },
-  deleteButton: {
-    backgroundColor: 'red',
-    marginLeft: 10,
-    padding: 10,
-    borderRadius: 5,
+  deckListLoading: {
+    marginTop: 10,
+    alignItems: 'center',
   },
-  deleteButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
+  emptyDeckList: {
+    padding: 20,
+    alignItems: 'center'
+  }
 });
 
 export default Decklistscreen;
