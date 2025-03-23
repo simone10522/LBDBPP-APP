@@ -4,7 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import axios from 'axios';
 import messaging from '@react-native-firebase/messaging';
-
+import MobileAds from 'react-native-google-mobile-ads';
 // Import screens
 import HomeScreen from './src/screens/HomeScreen';
 import TournamentDetailsScreen from './src/screens/TournamentDetailsScreen';

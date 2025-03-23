@@ -18,6 +18,8 @@ import { useAuth } from '../hooks/useAuth';
 import TournamentList from '../components/TournamentList';
 // No need to import AsyncStorage
 import { lightPalette, darkPalette } from '../context/themes'; // Import palettes
+import BannerAdComponent from '../components/BannerAd';
+import { TestIds } from 'react-native-google-mobile-ads';
 
 interface Tournament {
   id: string;
@@ -283,6 +285,9 @@ const HomeScreen = () => {
             </TouchableOpacity>
           )}
         </View>
+        <View style={styles.bannerAdContainer}>
+          <BannerAdComponent adUnitID={TestIds.BANNER} />
+        </View>
       </View>
     </View>
   );
@@ -429,6 +434,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     marginTop: 10,
+  },
+    bannerAdContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 10, // Add some padding to separate from buttons
   },
 });
 
