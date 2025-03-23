@@ -3,14 +3,13 @@ import { View, StyleSheet, Platform } from 'react-native';
 import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads';
 
 interface BannerAdProps {
-  adUnitID: string;
   bannerSize?: BannerAdSize;
   onAdLoadFailed?: (error: any) => void;
 }
 
-const BannerAdComponent: React.FC<BannerAdProps> = ({ adUnitID, bannerSize = BannerAdSize.BANNER, onAdLoadFailed }) => {
+const BannerAdComponent: React.FC<BannerAdProps> = ({ bannerSize = BannerAdSize.BANNER, onAdLoadFailed }) => {
   const isTesting = __DEV__;
-  const currentAdId = isTesting ? TestIds.BANNER : adUnitID;
+  const currentAdId = isTesting ? TestIds.BANNER : "ca-app-pub-3518274030390186/6859367485";
 
   return (
     <View style={styles.container}>

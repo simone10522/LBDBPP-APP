@@ -286,7 +286,7 @@ const HomeScreen = () => {
           )}
         </View>
         <View style={styles.bannerAdContainer}>
-          <BannerAdComponent adUnitID={TestIds.BANNER} />
+          <BannerAdComponent />
         </View>
       </View>
     </View>
