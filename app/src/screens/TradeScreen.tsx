@@ -14,6 +14,7 @@ import Accordion from '../components/Accordion';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Clipboard from 'expo-clipboard';
 import { useNavigation } from '@react-navigation/native';
+import BannerAdComponent from '../components/BannerAd';
 
 const loadCardData = () => {
   const allCards = {};
@@ -766,16 +767,16 @@ const TradeScreen = () => {
               {renderOfferSection({ title: 'I Want', cards: selectedWantCards, onPress: handleCardsYouWantPress })}
             </View>
             <View style={styles.tradeHeader}>
-  <Text style={[styles.tradeInProgress, { color: theme.text }]}>Available Trade</Text>
-  <Text style={[styles.filter, { color: theme.text }]}>Online Only</Text>
-  <Switch
-          trackColor={{ false: '#767577', true: '#81b0ff' }}
-          thumbColor={showOnlineOnly ? '#f5dd4b' : '#f4f3f4'}
-          ios_backgroundColor="#3e3e3e"
-          onValueChange={setShowOnlineOnly}
-          value={showOnlineOnly}
-        />
-</View>
+              <Text style={[styles.tradeInProgress, { color: theme.text }]}>Available Trade</Text>
+              <Text style={[styles.filter, { color: theme.text }]}>Online Only</Text>
+              <Switch
+                trackColor={{ false: '#767577', true: '#81b0ff' }}
+                thumbColor={showOnlineOnly ? '#f5dd4b' : '#f4f3f4'}
+                ios_backgroundColor="#3e3e3e"
+                onValueChange={setShowOnlineOnly}
+                value={showOnlineOnly}
+              />
+            </View>
           </>
         }
         data={tradeMatches}
@@ -785,6 +786,9 @@ const TradeScreen = () => {
         ListFooterComponent={
           <>
             {error && <Text style={{ color: 'red' }}>Error: {error}</Text>}
+            <View style={styles.bannerAdContainer}>
+              <BannerAdComponent />
+            </View>
           </>
         }
       />
@@ -951,6 +955,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 10,
     marginBottom: 10,
+  },
+  bannerAdContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 10,
   },
 });
 

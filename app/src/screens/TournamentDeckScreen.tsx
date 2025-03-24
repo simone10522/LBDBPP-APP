@@ -17,11 +17,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../hooks/useAuth';
 import { lightPalette, darkPalette } from '../context/themes';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import Icon from 'react-native-vector-icons/FontAwesome';
 
-const DeckCard = React.memo(({ deckNumber, deckName, isSelected, onSelect, onEdit, onDelete }) => {
+const DeckCard = React.memo(({ deckNumber, deckName, isSelected, onSelect, onEdit, onDelete, onView }) => {
   const { isDarkMode } = useAuth();
   const theme = isDarkMode ? darkPalette : lightPalette;
   const cardScale = new Animated.Value(1);
@@ -61,6 +61,9 @@ const DeckCard = React.memo(({ deckNumber, deckName, isSelected, onSelect, onEdi
           {deckName || `Deck #${deckNumber}`}
         </Text>
         <View style={styles.deckCardActions}>
+          <TouchableOpacity onPress={onView} style={styles.viewButton}>
+            <Icon name="eye" size={16} color={theme.text} />
+          </TouchableOpacity>
           <TouchableOpacity onPress={onEdit} style={styles.editButton}>
             <Icon name="pencil" size={16} color={theme.text} />
           </TouchableOpacity>
@@ -77,7 +80,6 @@ const DeckList = React.memo(({ deckList, deckName, theme, visible, onClose }) =>
   if (!deckList) {
     return (
       <View style={styles.emptyDeckList}>
-        <Text style={{ color: theme.text }}>No cards in this deck.</Text>
       </View>
     );
   }
@@ -119,23 +121,14 @@ const DeckList = React.memo(({ deckList, deckName, theme, visible, onClose }) =>
   );
 });
 
-const AddDeckButton = ({ onPress }) => {
-  const { isDarkMode } = useAuth();
-  const theme = isDarkMode ? darkPalette : lightPalette;
-
-  return (
-    <TouchableOpacity style={[styles.addButton, { backgroundColor: theme.primary }]} onPress={onPress}>
-      <Text style={styles.addButtonText}>+</Text>
-    </TouchableOpacity>
-  );
-};
-
-const Decklistscreen = () => {
+const TournamentDeckScreen = () => {
   const { isDarkMode, user } = useAuth();
   const theme = isDarkMode ? darkPalette : lightPalette;
   const navigation = useNavigation();
+  const route = useRoute();
+  const { tournamentId } = route.params;
   const [deckCount, setDeckCount] = useState(0);
-  const [selectedDeck, setSelectedDeck] = useState(null);
+  const [selectedDecks, setSelectedDecks] = useState([]);
   const [deckList, setDeckList] = useState(null);
   const [deckNames, setDeckNames] = useState({});
   const [loading, setLoading] = useState(false);
@@ -230,55 +223,79 @@ const Decklistscreen = () => {
   };
 
   const handleDeckPress = async (deckNumber) => {
-    if (selectedDeck === deckNumber) {
-      setSelectedDeck(null);
-      setIsDeckListModalVisible(false);
+    if (selectedDecks.includes(deckNumber)) {
+      setSelectedDecks(selectedDecks.filter(d => d !== deckNumber));
       return;
     }
 
-    setSelectedDeck(deckNumber);
+    if (selectedDecks.length >= 2) {
+      Alert.alert('Attenzione', 'Puoi selezionare solo 2 deck per il torneo.');
+      return;
+    }
+
+    setSelectedDecks([...selectedDecks, deckNumber]);
+  };
+
+  const handleConfirmSelection = async () => {
+    if (selectedDecks.length !== 2) {
+      Alert.alert('Attenzione', 'Devi selezionare esattamente 2 deck per il torneo.');
+      return;
+    }
+
     if (!user) return;
 
-    setFetchingDeckList(true);
     try {
-      const { data: profile, error } = await supabase
+      // Recupera i dati dei deck selezionati
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select(`DECK_LIST_${deckNumber}`)
+        .select(`DECK_LIST_${selectedDecks[0]}, DECK_LIST_${selectedDecks[1]}`)
         .eq('id', user.id)
         .single();
 
-      if (error) {
-        console.error('Error fetching deck list:', error);
-        Alert.alert('Error', 'Failed to fetch deck list.');
+      if (profileError) {
+        console.error('Error fetching decks:', profileError);
+        Alert.alert('Errore', 'Impossibile recuperare i deck selezionati.');
         return;
       }
 
-      if (profile && profile[`DECK_LIST_${deckNumber}`]) {
-        const deck = JSON.parse(profile[`DECK_LIST_${deckNumber}`]);
-        const cardCounts = {};
-        deck.cards.forEach((card) => {
-          cardCounts[card.id] = (cardCounts[card.id] || 0) + 1;
-        });
+      // Recupera l'ID del partecipante
+      const { data: participant, error: participantError } = await supabase
+        .from('tournament_participants')
+        .select('id')
+        .eq('tournament_id', tournamentId)
+        .eq('participant_id', user.id)
+        .single();
 
-        const countedDeckList = Object.entries(cardCounts).map(([id, quantity]) => {
-          const card = deck.cards.find(c => c.id === id);
-          return {
-            id,
-            quantity,
-            image_url: card.image
-          };
-        });
-
-        setDeckList(countedDeckList);
-        setIsDeckListModalVisible(true);
-      } else {
-        setDeckList(null);
+      if (participantError) {
+        console.error('Error fetching participant:', participantError);
+        Alert.alert('Errore', 'Impossibile trovare il partecipante al torneo.');
+        return;
       }
+
+      // Prepara i dati dei deck
+      const deck1Data = profile[`DECK_LIST_${selectedDecks[0]}`];
+      const deck2Data = profile[`DECK_LIST_${selectedDecks[1]}`];
+
+      // Aggiorna la tabella tournament_participants
+      const { error: updateError } = await supabase
+        .from('tournament_participants')
+        .update({
+          deck_1: typeof deck1Data === 'string' ? deck1Data : JSON.stringify(deck1Data),
+          deck_2: typeof deck2Data === 'string' ? deck2Data : JSON.stringify(deck2Data)
+        })
+        .eq('id', participant.id);
+
+      if (updateError) {
+        console.error('Error updating tournament participants:', updateError);
+        Alert.alert('Errore', 'Impossibile salvare i deck selezionati.');
+        return;
+      }
+
+      Alert.alert('Successo', 'Deck selezionati e salvati con successo!');
+      navigation.goBack();
     } catch (error) {
-      console.error('Error parsing deck list:', error);
-      Alert.alert('Error', 'An unexpected error occurred while parsing the deck list.');
-    } finally {
-      setFetchingDeckList(false);
+      console.error('Error saving decks:', error);
+      Alert.alert('Errore', 'Si è verificato un errore imprevisto durante il salvataggio dei deck.');
     }
   };
 
@@ -306,7 +323,7 @@ const Decklistscreen = () => {
               }
               await fetchDeckCount();
               await fetchDeckNames();
-              setSelectedDeck(null);
+              setSelectedDecks(selectedDecks.filter(d => d !== deckNumber));
               Alert.alert('Success', `${deckNames[deckNumber] || `Deck #${deckNumber}`} has been deleted.`);
             } catch (error) {
               console.error('Error deleting deck:', error);
@@ -322,9 +339,59 @@ const Decklistscreen = () => {
     navigation.navigate('MyDecks', { deckNumber: deckNumber });
   };
 
+  const handleViewDeck = async (deckNumber) => {
+    if (!user) return;
+
+    setFetchingDeckList(true);
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select(`DECK_LIST_${deckNumber}`)
+        .eq('id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching deck list:', error);
+        Alert.alert('Error', 'Failed to fetch deck list.');
+        return;
+      }
+
+      if (profile && profile[`DECK_LIST_${deckNumber}`]) {
+        const deckData = JSON.parse(profile[`DECK_LIST_${deckNumber}`]);
+        const cardCounts = {};
+        deckData.cards.forEach((card) => {
+          cardCounts[card.id] = (cardCounts[card.id] || 0) + 1;
+        });
+
+        const countedDeckList = Object.entries(cardCounts).map(([id, quantity]) => {
+          const card = deckData.cards.find(c => c.id === id);
+          return {
+            id,
+            quantity,
+            image_url: card.image
+          };
+        });
+
+        setDeckList(countedDeckList);
+        setIsDeckListModalVisible(true);
+      }
+    } catch (error) {
+      console.error('Error fetching deck list:', error);
+      Alert.alert('Error', 'An unexpected error occurred while fetching deck list.');
+    } finally {
+      setFetchingDeckList(false);
+    }
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-      <Text style={[styles.title, { color: theme.text }]}>My Deck Lists</Text>
+      <Text style={[styles.title, { color: theme.text }]}>Seleziona i Deck per il Torneo</Text>
+      
+      <View style={styles.selectionIndicator}>
+        <Text style={[styles.selectionText, { color: theme.text }]}>
+          Deck selezionati: {selectedDecks.length}/2
+        </Text>
+      </View>
 
       {loading ? (
         <ActivityIndicator size="large" color={theme.primary} />
@@ -346,10 +413,11 @@ const Decklistscreen = () => {
                 key={deckNumber}
                 deckNumber={deckNumber}
                 deckName={deckNames[deckNumber]}
-                isSelected={selectedDeck === deckNumber}
+                isSelected={selectedDecks.includes(deckNumber)}
                 onSelect={() => handleDeckPress(deckNumber)}
                 onEdit={() => handleEditDeck(deckNumber)}
                 onDelete={() => handleDeleteDeck(deckNumber)}
+                onView={() => handleViewDeck(deckNumber)}
               />
             ))
           ) : (
@@ -358,7 +426,14 @@ const Decklistscreen = () => {
         </ScrollView>
       )}
 
-      <AddDeckButton onPress={handleAddDeck} />
+      {selectedDecks.length === 2 && (
+        <TouchableOpacity 
+          style={[styles.confirmButton, { backgroundColor: theme.primary }]}
+          onPress={handleConfirmSelection}
+        >
+          <Text style={styles.confirmButtonText}>Conferma Selezione</Text>
+        </TouchableOpacity>
+      )}
 
       {fetchingDeckList ? (
         <View style={styles.deckListLoading}>
@@ -367,7 +442,7 @@ const Decklistscreen = () => {
       ) : (
         <DeckList 
           deckList={deckList} 
-          deckName={deckNames[selectedDeck]} 
+          deckName={deckNames[selectedDecks[selectedDecks.length - 1]]} 
           theme={theme}
           visible={isDeckListModalVisible}
           onClose={() => setIsDeckListModalVisible(false)}
@@ -504,6 +579,40 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 20,
   },
+  selectionIndicator: {
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 15,
+    alignItems: 'center',
+  },
+  selectionText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  confirmButton: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  confirmButtonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  viewButton: {
+    marginRight: 10,
+    padding: 5,
+  },
 });
 
-export default Decklistscreen;
+export default TournamentDeckScreen;

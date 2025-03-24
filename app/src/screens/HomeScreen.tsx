@@ -411,6 +411,7 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     marginHorizontal: 10,
     borderWidth: 1,
+    marginTop: 5,
   },
   createButtonText: {
     fontWeight: 'bold',

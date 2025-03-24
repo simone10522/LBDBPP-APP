@@ -217,7 +217,7 @@ export default function ManageParticipantsScreen() {
   return (
     <ScrollView style={[styles.container, { backgroundColor: palette.background }]}>
       <View style={[styles.header, { backgroundColor: palette.headerBackground }]}>
-        <Text style={[styles.headerTitle, { color: palette.text }]}>Lista Partecipanti</Text>
+        <Text style={[styles.headerTitle, { color: palette.text }]}>Players List</Text>
         <Text style={[styles.headerSubTitle, { color: palette.secondaryText }]}>
           ({tournamentParticipants.length}/{maxPlayers === null ? '∞' : maxPlayers})
         </Text>
@@ -226,16 +226,6 @@ export default function ManageParticipantsScreen() {
       {loading && <Text style={{ color: palette.text }}>Caricamento...</Text>}
       {user && (
         <View style={styles.actions}>
-          {isParticipating && (
-            <TouchableOpacity onPress={handleLeaveTournament} style={[styles.leaveButton, { backgroundColor: palette.buttonBackground }]} disabled={isTournamentActive}>
-              <Text style={[styles.leaveButtonText, { color: palette.buttonText }]}>Esci dal Torneo</Text>
-            </TouchableOpacity>
-          )}
-          {isParticipating && participantId && (
-            <TouchableOpacity onPress={() => navigation.navigate('ManageDecks', { participantId: participantId })} style={[styles.manageDeckButton, { backgroundColor: palette.buttonBackground }]} disabled={isTournamentActive}>
-              <Text style={[styles.manageDeckButtonText, { color: palette.buttonText }]}>Gestisci Mazzi</Text>
-            </TouchableOpacity>
-          )}
         </View>
       )}
       <View style={styles.listContainer}>

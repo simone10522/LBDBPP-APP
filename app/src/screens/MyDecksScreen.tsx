@@ -11,6 +11,7 @@ import cardDataSetsA1a from '../../assets/cards/A1a.json';
 import cardDataSetsA2a from '../../assets/cards/A2a.json';
 import cardDataSetsA2 from '../../assets/cards/A2.json';
 import cardDataSetsPA from '../../assets/cards/PA.json';
+import BannerAdComponent from '../components/BannerAd';
 
 const MyDecksScreen = () => {
   const [setsData, setSetsData] = useState([]);
@@ -453,6 +454,10 @@ const MyDecksScreen = () => {
           </Animated.View>
         </TouchableOpacity>
       </Modal>
+
+      <View style={styles.bannerAdContainer}>
+        <BannerAdComponent />
+      </View>
     </SafeAreaView>
   );
 };
@@ -621,6 +626,12 @@ const styles = StyleSheet.create({
   modalButtonText: {
     color: 'white',
     fontWeight: 'bold',
+  },
+  bannerAdContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 10,
+    marginTop: 20,
   },
 });
 
