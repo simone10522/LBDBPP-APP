@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, TextInput, Alert, Clipboard } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, TextInput, Alert, Clipboard, FlatList, Animated, Easing } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
 import Modal from 'react-native-modal';
@@ -7,6 +7,7 @@ import * as Notifications from 'expo-notifications';
 import { lightPalette, darkPalette } from '../context/themes'; // Import lightPalette and darkPalette
 import { ClipboardIcon } from "lucide-react-native"; // IMPORT ClipboardIcon from lucide-react-native
 import messaging from '@react-native-firebase/messaging'; // ADDED Firebase Messaging
+import { useNavigation } from '@react-navigation/native';
 
 interface Match {
   id: string;
@@ -60,6 +61,11 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
   const [isNotifyButtonDisabled, setIsNotifyButtonDisabled] = useState(false);
   const [matchPasswords, setMatchPasswords] = useState<{ [matchId: string]: string | null }>({}); // ADDED matchPasswords state
   const [firebaseToken, setFirebaseToken] = useState<string | null>(null); // ADDED firebaseToken state
+  const [userProfiles, setUserProfiles] = useState<{ [userId: string]: { status: string } }>({});
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
+  const [isPlayerModalVisible, setIsPlayerModalVisible] = useState(false);
+  const [profilePressScale] = useState(new Animated.Value(1));
+  const navigation = useNavigation();
 
   const theme = isDarkMode ? darkPalette : lightPalette;
 
@@ -79,8 +85,6 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
   };
 
   const orderedMatches = orderMatches(matches); // Use matches prop directly
-
-  console.log("MatchList - matches prop:", matches);
 
   useEffect(() => {
     //registerForPushNotificationsAsync().then(token => setNotificationStatus(token));
@@ -215,6 +219,38 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
     getFirebaseToken();
   }, []);
 
+  useEffect(() => {
+    const fetchUserProfiles = async () => {
+      const playerIds = matches.reduce((acc, match) => {
+        if (match.player1_id) acc.add(match.player1_id);
+        if (match.player2_id) acc.add(match.player2_id);
+        return acc;
+      }, new Set<string>());
+
+      if (playerIds.size > 0) {
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('id, status')
+            .in('id', Array.from(playerIds));
+
+          if (error) {
+            console.error("Error fetching user profiles:", error);
+          } else {
+            const profilesMap: { [userId: string]: { status: string } } = {};
+            data.forEach((profile) => {
+              profilesMap[profile.id] = { status: profile.status };
+            });
+            setUserProfiles(profilesMap);
+          }
+        } catch (error) {
+          console.error("Error fetching user profiles:", error);
+        }
+      }
+    };
+
+    fetchUserProfiles();
+  }, [matches]);
 
   const toggleModal = (matchId: string | null = null) => {
     setSelectedMatchId(matchId);
@@ -445,10 +481,192 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
     }
   };
 
+  const handleProfilePress = (playerId, playerUsername) => {
+    // Se l'utente clicca la propria immagine, vai al profilo
+    if (user && playerId === user.id) {
+      navigation.navigate('Profile');
+      return;
+    }
+
+    // Animazione di shrink per gli altri profili
+    Animated.sequence([
+      Animated.timing(profilePressScale, {
+        toValue: 0.9,
+        duration: 100,
+        easing: Easing.ease,
+        useNativeDriver: true
+      }),
+      Animated.timing(profilePressScale, {
+        toValue: 1,
+        duration: 100,
+        easing: Easing.ease,
+        useNativeDriver: true
+      })
+    ]).start();
+
+    setSelectedPlayer({ id: playerId, username: playerUsername });
+    setIsPlayerModalVisible(true);
+  };
+
+  const handleSendMessage = () => {
+    setIsPlayerModalVisible(false);
+    navigation.navigate('ChatScreen', {
+      receiverProfile: {
+        id: selectedPlayer.id,
+        username: selectedPlayer.username,
+        profile_image: profileImages[selectedPlayer.id]
+      }
+    });
+  };
+
+  const handleShowDeck = () => {
+    setIsPlayerModalVisible(false);
+    // Per ora non fa nulla, implementare in futuro
+    Alert.alert('Coming Soon', 'This feature will be available soon!');
+  };
 
   if (tournamentStatus === 'draft') {
     return <Text style={[styles.noMatches, { color: theme.secondaryText }]}>Tournament not started yet.</Text>;
   }
+
+  const renderSetItem = ({ item }) => {
+    return (
+      <View style={[styles.setContainer]}>
+        <Text style={[styles.setLabel, { color: theme.text }]}>{item.setName}</Text>
+        <FlatList
+          data={item.cards}
+          renderItem={renderCardItem}
+          keyExtractor={(card) => card.id}
+          numColumns={3}
+          contentContainerStyle={styles.cardListContainer}
+          initialNumToRender={9}
+          maxToRenderPerBatch={9}
+          windowSize={5}
+          removeClippedSubviews={true}
+          getItemLayout={(data, index) => ({length: 120, offset: 120 * index, index})}
+        />
+      </View>
+    )
+  };
+
+  const renderMatchItem = ({ item, index }) => {
+    const isMyMatch = orderedMatches[0] === item;
+    const showOtherMatchesText = !isMyMatch && index === 1 && orderedMatches.length > 1;
+    const isPlayerInMatch = user && (user.id === item.player1_id || user.id === item.player2_id);
+
+    const renderPlayerImage = (playerId, playerUsername) => (
+      <TouchableOpacity 
+        onPress={() => handleProfilePress(playerId, playerUsername)}
+        activeOpacity={0.7}
+      >
+        <Animated.View style={[
+          styles.profileImageContainer,
+          {
+            transform: [{ scale: profilePressScale }]
+          }
+        ]}>
+          <Image
+            source={{ uri: profileImages[playerId] || '/icons/profile1.png' }}
+            style={styles.profileImage}
+          />
+          <View style={[
+            styles.onlineStatus,
+            { backgroundColor: userProfiles[playerId]?.status === 'online' ? 'green' : 'red' }
+          ]} />
+        </Animated.View>
+      </TouchableOpacity>
+    );
+
+    return (
+      <View key={item.id}>
+        {isMyMatch && (
+          <Text style={[styles.myMatchText, { color: theme.text }]}>My Match</Text>
+        )}
+        {showOtherMatchesText && (
+          <Text style={[styles.otherMatchesText, { color: theme.text }]}>Other Matches</Text>
+        )}
+        <View style={[styles.matchItem, { backgroundColor: theme.cardBackground }]}>
+          {onSetWinner && tournamentStatus === 'in_progress' && item.status === 'scheduled' ? (
+            <View style={styles.matchContent}>
+              <View style={[styles.winnerButtons, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' }]}>
+                <View style={styles.playerContainer}>
+                  {renderPlayerImage(item.player1_id, item.player1)}
+                  <Text style={[styles.playerName, { width: 100, color: theme.text }]}>{item.player1}</Text>
+                </View>
+                <View style={{ flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                  <TouchableOpacity
+                    style={[
+                      styles.setResultsButton,
+                      { backgroundColor: theme.buttonBackground, padding: 10, marginTop: 5 },
+                      item.round !== currentRound || (!isCreator && user && user.id !== item.player1_id && user.id !== item.player2_id) ? styles.disabledButton : {},
+                      !user ? styles.disabledButton : {}
+                    ]}
+                    onPress={() => toggleModal(item.id)}
+                    disabled={
+                      item.round !== currentRound ||
+                      (!isCreator && user && user.id !== item.player1_id && user.id !== item.player2_id) ||
+                      !user
+                    }
+                  >
+                    <Text style={[styles.setResultsText, { color: theme.buttonText }]}>Set Results</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.setResultsButton,
+                      { backgroundColor: theme.buttonBackground, padding: 10, marginTop: 5 },
+                      isNotifyButtonDisabled ? styles.disabledButton : {},
+                      !user ? styles.disabledButton : {}
+                    ]}
+                    onPress={() => handleNotifyOpponent(item)}
+                    disabled={!(user && (user.id === item.player1_id || user.id === item.player2_id) && item.round === currentRound) || isNotifyButtonDisabled || !user}
+                  >
+                    <Image
+                      source={require('../../assets/bell-icon.png')}
+                      style={{ width: 20, height: 20 }}
+                    />
+                  </TouchableOpacity>
+                  {/* Display match password if available AND user is a player in the match */}
+                  {isPlayerInMatch ? (
+                    matchPasswords[item.id] ? (
+                      <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                        <Text style={{ color: theme.text, marginRight: 5 }}>{matchPasswords[item.id]}</Text>
+                        <TouchableOpacity onPress={() => {
+                          Clipboard.setString(matchPasswords[item.id] || '');
+                          Alert.alert("Password Copied", "Password copied to clipboard!");
+                        }}>
+                          <ClipboardIcon color={theme.text} />
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <Text style={{ color: theme.text }}>Generating...</Text>
+                    )
+                  ) : null}
+                </View>
+                <View style={styles.playerContainer}>
+                  {renderPlayerImage(item.player2_id, item.player2)}
+                  <Text style={[styles.playerName, { width: 100, color: theme.text }]}>{item.player2}</Text>
+                </View>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.matchContent}>
+              <View style={[styles.completedMatch, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
+                <View style={styles.playerContainer}>
+                  {renderPlayerImage(item.player1_id, item.player1)}
+                  <Text style={[styles.playerName, { width: 100, color: theme.text }]}>{item.player1}</Text>
+                </View>
+                <Text style={[styles.scoreText, { width: 50, color: theme.text }]}>{matchScores[item.id] || '0 - 0'}</Text>
+                <View style={styles.playerContainer}>
+                  {renderPlayerImage(item.player2_id, item.player2)}
+                  <Text style={[styles.playerName, { width: 100, color: theme.text }]}>{item.player2}</Text>
+                </View>
+              </View>
+            </View>
+          )}
+        </View>
+      </View>
+    );
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -498,115 +716,39 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
         </View>
       </Modal>
 
-          <View style={styles.matchesContainer}>
-            {orderedMatches.map((match, index) => {
-              const isMyMatch = orderedMatches[0] === match;
-              const showOtherMatchesText = !isMyMatch && index === 1 && orderedMatches.length > 1;
-              const isPlayerInMatch = user && (user.id === match.player1_id || user.id === match.player2_id); // ADDED check
+      <Modal
+        isVisible={isPlayerModalVisible}
+        onBackdropPress={() => setIsPlayerModalVisible(false)}
+        backdropOpacity={0.5}
+        animationIn="slideInUp"
+        animationOut="slideOutDown"
+      >
+        <View style={[styles.modalContent, { backgroundColor: theme.cardBackground }]}>
+          <Text style={[styles.modalTitle, { color: theme.text }]}>Player Options</Text>
+          <TouchableOpacity 
+            style={[styles.modalButton, { backgroundColor: theme.buttonBackground }]}
+            onPress={handleShowDeck}
+          >
+            <Text style={[styles.modalButtonText, { color: theme.buttonText }]}>Show Deck</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.modalButton, { backgroundColor: theme.buttonBackground }]}
+            onPress={handleSendMessage}
+          >
+            <Text style={[styles.modalButtonText, { color: theme.buttonText }]}>Send Message</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.modalButton, { backgroundColor: theme.error }]}
+            onPress={() => setIsPlayerModalVisible(false)}
+          >
+            <Text style={[styles.modalButtonText, { color: 'white' }]}>Close</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
 
-              return (
-                <View key={match.id}>
-                  {isMyMatch && (
-                    <Text style={[styles.myMatchText, { color: theme.text }]}>My Match</Text>
-                  )}
-                  {showOtherMatchesText && (
-                    <Text style={[styles.otherMatchesText, { color: theme.text }]}>Other Matches</Text>
-                  )}
-                  <View style={[styles.matchItem, { backgroundColor: theme.cardBackground }]}>
-                    {onSetWinner && tournamentStatus === 'in_progress' && match.status === 'scheduled' ? (
-                      <View style={styles.matchContent}>
-                        <View style={[styles.winnerButtons, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' }]}>
-                          <View style={styles.playerContainer}>
-                            <Image
-                              source={{ uri: profileImages[match.player1_id] || '/icons/profile1.png' }}
-                              style={styles.profileImage}
-                            />
-                            <Text style={[styles.playerName, { width: 100, color: theme.text }]}>{match.player1}</Text>
-                          </View>
-                          <View style={{ flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                            <TouchableOpacity
-                              style={[
-                                styles.setResultsButton,
-                                { backgroundColor: theme.buttonBackground, padding: 10, marginTop: 5 },
-                                match.round !== currentRound || (!isCreator && user && user.id !== match.player1_id && user.id !== match.player2_id) ? styles.disabledButton : {},
-                                !user ? styles.disabledButton : {}
-                              ]}
-                              onPress={() => toggleModal(match.id)}
-                              disabled={
-                                match.round !== currentRound ||
-                                (!isCreator && user && user.id !== match.player1_id && user.id !== match.player2_id) ||
-                                !user
-                              }
-                            >
-                              <Text style={[styles.setResultsText, { color: theme.buttonText }]}>Set Results</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              style={[
-                                styles.setResultsButton,
-                                { backgroundColor: theme.buttonBackground, padding: 10, marginTop: 5 },
-                                isNotifyButtonDisabled ? styles.disabledButton : {},
-                                !user ? styles.disabledButton : {}
-                              ]}
-                              onPress={() => handleNotifyOpponent(match)}
-                              disabled={!(user && (user.id === match.player1_id || user.id === match.player2_id) && match.round === currentRound) || isNotifyButtonDisabled || !user}
-                            >
-                              <Image
-                                source={require('../../assets/bell-icon.png')}
-                                style={{ width: 20, height: 20 }}
-                              />
-                            </TouchableOpacity>
-                            {/* Display match password if available AND user is a player in the match */}
-                            {isPlayerInMatch ? (
-                              matchPasswords[match.id] ? (
-                                <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                                  <Text style={{ color: theme.text, marginRight: 5 }}>{matchPasswords[match.id]}</Text>
-                                  <TouchableOpacity onPress={() => {
-                                    Clipboard.setString(matchPasswords[match.id] || '');
-                                    Alert.alert("Password Copied", "Password copied to clipboard!");
-                                  }}>
-                                    <ClipboardIcon color={theme.text} />
-                                  </TouchableOpacity>
-                                </View>
-                              ) : (
-                                <Text style={{ color: theme.text }}>Generating...</Text>
-                              )
-                            ) : null}
-                          </View>
-                          <View style={styles.playerContainer}>
-                            <Image
-                              source={{ uri: profileImages[match.player2_id] || '/icons/profile1.png' }}
-                              style={styles.profileImage}
-                            />
-                            <Text style={[styles.playerName, { width: 100, color: theme.text }]}>{match.player2}</Text>
-                          </View>
-                        </View>
-                      </View>
-                    ) : (
-                      <View style={styles.matchContent}>
-                        <View style={[styles.completedMatch, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
-                          <View style={styles.playerContainer}>
-                            <Image
-                              source={{ uri: profileImages[match.player1_id] || '/icons/profile1.png' }}
-                              style={[styles.profileImage, match.winner_id !== match.player1_id ? styles.dimmedImage : {}]}
-                            />
-                            <Text style={[styles.playerName, { width: 100, color: theme.text }]}>{match.player1}</Text>
-                          </View>
-                          <Text style={[styles.scoreText, { width: 50, color: theme.text }]}>{matchScores[match.id] || '0 - 0'}</Text>
-                          <View style={styles.playerContainer}>
-                            <Image
-                              source={{ uri: profileImages[match.player2_id] || '/icons/profile1.png' }}
-                              style={[styles.profileImage, match.winner_id !== match.player2_id ? styles.dimmedImage : {}]}
-                            />
-                            <Text style={[styles.playerName, { width: 100, color: theme.text }]}>{match.player2}</Text>
-                          </View>
-                        </View>
-                      </View>
-                    )}
-                  </View>
-                </View>
-              );
-            })}
-          </View>
+      <View style={styles.matchesContainer}>
+        {orderedMatches.map((item, index) => renderMatchItem({ item, index }))}
+      </View>
 
     </View>
   );
@@ -658,10 +800,25 @@ const styles = StyleSheet.create({
     padding: 5,
     borderRadius: 5,
   },
+  profileImageContainer: {
+    position: 'relative',
+    width: 70,
+    height: 70,
+  },
   profileImage: {
     width: 70,
     height: 70,
     borderRadius: 20,
+  },
+  onlineStatus: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: 'white',
   },
   completedMatch: {
     alignItems: 'center',
@@ -772,5 +929,43 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: 'bold',
     textAlign: 'center',
+  },
+  setContainer: {
+    marginBottom: 20,
+  },
+  setLabel: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  cardListContainer: {
+    padding: 10,
+  },
+  modalContent: {
+    padding: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 20,
+  },
+  modalButton: {
+    width: '100%',
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 10,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  playerImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginBottom: 5,
   },
 });
