@@ -24,6 +24,8 @@ import TradeScreen from './src/screens/TradeScreen';
 import TradeCompletedAnimation from './src/components/TradeCompletedAnimation';
 import ChatScreen from './src/screens/ChatScreen';
 import ChatListScreen from './src/screens/ChatListScreen';
+import TournamentDeckScreen from './src/screens/TournamentDeckScreen';
+import ThreeDCube from './src/screens/3dcube';
 // Utils
 import { useAuth, useOnlineStatus } from './src/hooks/useAuth';
 import { supabase } from './src/lib/supabase';
@@ -128,11 +130,13 @@ const App = () => {
             <Stack.Screen name="TournamentPage" component={TournamentPage} />
             <Stack.Screen name="RankedScreen" component={RankedScreen} />
             <Stack.Screen name="MyDecks" component={MyDecksScreen} />
-            <Stack.Screen name="Decklistscreen" component={Decklistscreen} />
+            <Stack.Screen name="Decklistscreen" component={Decklistscreen} options={{ title: 'Deck List' }} />
             <Stack.Screen name="TradeScreen" component={TradeScreen} />
             <Stack.Screen name="TradeCompletedAnimation" component={TradeCompletedAnimation} />
             <Stack.Screen name="ChatScreen" component={ChatScreen} />
             <Stack.Screen name="ChatListScreen" component={ChatListScreen} />
+            <Stack.Screen name="TournamentDeckScreen" component={TournamentDeckScreen}/>
+            <Stack.Screen name="ThreeDCube" component={ThreeDCube} options={{ title: '3D Cube' }} />
           </Stack.Navigator>
         </SafeAreaView>
         <BottomNavigationBar />
