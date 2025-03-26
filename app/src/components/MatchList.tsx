@@ -57,7 +57,7 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [currentRound, setCurrentRound] = useState<number>(1);
   const [notificationStatus, setNotificationStatus] = useState<string | null>(null);
-  const backendServerURL = 'https://lbdb-server.onrender.com';
+  const backendServerURL = 'https://lbdb-server-production.up.railway.app';
   const [isNotifyButtonDisabled, setIsNotifyButtonDisabled] = useState(false);
   const [matchPasswords, setMatchPasswords] = useState<{ [matchId: string]: string | null }>({}); // ADDED matchPasswords state
   const [firebaseToken, setFirebaseToken] = useState<string | null>(null); // ADDED firebaseToken state
@@ -364,13 +364,6 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
         if (matchError) {
           console.error("Error updating match:", matchError);
           return;
-        }
-
-        // Call the SQL function to update matches_won in tournament_participants
-        const { error: rpcError } = await supabase.rpc('update_tournament_participants_matches_won');
-
-        if (rpcError) {
-          console.error("Error calling rpc function:", rpcError);
         }
 
         onSetWinner(selectedMatchId, winnerId, parsedPlayer1Score, parsedPlayer2Score);

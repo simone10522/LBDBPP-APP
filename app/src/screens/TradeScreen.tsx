@@ -291,7 +291,7 @@ const TradeScreen = () => {
         notificationType: 'trade',
       });
 
-      const serverUrl = 'https://lbdb-server.onrender.com/send-notification';
+      const serverUrl = 'https://lbdb-server-production.up.railway.app/send-notification';
       console.log("Sending notification request to:", serverUrl);
       console.log("Request body:", requestBody);
 
@@ -353,7 +353,7 @@ const TradeScreen = () => {
       username: username // Pass username if you want to include it in the backend logic
     });
 
-    const serverUrl = 'https://lbdb-server.onrender.com/send-notification';
+    const serverUrl = 'https://lbdb-server-production.up.railway.app/send-notification';
     console.log("Sending 'Trade Accepted' notification request to:", serverUrl);
     console.log("Request body:", requestBody);
 
@@ -457,156 +457,157 @@ const TradeScreen = () => {
   };
 
   const handleTradeCompleted = async (user1Cards, user2Cards) => {
-    let tradeMatchIdToDelete = null;
     setLoading(true);
     setError(null);
-
+  
     try {
-      // Fetch trade cards for both users
-      const { data: user1TradeCards, error: user1TradeCardsError } = await supabase
-        .from('trade_cards')
-        .select('what_i_have, what_i_want')
-        .eq('user_id', userId)
-        .single();
-
       const tradeMatch = tradeMatches.find(match =>
         (match.user1_id === userId && match.user1_cards[0].id === user1Cards[0].id && match.user2_cards[0].id === user2Cards[0].id) ||
         (match.user2_id === userId && match.user2_cards[0].id === user1Cards[0].id && match.user1_cards[0].id === user2Cards[0].id)
       );
-
+  
       if (!tradeMatch) {
-        setError("Trade match not found locally.");
-        setLoading(false);
+        setError("Trade match not found.");
         return;
       }
-
-      const otherUserId = tradeMatch.user1_id === userId ? tradeMatch.user2_id : tradeMatch.user1_id;
-
-      const { data: user2TradeCards, error: user2TradeCardsError } = await supabase
+  
+      const user1Id = tradeMatch.user1_id;
+      const user2Id = tradeMatch.user2_id;
+      const card1Id = user1Cards[0].id;
+      const card2Id = user2Cards[0].id;
+  
+      console.log('Trade info:', { user1Id, user2Id, card1Id, card2Id });
+  
+      // Recupera i dati delle carte per entrambi gli utenti
+      const { data: user1Data, error: user1Error } = await supabase
         .from('trade_cards')
         .select('what_i_have, what_i_want')
-        .eq('user_id', otherUserId)
+        .eq('user_id', user1Id)
         .single();
-
-      if (user1TradeCardsError) {
-        console.error('Error fetching user1 trade cards:', user1TradeCardsError);
-        setError('Failed to update your cards.');
-        setLoading(false);
+  
+      if (user1Error) {
+        console.error('Error fetching user1 cards:', user1Error);
+        setError('Failed to fetch user1 cards');
         return;
       }
-
-      if (user2TradeCardsError) {
-        console.error('Error fetching user2 trade cards:', user2TradeCardsError);
-        setError('Failed to update other user\'s cards.');
-        setLoading(false);
+  
+      const { data: user2Data, error: user2Error } = await supabase
+        .from('trade_cards')
+        .select('what_i_have, what_i_want')
+        .eq('user_id', user2Id)
+        .single();
+  
+      if (user2Error) {
+        console.error('Error fetching user2 cards:', user2Error);
+        setError('Failed to fetch user2 cards');
         return;
       }
-
-      let updatedUser1HaveCards = user1TradeCards?.what_i_have || [];
-      let updatedUser1WantCards = user1TradeCards?.what_i_want || [];
-      let updatedUser2HaveCards = user2TradeCards?.what_i_have || [];
-      let updatedUser2WantCards = user2TradeCards?.what_i_want || [];
-
-      // User 1 gives user1Cards[0], receives user2Cards[0]
-      // User 2 gives user2Cards[0], receives user1Cards[0]
-
-      // Update user 1's what_i_have (remove user1Cards[0])
-      const user1HaveCardIndex = updatedUser1HaveCards.findIndex(card => card.id === user1Cards[0].id);
-      if (user1HaveCardIndex !== -1) {
-        if (updatedUser1HaveCards[user1HaveCardIndex].count > 1) {
-          updatedUser1HaveCards[user1HaveCardIndex].count -= 1;
-        } else {
-          updatedUser1HaveCards.splice(user1HaveCardIndex, 1);
+  
+      // Gestione what_i_have per user1
+      let updatedUser1Have = user1Data.what_i_have.map(card => {
+        if (card.id === card1Id) {
+          if (card.count > 1) {
+            return { ...card, count: card.count - 1 };
+          }
+          return null;
         }
-      }
-
-      // Update user 1's what_i_want (remove user2Cards[0])
-      updatedUser1WantCards = updatedUser1WantCards.filter(card => card.id !== user2Cards[0].id);
-
-
-      // Update user 2's what_i_have (remove user2Cards[0])
-      const user2HaveCardIndex = updatedUser2HaveCards.findIndex(card => card.id === user2Cards[0].id);
-      if (user2HaveCardIndex !== -1) {
-        if (updatedUser2HaveCards[user2HaveCardIndex].count > 1) {
-          updatedUser2HaveCards[user2HaveCardIndex].count -= 1;
-        } else {
-          updatedUser2HaveCards.splice(user2HaveCardIndex, 1);
+        return card;
+      }).filter(card => card !== null);
+  
+      // Gestione what_i_want per user1
+      let updatedUser1Want = user1Data.what_i_want.map(card => {
+        if (card.id === card2Id) {
+          if (card.count > 1) {
+            return { ...card, count: card.count - 1 };
+          }
+          return null;
         }
-      }
-
-      // Update user 2's what_i_want (remove user1Cards[0])
-      updatedUser2WantCards = updatedUser2WantCards.filter(card => card.id !== user1Cards[0].id);
-
-
-      // Update user 1's trade_cards
+        return card;
+      }).filter(card => card !== null);
+  
+      // Gestione what_i_have per user2
+      let updatedUser2Have = user2Data.what_i_have.map(card => {
+        if (card.id === card2Id) {
+          if (card.count > 1) {
+            return { ...card, count: card.count - 1 };
+          }
+          return null;
+        }
+        return card;
+      }).filter(card => card !== null);
+  
+      // Gestione what_i_want per user2
+      let updatedUser2Want = user2Data.what_i_want.map(card => {
+        if (card.id === card1Id) {
+          if (card.count > 1) {
+            return { ...card, count: card.count - 1 };
+          }
+          return null;
+        }
+        return card;
+      }).filter(card => card !== null);
+  
+      console.log('Updated data:', {
+        user1: { have: updatedUser1Have, want: updatedUser1Want },
+        user2: { have: updatedUser2Have, want: updatedUser2Want }
+      });
+  
+      // Salva gli aggiornamenti per user1
       const { error: updateUser1Error } = await supabase
         .from('trade_cards')
-        .update({ what_i_have: updatedUser1HaveCards, what_i_want: updatedUser1WantCards })
-        .eq('user_id', userId);
-
+        .update({ 
+          what_i_have: updatedUser1Have,
+          what_i_want: updatedUser1Want 
+        })
+        .eq('user_id', user1Id);
+  
       if (updateUser1Error) {
-        console.error('Error updating user 1 trade cards:', updateUser1Error);
-        setError('Failed to update your cards in the trade.');
-        setLoading(false);
+        console.error('Error updating user1 cards:', updateUser1Error);
+        setError('Failed to update user1 cards');
         return;
       }
-
-      // Update user 2's trade_cards
+  
+      // Salva gli aggiornamenti per user2
       const { error: updateUser2Error } = await supabase
         .from('trade_cards')
-        .update({ what_i_have: updatedUser2HaveCards, what_i_want: updatedUser2WantCards })
-        .eq('user_id', otherUserId);
-
+        .update({ 
+          what_i_have: updatedUser2Have,
+          what_i_want: updatedUser2Want 
+        })
+        .eq('user_id', user2Id);
+  
       if (updateUser2Error) {
-        console.error('Error updating user 2 trade cards:', updateUser2Error);
-        setError('Failed to update the other user\'s cards in the trade.');
-        setLoading(false);
+        console.error('Error updating user2 cards:', updateUser2Error);
+        setError('Failed to update user2 cards');
         return;
       }
-
-
-      // Fetch the trade_matches id before deleting
-      const { data: tradeMatchData, error: tradeMatchError } = await supabase
+  
+      // Elimina il trade match
+      const { error: deleteError } = await supabase
         .from('trade_matches')
-        .select('id')
-        .or(`and(user1_id.eq.${userId},user1_cards.cs.[{"id":"${user1Cards[0].id}"}]),and(user2_id.eq.${userId},user2_cards.cs.[{"id":"${user1Cards[0].id}"}])`)
-        .eq('status', 'confirmed')
-        .limit(1);
-
-      if (tradeMatchError) {
-        console.error('Error fetching trade match:', tradeMatchError);
-      } else if (tradeMatchData && tradeMatchData.length > 0) {
-        tradeMatchIdToDelete = tradeMatchData[0].id;
+        .delete()
+        .eq('id', tradeMatch.id);
+  
+      if (deleteError) {
+        console.error('Error deleting trade match:', deleteError);
+        setError('Failed to delete trade match');
+        return;
       }
-
-      // Delete the trade from trade_matches table
-      if (tradeMatchIdToDelete) {
-        const { error: deleteError } = await supabase
-          .from('trade_matches')
-          .delete()
-          .eq('id', tradeMatchIdToDelete);
-
-        if (deleteError) {
-          console.error('Error deleting trade match:', deleteError);
-        } else {
-          console.log('Trade match deleted successfully.');
-        }
-      } else {
-        console.log('No trade match found to delete.');
-      }
-
+  
+      // Naviga all'animazione di completamento
+      navigation.navigate('TradeCompletedAnimation', {
+        myCardImage: getCardImage(user1Cards[0].id),
+        otherCardImage: getCardImage(user2Cards[0].id),
+      });
+  
     } catch (error) {
       console.error('Error during trade completion:', error);
-      setError('Failed to complete trade.');
+      setError('Failed to complete trade');
     } finally {
       setLoading(false);
     }
-
-    navigation.navigate('TradeCompletedAnimation', {
-      myCardImage: getCardImage(user1Cards[0].id),
-      otherCardImage: getCardImage(user2Cards[0].id),
-    });
   };
+  
 
   const renderTradeMatchItem = ({ item }) => {
     const otherUserId = item.user1_id === userId ? item.user2_id : item.user1_id;

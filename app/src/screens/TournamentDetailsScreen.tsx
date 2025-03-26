@@ -683,7 +683,7 @@ export default function TournamentDetailsScreen() {
 
                         {tournament.status === 'draft' && (
                             <View style={styles.bottomActions}>
-                                {isOwner && (
+                                {isOwner && (maxPlayers !== null && participants.length >= maxPlayers) && (
                                     <TouchableOpacity 
                                         onPress={handleStartTournament}
                                         style={[styles.startButton, { backgroundColor: '#2ecc71' }]}
@@ -691,24 +691,21 @@ export default function TournamentDetailsScreen() {
                                         <Text style={styles.startButtonText}>Avvia Torneo</Text>
                                     </TouchableOpacity>
                                 )}
-
-                                {!isOwner && (
-                                    isParticipating ? (
+                                {isParticipating ? (
+                                    <TouchableOpacity 
+                                        onPress={handleLeaveTournament}
+                                        style={[styles.leaveButton, { backgroundColor: '#e74c3c' }]}
+                                    >
+                                        <Text style={styles.leaveButtonText}>Abbandona Torneo</Text>
+                                    </TouchableOpacity>
+                                ) : (
+                                    (maxPlayers === null || participants.length < maxPlayers) && (
                                         <TouchableOpacity 
-                                            onPress={handleLeaveTournament}
-                                            style={[styles.leaveButton, { backgroundColor: '#e74c3c' }]}
+                                            onPress={handleJoinTournament}
+                                            style={[styles.joinButton, { backgroundColor: '#2ecc71' }]}
                                         >
-                                            <Text style={styles.leaveButtonText}>Abbandona Torneo</Text>
+                                            <Text style={styles.joinButtonText}>Partecipa</Text>
                                         </TouchableOpacity>
-                                    ) : (
-                                        maxPlayers === null || participants.length < maxPlayers ? (
-                                            <TouchableOpacity 
-                                                onPress={handleJoinTournament}
-                                                style={[styles.joinButton, { backgroundColor: '#2ecc71' }]}
-                                            >
-                                                <Text style={styles.joinButtonText}>Partecipa</Text>
-                                            </TouchableOpacity>
-                                        ) : null
                                     )
                                 )}
                             </View>

@@ -1,18 +1,28 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Modal,
+  FlatList,
+  ActivityIndicator,
+  Image,
+} from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
-import ParticipantList from '../components/ParticipantList';
-import { EnergyIcon } from '../components/EnergyIcon';
 import { lightPalette, darkPalette } from '../context/themes';
-
-type Energy = 'fuoco' | 'terra' | 'acqua' | 'elettro' | 'normale' | 'erba' | 'oscurità' | 'lotta' | 'acciaio' | 'psico';
+import { List as ListIcon } from 'lucide-react-native';
 
 interface TournamentParticipant {
   id: string;
   username: string;
-  deck: { deck1: Energy[]; deck2: Energy[] } | null;
+  deck_1: string[]; // Array of cards in deck_1
+  deck_1_name: string; // Name of deck_1
+  deck_2: string[]; // Array of cards in deck_2
+  deck_2_name: string; // Name of deck_2
 }
 
 interface Tournament {
@@ -37,6 +47,8 @@ export default function ManageParticipantsScreen() {
   const [participantId, setParticipantId] = useState<string | null>(null);
   const [tournamentStatus, setTournamentStatus] = useState<'draft' | 'in_progress' | 'completed'>('draft');
   const [tournament, setTournament] = useState<Tournament | null>(null);
+  const [selectedParticipant, setSelectedParticipant] = useState<TournamentParticipant | null>(null);
+  const [isModalVisible, setIsModalVisible] = useState(false);
   const { isDarkMode } = useAuth();
   const palette = isDarkMode ? darkPalette : lightPalette;
 
@@ -48,20 +60,20 @@ export default function ManageParticipantsScreen() {
         .select(`
           id,
           profiles:participant_id (id, username),
-          deck
+          deck_1,
+          deck_2
         `)
         .eq('tournament_id', id);
-
-      if (error) {
-        throw new Error(`Errore durante il recupero dei partecipanti: ${error.message}`);
-      }
 
       if (data) {
         setTournamentParticipants(
           data.map((p) => ({
             id: p.id,
             username: p.profiles.username,
-            deck: p.deck,
+            deck_1: p.deck_1 ? JSON.parse(p.deck_1).cards : [], // Parse JSON and extract cards
+            deck_1_name: p.deck_1 ? JSON.parse(p.deck_1).name : 'Deck 1', // Extract deck name
+            deck_2: p.deck_2 ? JSON.parse(p.deck_2).cards : [], // Parse JSON and extract cards
+            deck_2_name: p.deck_2 ? JSON.parse(p.deck_2).name : 'Deck 2', // Extract deck name
           }))
         );
       } else {
@@ -86,6 +98,7 @@ export default function ManageParticipantsScreen() {
         setTournament(null);
       } else {
         setTournament(data);
+        setTournamentStatus(data.status);
       }
     } catch (error) {
       console.error("Error fetching tournament:", error);
@@ -201,74 +214,188 @@ export default function ManageParticipantsScreen() {
     }
   };
 
-  const formatDeck = (deck: { deck1: Energy[]; deck2: Energy[] } | null): React.ReactNode => {
-    if (!deck) return 'Non selezionato';
-    return (
-      <>
-        Deck 1: {deck.deck1.map((e) => <EnergyIcon key={e} energy={e} style={styles.energyIcon} />)}{' '}
-        Deck 2: {deck.deck2.map((e) => <EnergyIcon key={e} energy={e} style={styles.energyIcon} />)}
-      </>
-    );
-  };
-
   const isTournamentActive = tournamentStatus === 'in_progress' || tournamentStatus === 'completed';
 
+  const openModal = (participant: TournamentParticipant) => {
+    setSelectedParticipant(participant);
+    setIsModalVisible(true);
+  };
+
+  const closeModal = () => {
+    setSelectedParticipant(null);
+    setIsModalVisible(false);
+  };
+
+  const renderDeckList = (deck: string[], title: string) => (
+    <View style={styles.deckContainer}>
+      <Text style={[styles.deckTitle, { color: palette.text }]}>{title}</Text>
+      {deck.length > 0 ? (
+        <FlatList
+          data={deck}
+          keyExtractor={(item, index) => `${item}-${index}`}
+          numColumns={5}
+          renderItem={({ item }) => (
+            <View style={styles.cardGridItem}>
+              <Image
+                source={{ uri: item }}
+                style={styles.cardImage}
+                resizeMode="contain"
+              />
+            </View>
+          )}
+        />
+      ) : (
+        <Text style={[styles.emptyDeckText, { color: palette.text }]}>Nessuna carta</Text>
+      )}
+    </View>
+  );
+
+  const groupCardsById = (deck) => {
+    const grouped = {};
+    deck.forEach((card) => {
+      if (grouped[card.id]) {
+        grouped[card.id].quantity += 1;
+      } else {
+        grouped[card.id] = { ...card, quantity: 1 };
+      }
+    });
+    return Object.values(grouped);
+  };
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: palette.background }]}>
-      <View style={[styles.header, { backgroundColor: palette.headerBackground }]}>
-        <Text style={[styles.headerTitle, { color: palette.text }]}>Players List</Text>
-        <Text style={[styles.headerSubTitle, { color: palette.secondaryText }]}>
+      <View style={[styles.header, { backgroundColor: palette.cardBackground }]}>
+        <Text style={[styles.headerTitle, { color: palette.text }]}>Lista Partecipanti</Text>
+        <Text style={[styles.headerSubTitle, { color: palette.text }]}>
           ({tournamentParticipants.length}/{maxPlayers === null ? '∞' : maxPlayers})
         </Text>
       </View>
-      {error && <Text style={[styles.error, { color: palette.errorText }]}>{error}</Text>}
-      {loading && <Text style={{ color: palette.text }}>Caricamento...</Text>}
-      {user && (
-        <View style={styles.actions}>
+      {error && <Text style={[styles.error, { color: palette.error }]}>{error}</Text>}
+      {loading ? (
+        <ActivityIndicator size="large" color={palette.text} />
+      ) : (
+        <View style={styles.listContainer}>
+          {tournamentParticipants.map((p) => (
+            <View
+              key={p.id}
+              style={[
+                styles.listItem,
+                { backgroundColor: palette.cardBackground, borderColor: palette.borderColor },
+              ]}
+            >
+              <Text style={[styles.listItemText, { color: palette.text }]}>{p.username}</Text>
+              <View style={styles.actionButtonsContainer}>
+                {tournament?.created_by === user?.id && !isTournamentActive && (
+                  <TouchableOpacity 
+                    onPress={() => handleRemoveParticipant(p.id)} 
+                    style={[styles.removeButton]}
+                  >
+                    <Text style={[styles.buttonText, { color: palette.buttonText }]}>Rimuovi</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity 
+                  onPress={() => openModal(p)} 
+                  style={styles.listIconButton}
+                >
+                  <ListIcon color={palette.buttonText} size={24} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
         </View>
       )}
-      <View style={styles.listContainer}>
-        {tournamentParticipants.map((p) => (
-          <View key={p.id} style={[styles.listItem, { backgroundColor: palette.rowBackground, borderColor: palette.borderColor }]}>
-            <Text style={[styles.listItemText, { color: palette.text }]}>{p.username}</Text>
-            <Text style={[styles.listItemText, { color: palette.text }]}>{formatDeck(p.deck)}</Text>
-            {tournament?.created_by === user?.id && (
-              <TouchableOpacity onPress={() => handleRemoveParticipant(p.id)} style={[styles.removeButton, { backgroundColor: palette.buttonBackground }]}>
-                <Text style={[styles.removeButtonText, { color: palette.buttonText }]}>Rimuovi</Text>
+
+      {/* Modal for Decks */}
+      <Modal
+        visible={isModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={closeModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: palette.cardBackground }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: palette.text }]}>
+                {selectedParticipant?.username}'s Decks
+              </Text>
+              <TouchableOpacity onPress={closeModal} style={styles.closeButton}>
+                <Text style={[styles.closeButtonText, { color: palette.buttonText }]}>Chiudi</Text>
               </TouchableOpacity>
-            )}
+            </View>
+            <ScrollView style={styles.modalScrollView}>
+              <View style={styles.deckSection}>
+                <Text style={[styles.deckSectionTitle, { color: palette.text }]}>
+                  {selectedParticipant?.deck_1_name || 'Deck 1'}
+                </Text>
+                <View style={styles.cardGrid}>
+                  {groupCardsById(selectedParticipant?.deck_1 || []).map((card, index) => (
+                    <View key={index} style={styles.cardGridItem}>
+                      <Image
+                        source={{ uri: card.cachedImage }}
+                        style={styles.cardImage}
+                        resizeMode="contain"
+                      />
+                      {card.quantity > 1 && (
+                        <View style={styles.cardQuantityContainer}>
+                          <Text style={styles.cardQuantity}>x{card.quantity}</Text>
+                        </View>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              </View>
+              <View style={styles.deckSection}>
+                <Text style={[styles.deckSectionTitle, { color: palette.text }]}>
+                  {selectedParticipant?.deck_2_name || 'Deck 2'}
+                </Text>
+                <View style={styles.cardGrid}>
+                  {groupCardsById(selectedParticipant?.deck_2 || []).map((card, index) => (
+                    <View key={index} style={styles.cardGridItem}>
+                      <Image
+                        source={{ uri: card.cachedImage }}
+                        style={styles.cardImage}
+                        resizeMode="contain"
+                      />
+                      {card.quantity > 1 && (
+                        <View style={styles.cardQuantityContainer}>
+                          <Text style={styles.cardQuantity}>x{card.quantity}</Text>
+                        </View>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              </View>
+            </ScrollView>
           </View>
-        ))}
-      </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#f0f0f0',
   },
   header: {
     alignItems: 'center',
     marginBottom: 20,
-    backgroundColor: '#ddd',
+    padding: 15,
+    borderRadius: 10,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   headerTitle: {
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
-    textShadowColor: 'black',
-    textShadowOffset: { width: 3, height: 3 },
-    textShadowRadius: 0,
-    textAlign: 'center',
+    marginBottom: 5,
   },
   headerSubTitle: {
     fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
   },
   actions: {
     flexDirection: 'row',
@@ -276,31 +403,21 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   joinButton: {
-    backgroundColor: '#2ecc71',
-    padding: 10,
-    borderRadius: 5,
-  },
-  joinButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
+    padding: 12,
+    borderRadius: 8,
+    minWidth: 150,
+    alignItems: 'center',
   },
   leaveButton: {
-    backgroundColor: '#e74c3c',
-    padding: 10,
-    borderRadius: 5,
+    padding: 12,
+    borderRadius: 8,
+    minWidth: 150,
+    alignItems: 'center',
   },
-  leaveButtonText: {
+  buttonText: {
     color: 'white',
     fontWeight: 'bold',
-  },
-  manageDeckButton: {
-    backgroundColor: '#4a90e2',
-    padding: 10,
-    borderRadius: 5,
-  },
-  manageDeckButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
+    fontSize: 16,
   },
   listContainer: {
     paddingHorizontal: 10,
@@ -309,56 +426,110 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: 'white',
-    padding: 10,
-    borderRadius: 5,
-    marginBottom: 5,
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 10,
+    elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 0.1,
-    elevation: 0.1,
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   listItemText: {
     fontSize: 16,
-    color: '#333',
+    fontWeight: '500',
   },
   removeButton: {
-    backgroundColor: '#e74c3c',
-    padding: 5,
-    borderRadius: 5,
-    alignSelf: 'flex-end',
+    padding: 8,
+    borderRadius: 6,
+    backgroundColor: '#ff4d4f'
   },
-  removeButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
+  listIconButton: {
+    marginLeft: 8,
+    padding: 8,
+  },
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   error: {
-    color: 'red',
     fontSize: 16,
     textAlign: 'center',
     marginTop: 10,
-  },
-  backButton: {
-    backgroundColor: '#95a5a6',
-    padding: 10,
-    borderRadius: 5,
     marginBottom: 10,
-    display: 'none',
   },
-  backButtonText: {
-    color: 'white',
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    width: '90%',
+    height: '80%',
+    borderRadius: 10,
+    padding: 15,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  modalTitle: {
+    fontSize: 20,
     fontWeight: 'bold',
   },
-  energyIcon: {
-    width: 20,
-    height: 20,
-    marginRight: 5,
+  modalScrollView: {
+    flex: 1,
   },
-  headerBackground: {
-    backgroundColor: '#ddd', // Default light mode header background
+  cardGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    padding: 5,
   },
-  rowBackground: {
-    backgroundColor: 'white', // Default light mode row background
-  }
+  cardGridItem: {
+    width: '23%',
+    aspectRatio: 3 / 4,
+    marginBottom: 10,
+    position: 'relative',
+  },
+  cardImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  closeButton: {
+    padding: 5,
+  },
+  closeButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  cardQuantityContainer: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    borderRadius: 10,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  cardQuantity: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  deckSection: {
+    marginBottom: 20,
+  },
+  deckSectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
 });

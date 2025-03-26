@@ -269,7 +269,7 @@ const Decklistscreen = () => {
           };
         });
 
-        setDeckList(countedDeckList);
+        setDeckList(countedDeckList);ma
         setIsDeckListModalVisible(true);
       } else {
         setDeckList(null);
@@ -359,6 +359,14 @@ const Decklistscreen = () => {
       )}
 
       <AddDeckButton onPress={handleAddDeck} />
+
+      {/* Pulsante per navigare alla pagina 3D */}
+      <TouchableOpacity
+        style={[styles.threeDButton, { backgroundColor: theme.primary }]}
+        onPress={() => navigation.navigate('ThreeDCube')} // Cambiato da '3dcube' a 'ThreeDCube'
+      >
+        <Text style={styles.threeDButtonText}>3D</Text>
+      </TouchableOpacity>
 
       {fetchingDeckList ? (
         <View style={styles.deckListLoading}>
@@ -503,6 +511,22 @@ const styles = StyleSheet.create({
   noDecksText: {
     textAlign: 'center',
     marginTop: 20,
+  },
+  threeDButton: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 5,
+  },
+  threeDButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 
