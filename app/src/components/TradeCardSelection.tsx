@@ -11,6 +11,7 @@ import cardDataSetsA2 from '../../assets/cards/A2.json';
 import cardDataSetsPA from '../../assets/cards/PA.json';
 import Accordion from './Accordion';
 import CountryFlag from "react-native-country-flag";
+import InterstitialAdComponent from './InterstitialAd';
 
 const sets = [
   { setName: "Genetic Apex", cards: cardDataSetsA1.cards.map(card => ({ id: card.id, name: card.name })) },
@@ -43,6 +44,7 @@ const TradeCardSelection = ({ onCardsSelected, isDarkMode, loadExistingCards: sh
     { code: 'CN', isoCode: 'cn' },
   ]);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const [showAd, setShowAd] = useState(false);
 
 
   const currentPalette = isDarkMode ? darkPalette : lightPalette;
@@ -212,6 +214,11 @@ const TradeCardSelection = ({ onCardsSelected, isDarkMode, loadExistingCards: sh
       return;
     }
 
+    setShowAd(true);
+  };
+
+  const handleAdClosed = async () => {
+    // Esegui il salvataggio dopo che l'annuncio è stato chiuso
     const supabaseColumnName = selectionType === 'have' ? 'what_i_have' : 'what_i_want';
 
     try {
@@ -262,6 +269,12 @@ const TradeCardSelection = ({ onCardsSelected, isDarkMode, loadExistingCards: sh
     } catch (err) {
       console.error("Error in handleDoneSelecting:", err);
     }
+  };
+
+  const handleAdError = (error: any) => {
+    console.error('Ad failed to load:', error);
+    // Procedi comunque con il salvataggio in caso di errore dell'annuncio
+    handleAdClosed();
   };
 
   const closeModal = () => {
@@ -491,8 +504,15 @@ const TradeCardSelection = ({ onCardsSelected, isDarkMode, loadExistingCards: sh
         style={[styles.doneButtonOverlay, { backgroundColor: currentPalette.buttonBackground }]}
         onPress={handleDoneSelecting}
       >
-        <Text style={[styles.doneButtonText, { color: currentPalette.buttonText }]}>Done Selecting</Text>
+        <Text style={[styles.doneButtonText, { color: currentPalette.buttonText }]}>Save List</Text>
       </TouchableOpacity>
+
+      {showAd && (
+        <InterstitialAdComponent
+          onAdClosed={handleAdClosed}
+          onAdFailedToLoad={handleAdError}
+        />
+      )}
 
       <Modal
         visible={isModalVisible}
