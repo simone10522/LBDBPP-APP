@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Platform, View, StyleSheet, SafeAreaView, LogBox, Alert, PermissionsAndroid } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 import axios from 'axios';
 import messaging from '@react-native-firebase/messaging';
 import MobileAds from 'react-native-google-mobile-ads';
@@ -31,6 +32,36 @@ import { useAuth, useOnlineStatus } from './src/hooks/useAuth';
 import { supabase } from './src/lib/supabase';
 
 const Stack = createNativeStackNavigator();
+
+const toastConfig = {
+  success: (props) => (
+    <BaseToast
+      {...props}
+      style={{ borderLeftColor: 'green', backgroundColor: '#222', marginTop: 0 }}
+      contentContainerStyle={{ paddingHorizontal: 15 }}
+      text1Style={{ fontSize: 15, color: '#fff' }}
+      text2Style={{ fontSize: 13, color: '#ddd' }}
+    />
+  ),
+  error: (props) => (
+    <ErrorToast
+      {...props}
+      style={{ borderLeftColor: 'red', backgroundColor: '#222', marginTop: 20 }}
+      contentContainerStyle={{ paddingHorizontal: 15 }}
+      text1Style={{ fontSize: 15, color: '#fff' }}
+      text2Style={{ fontSize: 13, color: '#ddd' }}
+    />
+  ),
+  info: (props) => (
+    <BaseToast
+      {...props}
+      style={{ borderLeftColor: '#007AFF', backgroundColor: '#222', marginTop: 20 }}
+      contentContainerStyle={{ paddingHorizontal: 15 }}
+      text1Style={{ fontSize: 15, color: '#fff' }}
+      text2Style={{ fontSize: 13, color: '#ddd' }}
+    />
+  ),
+};
 
 const App = () => {
   const { userId, user } = useAuth();
@@ -97,51 +128,54 @@ const App = () => {
   useEffect(() => {}, [userId]);
 
   return (
-    <NavigationContainer>
-      <View style={styles.background}>
-        <SafeAreaView style={{ flex: 1 }}>
-          <Stack.Navigator
-            initialRouteName="Home"
-            screenOptions={{
-              headerTitleStyle: {
-                fontSize: 20,
-                fontWeight: 'bold',
-              },
-              headerStyle: {
-                backgroundColor: 'transparent',
-                paddingTop: Platform.OS === 'android' ? 25 : 0,
-              },
-              headerTintColor: '#fff',
-              headerTitleAlign: 'center',
-              headerShadowVisible: false,
-              headerTransparent: Platform.OS === 'android',
-              headerShown: false,
-            }}
-          >
-            <Stack.Screen name="Login" component={LoginScreen} />
-            <Stack.Screen name="Home" component={HomeScreen} />
-            <Stack.Screen name="TournamentDetails" component={TournamentDetailsScreen} />
-            <Stack.Screen name="Register" component={RegisterScreen} />
-            <Stack.Screen name="ManageParticipants" component={ManageParticipantsScreen} />
-            <Stack.Screen name="ManageDecks" component={ManageDecksScreen} />
-            <Stack.Screen name="CreateTournament" component={CreateTournamentScreen} />
-            <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
-            <Stack.Screen name="Profile" component={ProfileScreen} />
-            <Stack.Screen name="TournamentPage" component={TournamentPage} />
-            <Stack.Screen name="RankedScreen" component={RankedScreen} />
-            <Stack.Screen name="MyDecks" component={MyDecksScreen} />
-            <Stack.Screen name="Decklistscreen" component={Decklistscreen} options={{ title: 'Deck List' }} />
-            <Stack.Screen name="TradeScreen" component={TradeScreen} />
-            <Stack.Screen name="TradeCompletedAnimation" component={TradeCompletedAnimation} />
-            <Stack.Screen name="ChatScreen" component={ChatScreen} />
-            <Stack.Screen name="ChatListScreen" component={ChatListScreen} />
-            <Stack.Screen name="TournamentDeckScreen" component={TournamentDeckScreen}/>
-            <Stack.Screen name="ThreeDCube" component={ThreeDCube} options={{ title: '3D Cube' }} />
-          </Stack.Navigator>
-        </SafeAreaView>
-        <BottomNavigationBar />
-      </View>
-    </NavigationContainer>
+    <>
+      <NavigationContainer>
+        <View style={styles.background}>
+          <SafeAreaView style={{ flex: 1 }}>
+            <Stack.Navigator
+              initialRouteName="Home"
+              screenOptions={{
+                headerTitleStyle: {
+                  fontSize: 20,
+                  fontWeight: 'bold',
+                },
+                headerStyle: {
+                  backgroundColor: 'transparent',
+                  paddingTop: Platform.OS === 'android' ? 25 : 0,
+                },
+                headerTintColor: '#fff',
+                headerTitleAlign: 'center',
+                headerShadowVisible: false,
+                headerTransparent: Platform.OS === 'android',
+                headerShown: false,
+              }}
+            >
+              <Stack.Screen name="Login" component={LoginScreen} />
+              <Stack.Screen name="Home" component={HomeScreen} />
+              <Stack.Screen name="TournamentDetails" component={TournamentDetailsScreen} />
+              <Stack.Screen name="Register" component={RegisterScreen} />
+              <Stack.Screen name="ManageParticipants" component={ManageParticipantsScreen} />
+              <Stack.Screen name="ManageDecks" component={ManageDecksScreen} />
+              <Stack.Screen name="CreateTournament" component={CreateTournamentScreen} />
+              <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
+              <Stack.Screen name="Profile" component={ProfileScreen} />
+              <Stack.Screen name="TournamentPage" component={TournamentPage} />
+              <Stack.Screen name="RankedScreen" component={RankedScreen} />
+              <Stack.Screen name="MyDecks" component={MyDecksScreen} />
+              <Stack.Screen name="Decklistscreen" component={Decklistscreen} options={{ title: 'Deck List' }} />
+              <Stack.Screen name="TradeScreen" component={TradeScreen} />
+              <Stack.Screen name="TradeCompletedAnimation" component={TradeCompletedAnimation} />
+              <Stack.Screen name="ChatScreen" component={ChatScreen} />
+              <Stack.Screen name="ChatListScreen" component={ChatListScreen} />
+              <Stack.Screen name="TournamentDeckScreen" component={TournamentDeckScreen}/>
+              <Stack.Screen name="ThreeDCube" component={ThreeDCube} options={{ title: '3D Cube' }} />
+            </Stack.Navigator>
+          </SafeAreaView>
+          <BottomNavigationBar />
+        </View>
+      </NavigationContainer>
+      <Toast config={toastConfig} />
+    </>
   );
 };
 
