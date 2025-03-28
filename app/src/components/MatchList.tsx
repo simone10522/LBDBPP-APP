@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, TextInput, Alert, Clipboard, FlatList, Animated, Easing } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, TextInput, Clipboard, FlatList, Animated, Easing } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
 import Modal from 'react-native-modal';
@@ -10,7 +11,6 @@ import messaging from '@react-native-firebase/messaging'; // ADDED Firebase Mess
 import { useNavigation } from '@react-navigation/native';
 
 interface Match {
-  id: string;
   id: string;
   player1: string;
   player1_id: string;
@@ -94,7 +94,13 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
       const notificationUserId = response.notification.request.content.data?.userId;
       if (notificationUserId === user?.id) {
         // Mostra la notifica SOLO se l'ID utente corrisponde
-        Alert.alert("Notifica Match!", response.notification.request.content.body);
+        Toast.show({
+          type: 'info',
+          text1: 'Match Notification!',
+          text2: response.notification.request.content.body,
+          position: 'top',
+          visibilityTime: 3000,
+        });
       } else {
         console.log("Notifica ignorata: ID utente non corrispondente.");
       }
@@ -291,48 +297,57 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
       }
 
       if (bestOf === 1 && (parsedPlayer1Score > 1 || parsedPlayer2Score > 1)) {
-        Alert.alert(
-          "Invalid Score",
-          "For best of 1, scores cannot exceed 1.",
-          [{ text: "OK" }]
-        );
+        Toast.show({
+          type: 'error',
+          text1: 'Invalid Score',
+          text2: 'For best of 1, scores cannot exceed 1.',
+          position: 'top',
+          visibilityTime: 3000,
+        });
         return;
       }
 
       if (parsedPlayer1Score > scoreLimit || parsedPlayer2Score > scoreLimit) {
-        Alert.alert(
-          "Invalid Score",
-          `Scores cannot exceed ${scoreLimit} for best of ${bestOf} format.`,
-          [{ text: "OK" }]
-        );
+        Toast.show({
+          type: 'error',
+          text1: 'Invalid Score',
+          text2: `Scores cannot exceed ${scoreLimit} for best of ${bestOf} format.`,
+          position: 'top',
+          visibilityTime: 3000,
+        });
         return;
       }
 
       if (bestOf === 5 && Math.max(parsedPlayer1Score, parsedPlayer2Score) < 3) {
-         Alert.alert(
-          "Invalid Score",
-          `In best of 5, at least one player must reach 3 wins.`,
-          [{ text: "OK" }]
-        );
+        Toast.show({
+          type: 'error',
+          text1: 'Invalid Score',
+          text2: 'In best of 5, at least one player must reach 3 wins.',
+          position: 'top',
+          visibilityTime: 3000,
+        });
         return;
       }
 
       if (bestOf === 3 && Math.max(parsedPlayer1Score, parsedPlayer2Score) < 2) {
-         Alert.alert(
-          "Invalid Score",
-          `In best of 3, at least one player must reach 2 wins.`,
-          [{ text: "OK" }]
-        );
+        Toast.show({
+          type: 'error',
+          text1: 'Invalid Score',
+          text2: 'In best of 3, at least one player must reach 2 wins.',
+          position: 'top',
+          visibilityTime: 3000,
+        });
         return;
       }
 
-
-      if (parsedPlayer1Score + parsedPlayer2Score > (bestOf === 5 ? 5 : bestOf === 3 ? 3 : bestOf === 1 ? 1 : maxScore * 2 )) {
-        Alert.alert(
-          "Invalid Score",
-          `The sum of scores cannot exceed the best of value (${bestOf === 5 ? 5 : bestOf === 3 ? 3 : bestOf === 1 ? 1 : maxScore * 2 }). Please adjust the scores.`,
-          [{ text: "OK" }]
-        );
+      if (parsedPlayer1Score + parsedPlayer2Score > (bestOf === 5 ? 5 : bestOf === 3 ? 3 : bestOf === 1 ? 1 : maxScore * 2)) {
+        Toast.show({
+          type: 'error',
+          text1: 'Invalid Score',
+          text2: `The sum of scores cannot exceed the best of value (${bestOf === 5 ? 5 : bestOf === 3 ? 3 : bestOf === 1 ? 1 : maxScore * 2}). Please adjust the scores.`,
+          position: 'top',
+          visibilityTime: 3000,
+        });
         return;
       }
 
@@ -397,80 +412,82 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
 
       if (profileError) {
         console.error("Errore nel recupero del profilo dell'avversario:", profileError);
-        Alert.alert("Errore", "Impossibile recuperare il profilo dell'avversario.");
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: "Unable to retrieve opponent's profile",
+          position: 'top',
+          visibilityTime: 3000,
+        });
         return;
       }
 
       const opponentPushToken = opponentProfile?.push_token;
 
-
       if (!opponentPushToken) {
-        Alert.alert("Attenzione", `${opponentName} non ha abilitato le notifiche push.`);
+        Toast.show({
+          type: 'info',
+          text1: 'Notice',
+          text2: `${opponentName} hasn't enabled push notifications`,
+          position: 'top',
+          visibilityTime: 3000,
+        });
         return;
       }
 
-      const message = `È il tuo turno di giocare contro ${opponentName} nel torneo!`;
+      Toast.show({
+        type: 'info',
+        text1: 'Notifying opponent',
+        text2: `È il tuo turno di giocare contro ${opponentName} nel torneo!`,
+        position: 'top',
+        visibilityTime: 3000,
+      });
 
-      // Use Firebase token instead of Expo token
       const response = await fetch(`${backendServerURL}/send-notification`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          pushToken: opponentPushToken, // Use opponent's push token
-          message: message,
+          pushToken: opponentPushToken,
+          message: `È il tuo turno di giocare contro ${opponentName} nel torneo!`,
           userId: opponentId,
-          notificationType: 'match', // ADDED notificationType for match
+          notificationType: 'match',
         }),
       });
 
       if (response.ok) {
-        Alert.alert("Notifica inviata!", `Notifica push inviata a ${opponentName}.`);
+        Toast.show({
+          type: 'success',
+          text1: 'Notification sent!',
+          text2: `Push notification sent to ${opponentName}`,
+          position: 'top',
+          visibilityTime: 3000,
+        });
       } else {
         const errorText = await response.text();
-        Alert.alert("Errore nell'invio della notifica", `Status: ${response.status} - ${errorText}`);
+        Toast.show({
+          type: 'error',
+          text1: 'Notification Error',
+          text2: `Failed to send notification: ${response.status}`,
+          position: 'top',
+          visibilityTime: 3000,
+        });
       }
 
     } catch (error) {
       console.error("Errore durante la notifica dell'avversario:", error);
-      Alert.alert("Errore", "Qualcosa è andato storto durante l'invio della notifica.");
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Something went wrong while sending the notification',
+        position: 'top',
+        visibilityTime: 3000,
+      });
     } finally {
       setTimeout(() => {
         setIsNotifyButtonDisabled(false);
       }, 30000);
-    }
-  };
-
-  /*async function registerForPushNotificationsAsync() {
-    let token;
-
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
-    }
-    if (finalStatus !== 'granted') {
-      Alert.alert('Failed to get push token for push notification!');
-      return;
-    }
-    token = (await Notifications.getExpoPushTokenAsync()).data;
-    console.log("Your expo push token:", token);
-    return token;
-  }*/
-
-  const handleTestBackendConnection = async () => {
-    try {
-      const response = await fetch(`${backendServerURL}/test`);
-      if (response.ok) {
-        const text = await response.text();
-        Alert.alert("Connessione OK dall'App!", text);
-      } else {
-        Alert.alert("Errore di connessione dall'App", `Status: ${response.status}`);
-      }
-    } catch (error) {
-      Alert.alert("Errore FETCH dall'App", `Errore: ${error.message}`);
     }
   };
 
@@ -515,7 +532,13 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
   const handleShowDeck = () => {
     setIsPlayerModalVisible(false);
     // Per ora non fa nulla, implementare in futuro
-    Alert.alert('Coming Soon', 'This feature will be available soon!');
+    Toast.show({
+      type: 'info',
+      text1: 'Coming Soon',
+      text2: 'This feature will be available soon!',
+      position: 'top',
+      visibilityTime: 3000,
+    });
   };
 
   if (tournamentStatus === 'draft') {
@@ -625,7 +648,13 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
                         <Text style={{ color: theme.text, marginRight: 5 }}>{matchPasswords[item.id]}</Text>
                         <TouchableOpacity onPress={() => {
                           Clipboard.setString(matchPasswords[item.id] || '');
-                          Alert.alert("Password Copied", "Password copied to clipboard!");
+                          Toast.show({
+                            type: 'success',
+                            text1: 'Password Copied',
+                            text2: 'Password copied to clipboard!',
+                            position: 'top',
+                            visibilityTime: 3000,
+                          });
                         }}>
                           <ClipboardIcon color={theme.text} />
                         </TouchableOpacity>

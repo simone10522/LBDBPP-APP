@@ -12,6 +12,7 @@ import cardDataSetsPA from '../../assets/cards/PA.json';
 import Accordion from './Accordion';
 import CountryFlag from "react-native-country-flag";
 import InterstitialAdComponent from './InterstitialAd';
+import { Undo2 } from 'lucide-react-native'; // Import the specific Undo2 icon
 
 const sets = [
   { setName: "Genetic Apex", cards: cardDataSetsA1.cards.map(card => ({ id: card.id, name: card.name })) },
@@ -500,12 +501,22 @@ const TradeCardSelection = ({ onCardsSelected, isDarkMode, loadExistingCards: sh
         </>
       )}
 
-      <TouchableOpacity
-        style={[styles.doneButtonOverlay, { backgroundColor: currentPalette.buttonBackground }]}
-        onPress={handleDoneSelecting}
-      >
-        <Text style={[styles.doneButtonText, { color: currentPalette.buttonText }]}>Save List</Text>
-      </TouchableOpacity>
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity
+          style={[styles.doneButtonOverlay, { backgroundColor: currentPalette.buttonBackground }]}
+          onPress={handleDoneSelecting}
+        >
+          <Text style={[styles.doneButtonText, { color: currentPalette.buttonText }]}>Save List</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.undoButton, { backgroundColor: currentPalette.buttonBackground }]}
+          onPress={onBack} // Navigate back to TradeScreen
+        >
+          <View style={{ width: 24, height: 24 }}>
+            <Undo2 color={currentPalette.buttonText} size={24} />
+          </View>
+        </TouchableOpacity>
+      </View>
 
       {showAd && (
         <InterstitialAdComponent
@@ -745,16 +756,30 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
   },
-  doneButtonOverlay: {
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     position: 'absolute',
     bottom: 20,
     left: 20,
     right: 20,
+    zIndex: 10,
+  },
+  doneButtonOverlay: {
+    flex: 1,
     padding: 15,
     borderRadius: 5,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 10,
+    marginRight: 10,
+  },
+  undoButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   selectionText: {
     textAlign: 'center',

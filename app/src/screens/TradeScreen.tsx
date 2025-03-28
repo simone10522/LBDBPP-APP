@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Image, Alert, Animated, Easing, Switch } from 'react-native'; // Import Switch
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Image, Animated, Easing, Switch } from 'react-native'; // Import Switch
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { lightPalette, darkPalette } from '../context/themes';
 import TradeCardSelection from '../components/TradeCardSelection';
@@ -15,6 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Clipboard from 'expo-clipboard';
 import { useNavigation } from '@react-navigation/native';
 import BannerAdComponent from '../components/BannerAd';
+import Toast from 'react-native-toast-message';
 
 const loadCardData = () => {
   const allCards = {};
@@ -173,7 +174,10 @@ const TradeScreen = () => {
 
   const copyToClipboard = async (text) => {
     await Clipboard.setStringAsync(text);
-    Alert.alert('The friend code has been copied to your clipboard.');
+    Toast.show({
+      type: 'success',
+      text1: 'The friend code has been copied to your clipboard.',
+    });
   };
 
   const handleAcceptTrade = async (tradeMatchId) => {
@@ -215,7 +219,11 @@ const TradeScreen = () => {
 
     if (tradeMatch.status !== 'pending' && tradeMatch.status !== 'request sent') {
       setError(`Invalid trade status for acceptance: ${tradeMatch.status}`);
-      Alert.alert("Invalid Trade Status", `This trade is not in 'Pending' or 'Request Sent' status and cannot be accepted.`);
+      Toast.show({
+        type: 'error',
+        text1: 'Invalid Trade Status',
+        text2: `This trade is not in 'Pending' or 'Request Sent' status and cannot be accepted.`,
+      });
       setLoading(false);
       setIsNotifyButtonDisabled(false); // Re-enable button if status is invalid
       return;
@@ -232,11 +240,19 @@ const TradeScreen = () => {
         if (updateError) {
           console.error("Error updating trade status to confirmed:", updateError);
           setError(`Supabase error: ${updateError.message}`);
-          Alert.alert("Status Update Error", "Failed to update trade status to confirmed. Please try again.");
+          Toast.show({
+            type: 'error',
+            text1: 'Status Update Error',
+            text2: 'Failed to update trade status to confirmed. Please try again.',
+          });
           setIsNotifyButtonDisabled(false); // Re-enable button after status update error
         } else {
           console.log(`Trade status updated successfully to 'confirmed' for match ID: ${tradeMatchId}`);
-          Alert.alert("Trade Confirmed", "Trade has been confirmed.");
+          Toast.show({
+            type: 'success',
+            text1: 'Trade Confirmed',
+            text2: 'Trade has been confirmed.',
+          });
 
           // Send "Trade Accepted" notification to user1 (the initiator)
           const initiatorUserId = tradeMatch.user1_id;
@@ -257,7 +273,11 @@ const TradeScreen = () => {
       } catch (err) {
         setError(err.message);
         console.error('Unexpected error confirming trade:', err);
-        Alert.alert("Trade Confirmation Error", "Failed to confirm trade. Please try again.");
+        Toast.show({
+          type: 'error',
+          text1: 'Trade Confirmation Error',
+          text2: 'Failed to confirm trade. Please try again.',
+        });
         setIsNotifyButtonDisabled(false); // Re-enable button after unexpected confirmation error
       } finally {
         setLoading(false);
@@ -282,7 +302,7 @@ const TradeScreen = () => {
         return;
       }
 
-      const notificationMessage = `Trade Request Sent! Player ${userProfiles[userId]?.username} has sent a trade request for ${otherCardName} for ${myCardName}. Please check the trade screen to respond.`;
+      const notificationMessage = `Trade Request! Player ${userProfiles[userId]?.username} want for ${otherCardName} for ${myCardName}. Please check the trade screen to respond.`;
 
       const requestBody = JSON.stringify({
         pushToken: otherUserPushToken,
@@ -313,7 +333,11 @@ const TradeScreen = () => {
         }
 
         console.log(`Trade request sent and notification dispatched for match ID: ${tradeMatchId}`);
-        Alert.alert("Trade Request Sent", "A trade request has been sent to the other user.");
+        Toast.show({
+          type: 'success',
+          text1: 'Trade Request Sent',
+          text2: 'A trade request has been sent to the other user.',
+        });
 
         // Update trade status in Supabase to 'request sent'
         const { error: updateError } = await supabase
@@ -324,7 +348,11 @@ const TradeScreen = () => {
         if (updateError) {
           console.error("Error updating trade status:", updateError);
           setError(`Supabase error: ${updateError.message}`);
-          Alert.alert("Status Update Error", "Failed to update trade status. Please try again.");
+          Toast.show({
+            type: 'error',
+            text1: 'Status Update Error',
+            text2: 'Failed to update trade status. Please try again.',
+          });
           setIsNotifyButtonDisabled(false); // Re-enable button after status update error
         } else {
           console.log(`Trade status updated successfully to 'request sent' for match ID: ${tradeMatchId}`);
@@ -335,7 +363,11 @@ const TradeScreen = () => {
       } catch (notificationError) {
         console.error("Error sending push notification:", notificationError);
         setError(`Notification error: ${notificationError.message}`);
-        Alert.alert("Notification Error", "Failed to send notification. Please try again.");
+        Toast.show({
+          type: 'error',
+          text1: 'Notification Error',
+          text2: 'Failed to send notification. Please try again.',
+        });
         setIsNotifyButtonDisabled(false); // Re-enable button after general notification error
       } finally {
         setLoading(false);
@@ -374,11 +406,19 @@ const TradeScreen = () => {
       }
 
       console.log("'Trade Accepted' notification sent successfully");
-      Alert.alert("Notification Sent", "'Trade Accepted' notification was sent to the other player."); // Optional alert for sender
+      Toast.show({
+        type: 'success',
+        text1: 'Notification Sent',
+        text2: "'Trade Accepted' notification was sent to the other player.",
+      });
     } catch (notificationError) {
       console.error("Error sending 'Trade Accepted' push notification:", notificationError);
       setError(`Notification error: ${notificationError.message}`);
-      Alert.alert("Notification Error", "Failed to send notification. Please try again.");
+      Toast.show({
+        type: 'error',
+        text1: 'Notification Error',
+        text2: 'Failed to send notification. Please try again.',
+      });
     }
   };
 
