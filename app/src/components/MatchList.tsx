@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, TextInput, Clipboard, FlatList, Animated, Easing } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, TextInput, Clipboard, FlatList, Animated, Easing, ScrollView } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
@@ -65,6 +65,13 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [isPlayerModalVisible, setIsPlayerModalVisible] = useState(false);
   const [profilePressScale] = useState(new Animated.Value(1));
+  const [isDeckModalVisible, setIsDeckModalVisible] = useState(false);
+  const [selectedPlayerDecks, setSelectedPlayerDecks] = useState<{
+    deck_1: any[];
+    deck_2: any[];
+    deck_1_name: string;
+    deck_2_name: string;
+  } | null>(null);
   const navigation = useNavigation();
 
   const theme = isDarkMode ? darkPalette : lightPalette;
@@ -283,6 +290,17 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
     return String(parsedScore);
   };
 
+  const groupCardsById = (deck: any[]) => {
+    const grouped: { [key: string]: any } = {};
+    deck.forEach((card) => {
+      if (grouped[card.id]) {
+        grouped[card.id].quantity += 1;
+      } else {
+        grouped[card.id] = { ...card, quantity: 1 };
+      }
+    });
+    return Object.values(grouped);
+  };
 
   const handleSetMatchWinner = async () => {
     if (selectedMatchId && onSetWinner) {
@@ -518,6 +536,53 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
     setIsPlayerModalVisible(true);
   };
 
+  const fetchPlayerDecks = async (playerId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('tournament_participants')
+        .select(`
+          deck_1,
+          deck_2
+        `)
+        .eq('participant_id', playerId)
+        .single();
+
+      if (error) {
+        console.error("Error fetching decks:", error);
+        return null;
+      }
+
+      return {
+        deck_1: data.deck_1 ? JSON.parse(data.deck_1).cards : [],
+        deck_2: data.deck_2 ? JSON.parse(data.deck_2).cards : [],
+        deck_1_name: data.deck_1 ? JSON.parse(data.deck_1).name : 'Deck 1',
+        deck_2_name: data.deck_2 ? JSON.parse(data.deck_2).name : 'Deck 2'
+      };
+    } catch (error) {
+      console.error("Error fetching decks:", error);
+      return null;
+    }
+  };
+
+  const handleShowDeck = async () => {
+    if (!selectedPlayer) return;
+    
+    const decks = await fetchPlayerDecks(selectedPlayer.id);
+    if (decks) {
+      setSelectedPlayerDecks(decks);
+      setIsDeckModalVisible(true);
+    } else {
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Unable to load decks',
+        position: 'top',
+        visibilityTime: 3000,
+      });
+    }
+    setIsPlayerModalVisible(false);
+  };
+
   const handleSendMessage = () => {
     setIsPlayerModalVisible(false);
     navigation.navigate('ChatScreen', {
@@ -529,17 +594,68 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
     });
   };
 
-  const handleShowDeck = () => {
-    setIsPlayerModalVisible(false);
-    // Per ora non fa nulla, implementare in futuro
-    Toast.show({
-      type: 'info',
-      text1: 'Coming Soon',
-      text2: 'This feature will be available soon!',
-      position: 'top',
-      visibilityTime: 3000,
-    });
-  };
+  const renderDeckModal = () => (
+    <Modal
+      isVisible={isDeckModalVisible}
+      onBackdropPress={() => setIsDeckModalVisible(false)}
+      style={styles.modal}
+    >
+      <View style={[styles.modalContent, { backgroundColor: theme.cardBackground }]}>
+        <View style={styles.modalHeader}>
+          <Text style={[styles.modalTitle, { color: theme.text }]}>
+            {selectedPlayer?.username}'s Decks
+          </Text>
+          <TouchableOpacity onPress={() => setIsDeckModalVisible(false)} style={styles.closeButton}>
+            <Text style={[styles.closeButtonText, { color: theme.buttonText }]}>Chiudi</Text>
+          </TouchableOpacity>
+        </View>
+        <ScrollView style={styles.modalScrollView}>
+          <View style={styles.deckSection}>
+            <Text style={[styles.deckSectionTitle, { color: theme.text }]}>
+              {selectedPlayerDecks?.deck_1_name || 'Deck 1'}
+            </Text>
+            <View style={styles.cardGrid}>
+              {groupCardsById(selectedPlayerDecks?.deck_1 || []).map((card: any, index: number) => (
+                <View key={index} style={styles.cardGridItem}>
+                  <Image
+                    source={{ uri: card.cachedImage }}
+                    style={styles.cardImage}
+                    resizeMode="contain"
+                  />
+                  {card.quantity > 1 && (
+                    <View style={styles.cardQuantityContainer}>
+                      <Text style={styles.cardQuantity}>x{card.quantity}</Text>
+                    </View>
+                  )}
+                </View>
+              ))}
+            </View>
+          </View>
+          <View style={styles.deckSection}>
+            <Text style={[styles.deckSectionTitle, { color: theme.text }]}>
+              {selectedPlayerDecks?.deck_2_name || 'Deck 2'}
+            </Text>
+            <View style={styles.cardGrid}>
+              {groupCardsById(selectedPlayerDecks?.deck_2 || []).map((card: any, index: number) => (
+                <View key={index} style={styles.cardGridItem}>
+                  <Image
+                    source={{ uri: card.cachedImage }}
+                    style={styles.cardImage}
+                    resizeMode="contain"
+                  />
+                  {card.quantity > 1 && (
+                    <View style={styles.cardQuantityContainer}>
+                      <Text style={styles.cardQuantity}>x{card.quantity}</Text>
+                    </View>
+                  )}
+                </View>
+              ))}
+            </View>
+          </View>
+        </ScrollView>
+      </View>
+    </Modal>
+  );
 
   if (tournamentStatus === 'draft') {
     return <Text style={[styles.noMatches, { color: theme.secondaryText }]}>Tournament not started yet.</Text>;
@@ -677,7 +793,26 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
                   {renderPlayerImage(item.player1_id, item.player1)}
                   <Text style={[styles.playerName, { width: 100, color: theme.text }]}>{item.player1}</Text>
                 </View>
-                <Text style={[styles.scoreText, { width: 50, color: theme.text }]}>{matchScores[item.id] || '0 - 0'}</Text>
+                <View style={{ flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                  {isCreator && item.status === 'completed' && (
+                    <TouchableOpacity
+                      style={[
+                        styles.setResultsButton,
+                        { backgroundColor: theme.buttonBackground, padding: 10, marginBottom: 5 }
+                      ]}
+                      onPress={() => {
+                        setPlayer1Score(item.player1_win.toString());
+                        setPlayer2Score(item.player2_win.toString());
+                        toggleModal(item.id);
+                      }}
+                    >
+                      <Text style={[styles.setResultsText, { color: theme.buttonText }]}>
+                        Edit Result
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                  <Text style={[styles.scoreText, { color: theme.text }]}>{matchScores[item.id] || '0 - 0'}</Text>
+                </View>
                 <View style={styles.playerContainer}>
                   {renderPlayerImage(item.player2_id, item.player2)}
                   <Text style={[styles.playerName, { width: 100, color: theme.text }]}>{item.player2}</Text>
@@ -767,6 +902,8 @@ export default function MatchList({ matches, onSetWinner, tournamentStatus, onMa
           </TouchableOpacity>
         </View>
       </Modal>
+
+      {renderDeckModal()}
 
       <View style={styles.matchesContainer}>
         {orderedMatches.map((item, index) => renderMatchItem({ item, index }))}
@@ -963,31 +1100,49 @@ const styles = StyleSheet.create({
   cardListContainer: {
     padding: 10,
   },
-  modalContent: {
-    padding: 20,
-    borderRadius: 10,
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 15,
   },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+  modalScrollView: {
+    flex: 1,
+  },
+  cardGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    padding: 5,
+  },
+  deckSection: {
     marginBottom: 20,
   },
-  modalButton: {
-    width: '100%',
-    padding: 15,
-    borderRadius: 8,
+  deckSectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
     marginBottom: 10,
-    alignItems: 'center',
+    textAlign: 'center',
   },
-  modalButtonText: {
+  closeButton: {
+    padding: 5,
+  },
+  closeButtonText: {
     fontSize: 16,
     fontWeight: 'bold',
   },
-  playerImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginBottom: 5,
+  cardQuantityContainer: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    borderRadius: 10,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
   },
+  cardQuantity: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: 'white',
+  }
 });

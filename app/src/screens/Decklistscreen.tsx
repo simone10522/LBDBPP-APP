@@ -269,7 +269,7 @@ const Decklistscreen = () => {
           };
         });
 
-        setDeckList(countedDeckList);ma
+        setDeckList(countedDeckList);
         setIsDeckListModalVisible(true);
       } else {
         setDeckList(null);
@@ -483,7 +483,7 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   cardGridItem: {
-    width: '23%',
+    width: '33%',
     aspectRatio: 3/4,
     marginBottom: 10,
     position: 'relative',

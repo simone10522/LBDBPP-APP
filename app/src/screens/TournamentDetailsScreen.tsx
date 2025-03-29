@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Platform, Alert, RefreshControl, Animated, Easing } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Platform, Alert, RefreshControl, Animated, Easing, TextInput, Modal } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
@@ -23,6 +23,7 @@ interface Tournament {
     max_rounds: number | null;
     format: string | null;
     private?: boolean;
+    creatorUsername?: string;
 }
 
 interface Participant {
@@ -52,6 +53,7 @@ export default function TournamentDetailsScreen() {
     const { user, isDarkMode } = useAuth();
     const navigation = useNavigation();
     const buttonScale = useRef(new Animated.Value(1)).current;
+    const modalAnimation = useRef(new Animated.Value(0)).current;
     const [tournament, setTournament] = useState<Tournament | null>(null);
     const [participants, setParticipants] = useState<Participant[]>([]);
     const [matches, setMatches] = useState<Match[]>([]);
@@ -63,8 +65,28 @@ export default function TournamentDetailsScreen() {
     const [tournamentStatus, setTournamentStatus] = useState<'draft' | 'in_progress' | 'completed'>('draft');
     const [refreshing, setRefreshing] = useState(false);
     const [currentRoundIncomplete, setCurrentRoundIncomplete] = useState(false);
+    const [showPasswordModal, setShowPasswordModal] = useState(false);
+    const [password, setPassword] = useState('');
+    const [passwordError, setPasswordError] = useState('');
 
     const theme = isDarkMode ? darkPalette : lightPalette;
+
+    const showModalAnimation = () => {
+        Animated.spring(modalAnimation, {
+            toValue: 1,
+            useNativeDriver: true,
+            tension: 50,
+            friction: 7
+        }).start();
+    };
+
+    const hideModalAnimation = () => {
+        Animated.timing(modalAnimation, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true
+        }).start();
+    };
 
     const getWinner = useCallback(() => {
         if (tournament?.status !== 'completed' || participants.length === 0) return null;
@@ -180,11 +202,14 @@ export default function TournamentDetailsScreen() {
             setLoading(true);
             const { data: tournamentData, error: tournamentError } = await supabase
                 .from('tournaments')
-                .select('*')
+                .select(`
+                    *,
+                    creator:created_by (username)
+                `)
                 .eq('id', id)
                 .single();
             if (tournamentError) throw tournamentError;
-            setTournament(tournamentData);
+            setTournament({ ...tournamentData, creatorUsername: tournamentData.creator.username });
 
             const { data: participantsData, error: participantsError } = await supabase
                 .from('tournament_participants')
@@ -292,13 +317,43 @@ export default function TournamentDetailsScreen() {
             return;
         }
 
+        if (tournament?.private) {
+            setShowPasswordModal(true);
+            showModalAnimation();
+            return;
+        }
+
+        await joinTournament();
+    };
+
+    const joinTournament = async (providedPassword?: string) => {
         try {
+            if (tournament?.private) {
+                const { data, error: pwdError } = await supabase
+                    .from('tournaments')
+                    .select('password')
+                    .eq('id', id)
+                    .single();
+
+                if (pwdError) throw new Error('Errore durante la verifica della password');
+                if (data.password !== providedPassword) {
+                    setPasswordError('Password errata');
+                    return;
+                }
+            }
+
             const { error } = await supabase
                 .from('tournament_participants')
                 .insert([{ tournament_id: id, participant_id: user.id }]);
+
             if (error) throw new Error(`Errore durante l'iscrizione: ${error.message}`);
+
+            setShowPasswordModal(false);
+            setPassword('');
+            setPasswordError('');
             fetchParticipants();
             checkIfParticipating();
+
         } catch (error: any) {
             setError(error.message);
         }
@@ -459,6 +514,18 @@ export default function TournamentDetailsScreen() {
         navigation.navigate('CreateTournament', { tournamentData: tournament });
     };
 
+    const handleMessageCreator = () => {
+        if (!tournament?.creatorUsername) return;
+        
+        navigation.navigate('ChatScreen', {
+            receiverProfile: {
+                id: tournament.created_by,
+                username: tournament.creatorUsername,
+                profile_image: null // Se necessario, recupera l'immagine del profilo del creatore
+            }
+        });
+    };
+
     const onRefresh = useCallback(() => {
         setRefreshing(true);
         fetchTournamentData().then(() => setRefreshing(false));
@@ -569,13 +636,25 @@ export default function TournamentDetailsScreen() {
                                 </View>
                             </View>
 
-                            <View style={[styles.statusBadge, { 
-                                backgroundColor: tournament.status === 'completed' ? '#2ecc71' : 
-                                                tournament.status === 'in_progress' ? '#e67e22' : '#7f8c8d'
-                            }]}>
-                                <Text style={styles.statusText}>
-                                    {tournament.status.replace('_', ' ').toUpperCase()}
-                                </Text>
+                            <View style={[styles.statusContainer]}>
+                                <View style={[styles.statusBadge, { 
+                                    backgroundColor: tournament.status === 'completed' ? '#2ecc71' : 
+                                                    tournament.status === 'in_progress' ? '#e67e22' : '#7f8c8d'
+                                }]}>
+                                    <Text style={styles.statusText}>
+                                        {tournament.status.replace('_', ' ').toUpperCase()}
+                                    </Text>
+                                </View>
+                                {!isOwner && (
+                                    <TouchableOpacity
+                                        onPress={handleMessageCreator}
+                                        style={[styles.messageButton, { backgroundColor: theme.buttonBackground }]}
+                                    >
+                                        <Text style={[styles.messageButtonText, { color: theme.buttonText }]}>
+                                            Message {tournament.creatorUsername || 'Creator'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                )}
                             </View>
 
                             {isOwner && tournament.status === 'draft' && (
@@ -696,7 +775,7 @@ export default function TournamentDetailsScreen() {
                                         onPress={handleLeaveTournament}
                                         style={[styles.leaveButton, { backgroundColor: '#e74c3c' }]}
                                     >
-                                        <Text style={styles.leaveButtonText}>Abbandona Torneo</Text>
+                                        <Text style={styles.leaveButtonText}>Leave</Text>
                                     </TouchableOpacity>
                                 ) : (
                                     (maxPlayers === null || participants.length < maxPlayers) && (
@@ -704,7 +783,7 @@ export default function TournamentDetailsScreen() {
                                             onPress={handleJoinTournament}
                                             style={[styles.joinButton, { backgroundColor: '#2ecc71' }]}
                                         >
-                                            <Text style={styles.joinButtonText}>Partecipa</Text>
+                                            <Text style={styles.joinButtonText}>Join</Text>
                                         </TouchableOpacity>
                                     )
                                 )}
@@ -726,6 +805,75 @@ export default function TournamentDetailsScreen() {
                     <Text style={[styles.errorText, { color: theme.error }]}>Torneo non trovato.</Text>
                 )}
             </ScrollView>
+
+            <Modal
+                visible={showPasswordModal}
+                transparent={true}
+                animationType="none"
+                onRequestClose={() => {
+                    hideModalAnimation();
+                    setTimeout(() => setShowPasswordModal(false), 200);
+                }}
+            >
+                <View style={styles.modalOverlay}>
+                    <Animated.View 
+                        style={[
+                            styles.modalContent,
+                            { 
+                                backgroundColor: theme.cardBackground,
+                                transform: [{
+                                    translateY: modalAnimation.interpolate({
+                                        inputRange: [0, 1],
+                                        outputRange: [600, 0]
+                                    })
+                                }]
+                            }
+                        ]}
+                    >
+                        <Text style={[styles.modalTitle, { color: theme.text }]}>
+                            Insert Tournament Password
+                        </Text>
+                        <TextInput
+                            style={[styles.passwordInput, { 
+                                backgroundColor: theme.background,
+                                color: theme.text,
+                                borderColor: passwordError ? theme.error : theme.border
+                            }]}
+                            value={password}
+                            onChangeText={setPassword}
+                            placeholder="Password"
+                            placeholderTextColor={theme.secondaryText}
+                            secureTextEntry
+                        />
+                        {passwordError && (
+                            <Text style={[styles.errorText, { color: theme.error }]}>
+                                {passwordError}
+                            </Text>
+                        )}
+                        <View style={styles.modalButtons}>
+                            <TouchableOpacity 
+                                style={[styles.modalButton, { backgroundColor: '#e74c3c' }]}
+                                onPress={() => {
+                                    hideModalAnimation();
+                                    setTimeout(() => {
+                                        setShowPasswordModal(false);
+                                        setPassword('');
+                                        setPasswordError('');
+                                    }, 200);
+                                }}
+                            >
+                                <Text style={styles.modalButtonText}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                                style={[styles.modalButton, { backgroundColor: '#2ecc71' }]}
+                                onPress={() => joinTournament(password)}
+                            >
+                                <Text style={styles.modalButtonText}>Confirm</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </Animated.View>
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -775,6 +923,12 @@ const styles = StyleSheet.create({
         marginLeft: 5,
         fontSize: 16,
     },
+    statusContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginTop: 10,
+    },
     statusBadge: {
         alignSelf: 'flex-start',
         paddingHorizontal: 10,
@@ -783,6 +937,16 @@ const styles = StyleSheet.create({
     },
     statusText: {
         color: 'white',
+        fontWeight: 'bold',
+    },
+    messageButton: {
+        paddingVertical: 5,
+        paddingHorizontal: 15,
+        borderRadius: 20,
+        marginLeft: 10,
+    },
+    messageButtonText: {
+        fontSize: 14,
         fontWeight: 'bold',
     },
     ownerActions: {
@@ -918,6 +1082,46 @@ const styles = StyleSheet.create({
         padding: 20,
     },
     buttonText: {
+        fontWeight: 'bold',
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalContent: {
+        width: '80%',
+        padding: 20,
+        borderRadius: 10,
+        elevation: 5,
+        transform: [{ translateY: 0 }]
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: 15,
+        textAlign: 'center',
+    },
+    passwordInput: {
+        borderWidth: 1,
+        borderRadius: 5,
+        padding: 10,
+        marginBottom: 15,
+    },
+    modalButtons: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+    },
+    modalButton: {
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        borderRadius: 5,
+        minWidth: 100,
+        alignItems: 'center',
+    },
+    modalButtonText: {
+        color: 'white',
         fontWeight: 'bold',
     },
 });

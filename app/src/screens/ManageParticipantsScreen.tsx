@@ -265,7 +265,7 @@ export default function ManageParticipantsScreen() {
   return (
     <ScrollView style={[styles.container, { backgroundColor: palette.background }]}>
       <View style={[styles.header, { backgroundColor: palette.cardBackground }]}>
-        <Text style={[styles.headerTitle, { color: palette.text }]}>Lista Partecipanti</Text>
+        <Text style={[styles.headerTitle, { color: palette.text }]}>Participants List</Text>
         <Text style={[styles.headerSubTitle, { color: palette.text }]}>
           ({tournamentParticipants.length}/{maxPlayers === null ? '∞' : maxPlayers})
         </Text>
