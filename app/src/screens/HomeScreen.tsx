@@ -243,7 +243,7 @@ const HomeScreen = () => {
             <Text style={[styles.yourTournamentsTitle, { color: theme.text }]}>Your Tournaments</Text>
             {!user && (
               <Text style={[styles.noTournamentsText, { color: theme.text }]}>
-                Nessun Torneo Disponibile, Esegui il Login
+                No Tournaments Available, Login now!
               </Text>
             )}
             {user && (
@@ -269,7 +269,7 @@ const HomeScreen = () => {
               onPressOut={() => resetButton(loginButtonScale)}
             >
               <Animated.Text style={[styles.loginButtonText, { transform: [{ scale: loginButtonScale }], color: theme.buttonText }]}>
-                Accedi
+                Login
               </Animated.Text>
             </TouchableOpacity>
           ) : (

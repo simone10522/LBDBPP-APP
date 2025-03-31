@@ -8,7 +8,7 @@ interface InterstitialAdProps {
 
 const InterstitialAdComponent = ({ onAdClosed, onAdFailedToLoad }: InterstitialAdProps) => {
   const [adLoaded, setAdLoaded] = useState(false);
-  const adUnitId = __DEV__ ? TestIds.INTERSTITIAL : 'ca-app-pub-3518274030390186/5450195783';
+  const adUnitId = __DEV__ ? TestIds.INTERSTITIAL : 'ca-app-pub-3518274030390186/3689226316';
 
   const interstitialAd = useRef(
     InterstitialAd.createForAdRequest(adUnitId, {

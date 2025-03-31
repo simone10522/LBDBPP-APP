@@ -270,8 +270,8 @@ const TournamentList: React.FC<TournamentListProps> = ({
       {filteredResults.length === 0 ? (
         <View style={[styles.noTournaments, { backgroundColor: theme.background }]}>
           <Image source={tournamentIcon} style={styles.noTournamentsIcon} />
-          <Text style={[styles.noTournamentsText, { color: theme.text }]}>Nessun Torneo Disponibile</Text>
-          <Text style={[styles.noTournamentsSubText, { color: theme.secondaryText }]}>Inizia creando un Torneo!</Text>
+          <Text style={[styles.noTournamentsText, { color: theme.text }]}>No Tournaments Available</Text>
+          <Text style={[styles.noTournamentsSubText, { color: theme.secondaryText }]}>Start creating a new tournament!</Text>
         </View>
       ) : (
         <View style={[styles.tournamentsContainer, { backgroundColor: theme.background }]}>
