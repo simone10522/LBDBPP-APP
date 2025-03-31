@@ -63,7 +63,6 @@ const TradeScreen = () => {
   const navigation = useNavigation();
   const [showOnlineOnly, setShowOnlineOnly] = useState(false); // Add state for the toggle
 
-
   useEffect(() => {
     const loadAcceptedTradeIds = async () => {
       try {
@@ -78,6 +77,34 @@ const TradeScreen = () => {
 
     loadAcceptedTradeIds();
   }, []);
+
+  useEffect(() => {
+    const markNotificationsAsRead = async () => {
+      if (!userId) return;
+      
+      const { error } = await supabase
+        .from('trade_notifications')
+        .update({ read: true })
+        .eq('receiver_id', userId)
+        .eq('read', false);
+
+      if (error) {
+        console.error('Error marking notifications as read:', error);
+      }
+    };
+
+    // Marca le notifiche come lette quando lo schermo viene montato
+    markNotificationsAsRead();
+
+    // Marca le notifiche come lette quando lo schermo riceve il focus
+    const unsubscribe = navigation.addListener('focus', () => {
+      markNotificationsAsRead();
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [userId, navigation]);
 
   const saveAcceptedTradeIds = async (ids: string[]) => {
     try {
@@ -338,6 +365,21 @@ const TradeScreen = () => {
           text1: 'Trade Request Sent',
           text2: 'A trade request has been sent to the other user.',
         });
+
+        // Create notification record in database
+        const { error: notificationError } = await supabase
+          .from('trade_notifications')
+          .insert({
+            sender_id: userId,
+            receiver_id: otherUserId,
+            trade_match_id: tradeMatchId,
+            notification_type: 'new_trade_request',
+            message: notificationMessage,
+          });
+
+        if (notificationError) {
+          console.error('Error creating notification:', notificationError);
+        }
 
         // Update trade status in Supabase to 'request sent'
         const { error: updateError } = await supabase

@@ -215,11 +215,6 @@ const TradeCardSelection = ({ onCardsSelected, isDarkMode, loadExistingCards: sh
       return;
     }
 
-    setShowAd(true);
-  };
-
-  const handleAdClosed = async () => {
-    // Esegui il salvataggio dopo che l'annuncio è stato chiuso
     const supabaseColumnName = selectionType === 'have' ? 'what_i_have' : 'what_i_want';
 
     try {
@@ -266,16 +261,28 @@ const TradeCardSelection = ({ onCardsSelected, isDarkMode, loadExistingCards: sh
         console.log(`Trade card inserted successfully for ${supabaseColumnName}.`);
       }
 
-      onCardsSelected(selectedTradeCards);
+      // Mostriamo l'ad e attendiamo che venga chiuso
+      setShowAd(true);
+
+      // Attendiamo un breve timeout per assicurarci che l'ad abbia il tempo di caricarsi
+      await new Promise(resolve => setTimeout(resolve, 500));
+
     } catch (err) {
       console.error("Error in handleDoneSelecting:", err);
     }
   };
 
+  const handleAdClosed = () => {
+    setShowAd(false);
+    // Aggiorniamo l'UI e completiamo il processo solo dopo che l'ad è stato chiuso
+    onCardsSelected(selectedTradeCards);
+  };
+
   const handleAdError = (error: any) => {
     console.error('Ad failed to load:', error);
-    // Procedi comunque con il salvataggio in caso di errore dell'annuncio
-    handleAdClosed();
+    setShowAd(false);
+    // In caso di errore dell'ad, procediamo comunque con l'aggiornamento dell'UI
+    onCardsSelected(selectedTradeCards);
   };
 
   const closeModal = () => {

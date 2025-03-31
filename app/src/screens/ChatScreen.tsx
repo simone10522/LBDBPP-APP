@@ -15,7 +15,7 @@ const ChatScreen = () => {
   const { isDarkMode, userId } = useAuth();
   const palette = isDarkMode ? darkPalette : lightPalette;
   const [messageText, setMessageText] = useState('');
-  const [messages, setMessages] = useState<{ id: string; sender_id: string; receiver_id: string; message_text: string; created_at: string; }[]>([]);
+  const [messages, setMessages] = useState<{ id: string; sender_id: string; receiver_id: string; message_text: string; created_at: string; read: boolean; }[]>([]);
   const [loading, setLoading] = useState(false);
   const [receiverImage, setReceiverImage] = useState<string | null>(null);
   const flatListRef = useRef<FlatList>(null);
@@ -25,6 +25,13 @@ const ChatScreen = () => {
 
     setLoading(true);
     try {
+      // Mark messages as read when opening the chat
+      await supabase
+        .from('messages')
+        .update({ read: true })
+        .eq('receiver_id', userId)
+        .eq('sender_id', receiverProfile.id);
+
       const { data, error } = await supabase
         .from('messages')
         .select('*')
@@ -56,7 +63,7 @@ const ChatScreen = () => {
 
     const subscription = channel
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
-        const newMessage = payload.new as { id: string; sender_id: string; receiver_id: string; message_text: string; created_at: string; };
+        const newMessage = payload.new as { id: string; sender_id: string; receiver_id: string; message_text: string; created_at: string; read: boolean; };
         if ((newMessage.sender_id === userId && newMessage.receiver_id === receiverProfile.id) ||
             (newMessage.sender_id === receiverProfile.id && newMessage.receiver_id === userId)) {
           setMessages(prevMessages => [...prevMessages, newMessage]);
@@ -94,7 +101,6 @@ const ChatScreen = () => {
       }
 
       try {
-        // Invia il messaggio a Supabase
         const { error } = await supabase
           .from('messages')
           .insert([
@@ -102,6 +108,7 @@ const ChatScreen = () => {
               sender_id: userId,
               receiver_id: receiverProfile.id,
               message_text: messageText,
+              read: false, // Add this line to set initial read status
             },
           ]);
 
@@ -129,7 +136,7 @@ const ChatScreen = () => {
               .eq('id', userId)
               .single();
 
-            const response = await fetch('https://lbdb-server.onrender.com/send-notification', {
+            const response = await fetch('https://lbdb-server-production.up.railway.app/send-notification', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',

@@ -9,6 +9,8 @@ import { Lock, Unlock, Crown, Users, Trophy, Edit2, Trash2 } from 'lucide-react-
 import Constants from 'expo-constants';
 import { lightPalette, darkPalette } from '../context/themes';
 import Accordion from '../components/Accordion';
+import { fetchUnreadMatchNotifications } from '../utils/notificationUtils';
+import { appEvents, EVENTS } from '../utils/eventEmitter';
 
 interface Tournament {
     id: string;
@@ -68,6 +70,7 @@ export default function TournamentDetailsScreen() {
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const [password, setPassword] = useState('');
     const [passwordError, setPasswordError] = useState('');
+    const [unreadMatches, setUnreadMatches] = useState(0);
 
     const theme = isDarkMode ? darkPalette : lightPalette;
 
@@ -552,6 +555,44 @@ export default function TournamentDetailsScreen() {
         navigation.navigate('TournamentDeckScreen', { tournamentId: id });
     };
 
+    const handleAccordionOpen = async (matchIds: string[]) => {
+        if (!user) return;
+        try {
+            const { error } = await supabase.rpc('update_match_read_status', {
+                match_ids: matchIds,
+                user_id: user.id
+            });
+            if (error) throw error;
+            appEvents.emit(EVENTS.REFRESH_NOTIFICATIONS);
+        } catch (error) {
+            console.error("Error updating match read status:", error);
+        }
+    };
+
+    useEffect(() => {
+        const fetchUnreadCount = async () => {
+            if (!user) return;
+            try {
+                const { data, error } = await supabase
+                    .from('matches')
+                    .select('id')
+                    .eq('tournament_id', id)
+                    .eq('read', false)
+                    .or(`player1_id.eq.${user.id},player2_id.eq.${user.id}`);
+
+                if (!error) {
+                    setUnreadMatches(data?.length || 0);
+                }
+            } catch (error) {
+                console.error('Error fetching unread matches:', error);
+            }
+        };
+
+        fetchUnreadCount();
+    }, [user, id]);
+
+    console.log('Rendering Accordion with onOpen function:', Boolean(handleAccordionOpen));
+
     if (loading) {
         return (
             <View style={[styles.container, { paddingTop, backgroundColor: theme.background }]}>
@@ -637,13 +678,15 @@ export default function TournamentDetailsScreen() {
                             </View>
 
                             <View style={[styles.statusContainer]}>
-                                <View style={[styles.statusBadge, { 
-                                    backgroundColor: tournament.status === 'completed' ? '#2ecc71' : 
-                                                    tournament.status === 'in_progress' ? '#e67e22' : '#7f8c8d'
-                                }]}>
-                                    <Text style={styles.statusText}>
-                                        {tournament.status.replace('_', ' ').toUpperCase()}
-                                    </Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                    <View style={[styles.statusBadge, { 
+                                        backgroundColor: tournament.status === 'completed' ? '#2ecc71' : 
+                                                        tournament.status === 'in_progress' ? '#e67e22' : '#7f8c8d'
+                                    }]}>
+                                        <Text style={styles.statusText}>
+                                            {tournament.status.replace('_', ' ').toUpperCase()}
+                                        </Text>
+                                    </View>
                                 </View>
                                 {!isOwner && (
                                     <TouchableOpacity
@@ -712,6 +755,10 @@ export default function TournamentDetailsScreen() {
                                                 key={round} 
                                                 title={`Round ${round}`}
                                                 theme={theme}
+                                                onOpen={() => {
+                                                    console.log('Accordion onOpen callback triggered');
+                                                    handleAccordionOpen(roundMatches.map(m => m.id));
+                                                }}
                                             >
                                                 <MatchList
                                                     matches={roundMatches}
@@ -1122,6 +1169,20 @@ const styles = StyleSheet.create({
     },
     modalButtonText: {
         color: 'white',
+        fontWeight: 'bold',
+    },
+    notificationBadge: {
+        backgroundColor: 'red',
+        borderRadius: 12,
+        minWidth: 24,
+        height: 24,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 6,
+    },
+    notificationBadgeText: {
+        color: 'white',
+        fontSize: 12,
         fontWeight: 'bold',
     },
 });

@@ -17,7 +17,8 @@ import { useNavigation } from '@react-navigation/native';
 import tournamentIcon from '../../assets/tournament_icon.png';
 import { useAuth } from '../hooks/useAuth';
 import { lightPalette, darkPalette } from '../context/themes';
-import { Lock, Unlock } from 'lucide-react-native'; // Import LockOpen
+import { Lock, Unlock } from 'lucide-react-native';
+import { supabase } from '../lib/supabase';
 
 interface Tournament {
   id: string;
@@ -30,6 +31,7 @@ interface Tournament {
   format: string | null;
   private: boolean;
   password?: string;
+  unreadCount?: number;
 }
 
 interface TournamentListProps {
@@ -68,7 +70,7 @@ const LockIcon: React.FC<{ isPrivate: boolean }> = ({ isPrivate }) => {
   return isPrivate ? (
     <Lock color={theme.text} size={20} />
   ) : (
-    <Unlock color={theme.text} size={20} /> // Use LockOpen
+    <Unlock color={theme.text} size={20} />
   );
 };
 
@@ -118,11 +120,18 @@ const TournamentCard: React.FC<{ tournament: Tournament; isCardMinimized: boolea
 
           <View style={styles.cardContent}>
             <View style={styles.titleContainer}>
-            <LockIcon isPrivate={tournament.private} />  
+              <LockIcon isPrivate={tournament.private} />  
               <Text style={[styles.cardTitle, { color: theme.text }]} numberOfLines={1}>
-                  {tournament.name}
+                {tournament.name}
               </Text>
-              <StatusIndicator status={tournament.status} />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <StatusIndicator status={tournament.status} />
+                {tournament.unreadCount > 0 && (
+                  <View style={styles.notificationBadge}>
+                    <Text style={styles.notificationBadgeText}>{tournament.unreadCount}</Text>
+                  </View>
+                )}
+              </View>
             </View>
 
             {!isCardMinimized && (
@@ -189,10 +198,11 @@ const TournamentList: React.FC<TournamentListProps> = ({
   onRefresh,
 }) => {
   const navigation = useNavigation();
-  const { isDarkMode } = useAuth();
+  const { isDarkMode, user } = useAuth();
   const theme = isDarkMode ? darkPalette : lightPalette;
   const [searchTerm, setSearchTerm] = useState('');
   const [isCardMinimized, setIsCardMinimized] = useState(false);
+  const [filteredTournaments, setFilteredTournaments] = useState<Tournament[]>(tournaments);
 
   const handleSearchChange = useCallback((text: string) => {
     setSearchTerm(text);
@@ -202,7 +212,33 @@ const TournamentList: React.FC<TournamentListProps> = ({
     setIsCardMinimized((prev) => !prev);
   }, []);
 
-  const filteredTournaments = tournaments.filter((tournament) =>
+  useEffect(() => {
+    const fetchUnreadCounts = async () => {
+      if (!user) return;
+      
+      const updatedTournaments = await Promise.all(
+        tournaments.map(async (tournament) => {
+          const { data, error } = await supabase
+            .from('matches')
+            .select('id')
+            .eq('tournament_id', tournament.id)
+            .eq('read', false)
+            .or(`player1_id.eq.${user.id},player2_id.eq.${user.id}`);
+
+          return {
+            ...tournament,
+            unreadCount: error ? 0 : (data?.length || 0)
+          };
+        })
+      );
+
+      setFilteredTournaments(updatedTournaments);
+    };
+
+    fetchUnreadCounts();
+  }, [tournaments, user]);
+
+  const filteredResults = filteredTournaments.filter((tournament) =>
     tournament.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -231,7 +267,7 @@ const TournamentList: React.FC<TournamentListProps> = ({
         toggleCardSize={toggleCardSize}
       />
 
-      {filteredTournaments.length === 0 ? (
+      {filteredResults.length === 0 ? (
         <View style={[styles.noTournaments, { backgroundColor: theme.background }]}>
           <Image source={tournamentIcon} style={styles.noTournamentsIcon} />
           <Text style={[styles.noTournamentsText, { color: theme.text }]}>Nessun Torneo Disponibile</Text>
@@ -239,7 +275,7 @@ const TournamentList: React.FC<TournamentListProps> = ({
         </View>
       ) : (
         <View style={[styles.tournamentsContainer, { backgroundColor: theme.background }]}>
-          {filteredTournaments.map((tournament) => (
+          {filteredResults.map((tournament) => (
             <TournamentCard
               key={tournament.id}
               tournament={tournament}
@@ -339,11 +375,11 @@ const styles = StyleSheet.create({
   cardContent: {
     marginTop: 5,
   },
-titleContainer: {
-  flexDirection: 'row', // Allinea gli elementi in riga
-  alignItems: 'center', // Allinea verticalmente
-  gap: 8, // Spazio tra gli elementi (React Native 0.71+)
-},
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   cardTitle: {
     fontSize: 20,
     fontWeight: 'bold',
@@ -365,6 +401,20 @@ titleContainer: {
   lockIconContainer: {
     alignItems: 'center',
     marginBottom: 5,
+  },
+  notificationBadge: {
+    backgroundColor: 'red',
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  notificationBadgeText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
 });
 

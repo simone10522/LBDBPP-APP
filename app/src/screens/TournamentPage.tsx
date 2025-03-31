@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    padding: 10,
+    padding: 0,
   },
   bannerAdContainer: {
     alignItems: 'center',
