@@ -4,7 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { lightPalette, darkPalette } from '../context/themes'; // Importa i temi
 import { useAuth } from '../hooks/useAuth'; // Importa useAuth
-
+import messaging from '@react-native-firebase/messaging';
 
 const RegisterScreen = () => {
   const [email, setEmail] = useState('');
@@ -16,9 +16,26 @@ const RegisterScreen = () => {
   const { isDarkMode } = useAuth(); // Usa isDarkMode dal contesto
   const theme = isDarkMode ? darkPalette : lightPalette; // Determina il tema corrente
 
+  const getFCMToken = async () => {
+    try {
+      await messaging().registerDeviceForRemoteMessages();
+      const token = await messaging().getToken();
+      console.log('FCM Token:', token);
+      return token;
+    } catch (error) {
+      console.error('Error getting FCM token:', error);
+      return null;
+    }
+  };
 
   const handleRegister = async () => {
     try {
+      if (!email || !password || !username) {
+        setError('Tutti i campi sono obbligatori');
+        return;
+      }
+
+      // Step 1: Registrazione utente
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -27,23 +44,41 @@ const RegisterScreen = () => {
       if (authError) throw authError;
 
       if (authData.user) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert([{ id: authData.user.id, username, profile_image: profileImage }]);
+        // Step 2: Ottieni token FCM
+        const fcmToken = await getFCMToken();
+        console.log('Step 2 - Got FCM token:', fcmToken);
 
-        if (profileError) throw profileError;
+        // Step 3: Crea profilo utente
+        const { error: insertError } = await supabase
+          .from('profiles')
+          .insert({ 
+            id: authData.user.id, 
+            username, 
+            profile_image: profileImage,
+            push_token: fcmToken 
+          });
+
+        if (insertError) {
+          console.error('Step 3 - Profile creation error:', insertError);
+          throw insertError;
+        }
+
+        console.log('Registration completed successfully');
+        // Aggiungi delay di 3 secondi
+        await new Promise(resolve => setTimeout(resolve, 3000));
         navigation.navigate('Home');
       }
     } catch (error: any) {
-      setError(error.message);
-      Alert.alert('Errore', error.message);
+      console.log('Registration error:', error);
+      const errorMessage = error.message || 'Si è verificato un errore durante la registrazione';
+      setError(errorMessage);
+      Alert.alert('Errore', errorMessage);
     }
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setProfileImage(e.target.value);
   };
-
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>

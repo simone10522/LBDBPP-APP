@@ -19,6 +19,7 @@ interface Chat {
 const ChatListScreen = () => {
   const [searchText, setSearchText] = useState('');
   const [chats, setChats] = useState<Chat[]>([]);
+  const [filteredChats, setFilteredChats] = useState<Chat[]>([]);
   const { user, isDarkMode } = useAuth();
   const palette = isDarkMode ? darkPalette : lightPalette;
   const [loading, setLoading] = useState(false);
@@ -94,9 +95,61 @@ const ChatListScreen = () => {
     }
   }, [user?.id]);
 
+  const handleSearch = async (text: string) => {
+    setSearchText(text);
+    
+    if (text.trim() === '') {
+      setFilteredChats(chats);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, username, profile_image')
+        .ilike('username', `%${text}%`)
+        .neq('id', user?.id);
+
+      if (error) {
+        console.error('Error searching users:', error);
+        return;
+      }
+
+      // Combine search results with existing chats
+      const searchResults: Chat[] = data.map(profile => ({
+        user: profile,
+        lastMessage: {
+          message_text: '',
+          created_at: new Date().toISOString()
+        }
+      }));
+
+      // Filter existing chats by username
+      const filteredExistingChats = chats.filter(chat =>
+        chat.user.username.toLowerCase().includes(text.toLowerCase())
+      );
+
+      // Combine and deduplicate results
+      const combinedResults = [...filteredExistingChats];
+      searchResults.forEach(result => {
+        if (!combinedResults.some(chat => chat.user.id === result.user.id)) {
+          combinedResults.push(result);
+        }
+      });
+
+      setFilteredChats(combinedResults);
+    } catch (err) {
+      console.error("Error during search:", err);
+    }
+  };
+
   useEffect(() => {
     fetchChats();
   }, [fetchChats]);
+
+  useEffect(() => {
+    setFilteredChats(chats);
+  }, [chats]);
 
   return (
     <View style={[styles.container, { backgroundColor: palette.background }]}>
@@ -106,14 +159,14 @@ const ChatListScreen = () => {
           placeholder="Search chats or users..."
           placeholderTextColor={palette.secondaryText}
           value={searchText}
-          onChangeText={setSearchText}
+          onChangeText={handleSearch}
         />
       </View>
       {loading ? (
         <ActivityIndicator size="large" color={palette.primary} style={{ marginTop: 20 }} />
       ) : (
         <FlatList
-          data={chats}
+          data={filteredChats}
           renderItem={({ item }) => <ChatListItem chat={item} />}
           keyExtractor={(item) => item.user.id}
           style={styles.chatList}

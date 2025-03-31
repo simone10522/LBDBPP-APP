@@ -315,6 +315,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 10,
     marginBottom: 15,
+    marginTop: 15,
   },
   searchBar: {
     flex: 1,

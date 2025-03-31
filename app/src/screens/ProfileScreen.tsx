@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, Switch, ActivityIndicator, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Switch, ActivityIndicator, ScrollView, Alert, RefreshControl, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';
 import { lightPalette, darkPalette } from '../context/themes';
-//import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
@@ -20,7 +19,8 @@ const ProfileScreen = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigation = useNavigation();
-  const [pushTokenEnabled, setPushTokenEnabled] = useState(false); // New state for push token switch
+  const [pushTokenEnabled, setPushTokenEnabled] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const theme = isDarkMode ? darkPalette : lightPalette;
 
@@ -53,6 +53,12 @@ const ProfileScreen = () => {
     }
   };
 
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await fetchProfile();
+    setRefreshing(false);
+  }, []);
+
   const handleSaveProfile = async () => {
     setLoading(true);
     setError(null);
@@ -67,7 +73,6 @@ const ProfileScreen = () => {
         console.error("Supabase update error:", updateError);
         setError(updateError.message);
       } else {
-        // Use a more subtle notification
         alert('Profile updated successfully!');
       }
     } catch (error: any) {
@@ -80,14 +85,27 @@ const ProfileScreen = () => {
 
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      aspect: [4, 3],
+      aspect: [1, 1],
       quality: 1,
     });
 
     if (!result.canceled) {
-      setProfileImage(result.assets[0].uri);
+      const uri = result.assets[0].uri;
+      const fileExtension = uri.split('.').pop()?.toLowerCase();
+      
+      // Verifica se il file è un formato supportato
+      if (fileExtension === 'gif' || fileExtension === 'webp' || 
+          fileExtension === 'png' || fileExtension === 'jpg' || 
+          fileExtension === 'jpeg') {
+        setProfileImage(uri);
+      } else {
+        Alert.alert(
+          "Formato non supportato",
+          "Per favore seleziona un'immagine in formato GIF, WebP, PNG o JPG/JPEG"
+        );
+      }
     }
   };
 
@@ -96,7 +114,6 @@ const ProfileScreen = () => {
     setError(null);
 
     try {
-      // Clear push_token before logging out
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ push_token: null })
@@ -107,7 +124,6 @@ const ProfileScreen = () => {
         setError(updateError.message);
       } else {
         console.log("push_token cleared successfully");
-        // Proceed with logout after successful push_token removal
         await supabase.auth.signOut();
         setUser(null);
         navigation.navigate('Login');
@@ -168,7 +184,6 @@ const ProfileScreen = () => {
 
     try {
       if (value) {
-        // Enable push token
         const pushToken = await registerForPushNotificationsAsync();
         if (pushToken) {
           const { error: updateError } = await supabase
@@ -188,7 +203,6 @@ const ProfileScreen = () => {
           alert('Failed to get push token.');
         }
       } else {
-        // Disable push token
         const { error: updateError } = await supabase
           .from('profiles')
           .update({ push_token: null })
@@ -215,12 +229,18 @@ const ProfileScreen = () => {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-      <ScrollView>
+      <ScrollView 
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         <View style={styles.profileSection}>
           <TouchableOpacity onPress={pickImage}>
             <Image
-              source={profileImage ? { uri: profileImage } : require('../../assets/cards/PA.json')} // Use a placeholder
+              source={profileImage ? { uri: profileImage } : require('../../assets/pokemon_hero_bg.png')}
               style={styles.avatar}
+              resizeMode="cover"
+              defaultSource={require('../../assets/pokemon_hero_bg.png')}
             />
           </TouchableOpacity>
         </View>
@@ -327,7 +347,7 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 60,
     borderWidth: 3,
-    borderColor: '#fff', // Or any color from your theme
+    borderColor: '#fff',
   },
   inputGroup: {
     marginBottom: 15,

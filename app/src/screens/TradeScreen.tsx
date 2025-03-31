@@ -558,125 +558,47 @@ const TradeScreen = () => {
       const card1Id = user1Cards[0].id;
       const card2Id = user2Cards[0].id;
   
-      console.log('Trade info:', { user1Id, user2Id, card1Id, card2Id });
-  
       // Recupera i dati delle carte per entrambi gli utenti
-      const { data: user1Data, error: user1Error } = await supabase
-        .from('trade_cards')
-        .select('what_i_have, what_i_want')
-        .eq('user_id', user1Id)
-        .single();
+      const [user1Response, user2Response] = await Promise.all([
+        supabase.from('trade_cards').select('what_i_have, what_i_want').eq('user_id', user1Id).single(),
+        supabase.from('trade_cards').select('what_i_have, what_i_want').eq('user_id', user2Id).single()
+      ]);
   
-      if (user1Error) {
-        console.error('Error fetching user1 cards:', user1Error);
-        setError('Failed to fetch user1 cards');
-        return;
+      if (user1Response.error || user2Response.error) {
+        throw new Error('Failed to fetch user cards data');
       }
   
-      const { data: user2Data, error: user2Error } = await supabase
-        .from('trade_cards')
-        .select('what_i_have, what_i_want')
-        .eq('user_id', user2Id)
-        .single();
-  
-      if (user2Error) {
-        console.error('Error fetching user2 cards:', user2Error);
-        setError('Failed to fetch user2 cards');
-        return;
-      }
-  
-      // Gestione what_i_have per user1
-      let updatedUser1Have = user1Data.what_i_have.map(card => {
-        if (card.id === card1Id) {
-          if (card.count > 1) {
-            return { ...card, count: card.count - 1 };
+      const updateCardList = (cards, cardIdToUpdate) => 
+        cards.map(card => {
+          if (card.id === cardIdToUpdate) {
+            const newCount = card.count - 1;
+            return newCount > 0 ? { ...card, count: newCount } : null;
           }
-          return null;
-        }
-        return card;
-      }).filter(card => card !== null);
+          return card;
+        }).filter(Boolean);
   
-      // Gestione what_i_want per user1
-      let updatedUser1Want = user1Data.what_i_want.map(card => {
-        if (card.id === card2Id) {
-          if (card.count > 1) {
-            return { ...card, count: card.count - 1 };
-          }
-          return null;
-        }
-        return card;
-      }).filter(card => card !== null);
+      // Aggiorna le liste delle carte per entrambi gli utenti
+      const updates = [
+        supabase.from('trade_cards').update({
+          what_i_have: updateCardList(user1Response.data.what_i_have, card1Id),
+          what_i_want: updateCardList(user1Response.data.what_i_want, card2Id)
+        }).eq('user_id', user1Id),
   
-      // Gestione what_i_have per user2
-      let updatedUser2Have = user2Data.what_i_have.map(card => {
-        if (card.id === card2Id) {
-          if (card.count > 1) {
-            return { ...card, count: card.count - 1 };
-          }
-          return null;
-        }
-        return card;
-      }).filter(card => card !== null);
+        supabase.from('trade_cards').update({
+          what_i_have: updateCardList(user2Response.data.what_i_have, card2Id),
+          what_i_want: updateCardList(user2Response.data.what_i_want, card1Id)
+        }).eq('user_id', user2Id),
   
-      // Gestione what_i_want per user2
-      let updatedUser2Want = user2Data.what_i_want.map(card => {
-        if (card.id === card1Id) {
-          if (card.count > 1) {
-            return { ...card, count: card.count - 1 };
-          }
-          return null;
-        }
-        return card;
-      }).filter(card => card !== null);
+        supabase.from('trade_matches').delete().eq('id', tradeMatch.id)
+      ];
   
-      console.log('Updated data:', {
-        user1: { have: updatedUser1Have, want: updatedUser1Want },
-        user2: { have: updatedUser2Have, want: updatedUser2Want }
-      });
+      const results = await Promise.all(updates);
+      const errors = results.filter(result => result.error);
   
-      // Salva gli aggiornamenti per user1
-      const { error: updateUser1Error } = await supabase
-        .from('trade_cards')
-        .update({ 
-          what_i_have: updatedUser1Have,
-          what_i_want: updatedUser1Want 
-        })
-        .eq('user_id', user1Id);
-  
-      if (updateUser1Error) {
-        console.error('Error updating user1 cards:', updateUser1Error);
-        setError('Failed to update user1 cards');
-        return;
+      if (errors.length > 0) {
+        throw new Error('Failed to update trade data');
       }
   
-      // Salva gli aggiornamenti per user2
-      const { error: updateUser2Error } = await supabase
-        .from('trade_cards')
-        .update({ 
-          what_i_have: updatedUser2Have,
-          what_i_want: updatedUser2Want 
-        })
-        .eq('user_id', user2Id);
-  
-      if (updateUser2Error) {
-        console.error('Error updating user2 cards:', updateUser2Error);
-        setError('Failed to update user2 cards');
-        return;
-      }
-  
-      // Elimina il trade match
-      const { error: deleteError } = await supabase
-        .from('trade_matches')
-        .delete()
-        .eq('id', tradeMatch.id);
-  
-      if (deleteError) {
-        console.error('Error deleting trade match:', deleteError);
-        setError('Failed to delete trade match');
-        return;
-      }
-  
-      // Naviga all'animazione di completamento
       navigation.navigate('TradeCompletedAnimation', {
         myCardImage: getCardImage(user1Cards[0].id),
         otherCardImage: getCardImage(user2Cards[0].id),
