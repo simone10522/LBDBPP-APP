@@ -82,7 +82,7 @@ export const useOnlineStatus = () => {
   const userId = useAuth((state) => state.userId);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-    useEffect(() => {
+  useEffect(() => {
     if (userId) {
       // Update status to online when the component mounts (app opens)
       updateUserStatus(userId, 'online');
@@ -119,4 +119,31 @@ export const useOnlineStatus = () => {
       };
     }
   }, [userId]);
+};
+
+export const fetchUserData = async (userId: string) => {
+  try {
+    // Aggiungiamo un delay di 3 secondi prima di fetchare i dati
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (error) {
+      // Ignoriamo silenziosamente l'errore PGRST116
+      if (error.message.includes('PGRST116')) {
+        console.log('Profile not found yet, this is normal after registration');
+        return null;
+      }
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error in fetchUserData:', error);
+    return null;
+  }
 };

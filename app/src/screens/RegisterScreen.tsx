@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { lightPalette, darkPalette } from '../context/themes'; // Importa i temi
 import { useAuth } from '../hooks/useAuth'; // Importa useAuth
 import messaging from '@react-native-firebase/messaging';
+import { Ionicons } from '@expo/vector-icons'; // Aggiungi questo import
 
 const RegisterScreen = () => {
   const [email, setEmail] = useState('');
@@ -12,6 +13,7 @@ const RegisterScreen = () => {
   const [username, setUsername] = useState('');
   const [profileImage, setProfileImage] = useState('');
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false); // Aggiungi questo state
   const navigation = useNavigation();
   const { isDarkMode } = useAuth(); // Usa isDarkMode dal contesto
   const theme = isDarkMode ? darkPalette : lightPalette; // Determina il tema corrente
@@ -64,9 +66,47 @@ const RegisterScreen = () => {
         }
 
         console.log('Registration completed successfully');
-        // Aggiungi delay di 3 secondi
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        navigation.navigate('Home');
+
+        // Verifica che il profilo sia stato effettivamente creato
+        let profileVerified = false;
+        let attempts = 0;
+        
+        while (!profileVerified && attempts < 5) {
+          attempts++;
+          
+          // Attendi 500ms tra ogni tentativo
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', authData.user.id)
+            .single();
+          
+          if (profileData && !profileError) {
+            console.log('Profile verification successful');
+            profileVerified = true;
+            
+            // Naviga alla schermata del profilo passando i dati utente
+            navigation.navigate('Profile', { 
+              userId: authData.user.id,
+              userData: profileData,
+              freshRegistration: true
+            });
+            break;
+          }
+          
+          console.log(`Profile verification attempt ${attempts} failed`);
+        }
+        
+        if (!profileVerified) {
+          console.warn('Could not verify profile after multiple attempts');
+          // Naviga comunque alla schermata profilo anche se la verifica fallisce
+          navigation.navigate('Profile', { 
+            userId: authData.user.id,
+            freshRegistration: true
+          });
+        }
       }
     } catch (error: any) {
       console.log('Registration error:', error);
@@ -111,15 +151,20 @@ const RegisterScreen = () => {
         onChangeText={setEmail}
         required
       />
-      <TextInput
-        style={[styles.input, { backgroundColor: theme.inputBackground, color: theme.text, borderColor: theme.borderColor }]}
-        placeholder="Password"
-        placeholderTextColor={theme.secondaryText}
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-        required
-      />
+      <View style={styles.passwordContainer}>
+        <TextInput
+          style={[styles.input, { backgroundColor: theme.inputBackground, color: theme.text, borderColor: theme.borderColor }]}
+          placeholder="Password"
+          placeholderTextColor={theme.secondaryText}
+          secureTextEntry={!showPassword}
+          value={password}
+          onChangeText={setPassword}
+          required
+        />
+        <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
+          <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={24} color={theme.text} />
+        </TouchableOpacity>
+      </View>
       <TouchableOpacity style={[styles.button, { backgroundColor: theme.buttonBackground }]} onPress={handleRegister}>
         <Text style={[styles.buttonText, { color: theme.buttonText }]}>Registrati</Text>
       </TouchableOpacity>
@@ -181,6 +226,16 @@ const styles = StyleSheet.create({
   error: {
     fontSize: 16,
     textAlign: 'center',
+  },
+  passwordContainer: {
+    width: '100%',
+    position: 'relative',
+    marginBottom: 10,
+  },
+  eyeIcon: {
+    position: 'absolute',
+    right: 15,
+    top: 15,
   },
 });
 

@@ -59,6 +59,13 @@ export default function CreateTournamentScreen() {
     if (tournamentType === 'swiss') {
       const rounds = calculateSwissRounds(parseInt(maxPlayers) || null);
       setMaxRounds(rounds ? rounds.toString() : '');
+    } else if (tournamentType === 'round-robin' && maxPlayers) {
+      const players = parseInt(maxPlayers, 10);
+      if (!isNaN(players) && players > 0) {
+        const effectivePlayers = players % 2 === 0 ? players : players + 1;
+        const totalRounds = effectivePlayers - 1;
+        setMaxRounds(totalRounds.toString());
+      }
     }
   }, [tournamentType, maxPlayers]);
 
@@ -153,7 +160,9 @@ export default function CreateTournamentScreen() {
       if (maxPlayers) {
         const players = parseInt(maxPlayers, 10);
         if (!isNaN(players) && players > 0) {
-          setMaxRounds((players - 1).toString());
+          const effectivePlayers = players % 2 === 0 ? players : players + 1;
+          const totalRounds = effectivePlayers - 1;
+          setMaxRounds(totalRounds.toString());
         } else {
           setMaxRounds('');
         }

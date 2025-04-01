@@ -814,7 +814,7 @@ export default function TournamentDetailsScreen() {
                                         onPress={handleStartTournament}
                                         style={[styles.startButton, { backgroundColor: '#2ecc71' }]}
                                     >
-                                        <Text style={styles.startButtonText}>Avvia Torneo</Text>
+                                        <Text style={styles.startButtonText}>Start Tournament</Text>
                                     </TouchableOpacity>
                                 )}
                                 {isParticipating ? (
@@ -1063,6 +1063,7 @@ const styles = StyleSheet.create({
         padding: 15,
         borderRadius: 10,
         alignItems: 'center',
+        marginBottom: 20,
     },
     startButtonText: {
         color: 'white',

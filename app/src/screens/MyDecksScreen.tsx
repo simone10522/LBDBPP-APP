@@ -150,13 +150,13 @@ const MyDecksScreen = () => {
   const handleCardPress = (card) => {
     setDeckError(null);
     if (currentDeck.length >= 20) {
-      setDeckError("Deck cannot exceed 20 cards.");
+      setDeckError();
       return;
     }
 
     const cardCount = currentDeck.filter((c) => c.name === card.name).length;
     if (cardCount >= 2) {
-      setDeckError("Cannot have more than two copies of the same card.");
+      setDeckError();
       return;
     }
 
@@ -180,6 +180,10 @@ const MyDecksScreen = () => {
   };
 
   const openSaveModal = () => {
+    if (currentDeck.length < 20) {
+      Alert.alert("Attenzione", "Non puoi salvare un mazzo con meno di 20 carte.");
+      return;
+    }
     setIsSaveModalVisible(true);
   };
 
@@ -260,7 +264,7 @@ const MyDecksScreen = () => {
       }
 
       closeSaveModal();
-      navigation.navigate('Decklistscreen');
+      navigation.navigate('Decklistscreen', { refresh: true });
 
     } catch (error) {
       console.error("Error saving deck:", error);
@@ -391,10 +395,20 @@ const MyDecksScreen = () => {
       )}
 
       <TouchableOpacity
-        style={[styles.saveButton, { backgroundColor: currentPalette.saveButton }]}
+        style={[
+          styles.saveButton, 
+          { 
+            backgroundColor: currentDeck.length >= 20 
+              ? currentPalette.primary 
+              : '#888888'
+          }
+        ]}
         onPress={openSaveModal}
+        disabled={currentDeck.length < 20}
       >
-        <Text style={styles.saveButtonText}>Save Deck</Text>
+        <Text style={styles.saveButtonText}>
+          Save Deck
+        </Text>
       </TouchableOpacity>
 
       {/* Save Deck Modal */}

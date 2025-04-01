@@ -209,17 +209,19 @@ const BottomNavigationBar = () => {
         <BarChart4 color="#fff" size={24} />
         <Text style={styles.buttonText}>Ranked</Text>
       </TouchableOpacity> */}
-      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('ChatListScreen')}>
-        <View>
-          <MessageSquare color="#fff" size={24} />
-          {chatNotifications > 0 && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{chatNotifications}</Text>
-            </View>
-          )}
-        </View>
-        <Text style={styles.buttonText}>Chat</Text>
-      </TouchableOpacity>
+      {user && ( // Mostro il pulsante Chat solo se l'utente è loggato
+        <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('ChatListScreen')}>
+          <View>
+            <MessageSquare color="#fff" size={24} />
+            {chatNotifications > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{chatNotifications}</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.buttonText}>Chat</Text>
+        </TouchableOpacity>
+      )}
       <TouchableOpacity style={styles.button} onPress={handleTradePress}>
         <View>
           <Repeat color="#fff" size={24} />

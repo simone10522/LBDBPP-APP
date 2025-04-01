@@ -1,25 +1,49 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, Image, TextInput, Modal, TouchableOpacity, Animated, PanResponder, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TextInput, Modal, TouchableOpacity, Animated, PanResponder, ActivityIndicator } from 'react-native';
+import FastImage from 'react-native-fast-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { lightPalette, darkPalette } from '../context/themes';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
-import cardDataSetsA1 from '../../assets/cards/A1.json';
-import cardDataSetsA1a from '../../assets/cards/A1a.json';
-import cardDataSetsA2a from '../../assets/cards/A2a.json';
-import cardDataSetsA2 from '../../assets/cards/A2.json';
-import cardDataSetsPA from '../../assets/cards/PA.json';
+import cardDataSetsA2a from '../../assets/cards/modified/A2a.json';
+import cardDataSetsA1 from '../../assets/cards/modified/A1.json';
+import cardDataSetsA1a from '../../assets/cards/modified/A1a.json';
+import cardDataSetsA2 from '../../assets/cards/modified/A2.json';
 import Accordion from './Accordion';
-import CountryFlag from "react-native-country-flag";
 import InterstitialAdComponent from './InterstitialAd';
 import { Undo2 } from 'lucide-react-native'; // Import the specific Undo2 icon
 
 const sets = [
-  { setName: "Genetic Apex", cards: cardDataSetsA1.cards.map(card => ({ id: card.id, name: card.name })) },
-  { setName: "Mythical Island", cards: cardDataSetsA1a.cards.map(card => ({ id: card.id, name: card.name })) },
-  { setName: "Triumphant Light", cards: cardDataSetsA2a.cards.map(card => ({ id: card.id, name: card.name })) },
-  { setName: "Space-Time Smackdown", cards: cardDataSetsA2.cards.map(card => ({ id: card.id, name: card.name })) },
-  { setName: "Promos-A Old", cards: cardDataSetsPA.cards.map(card => ({ id: card.id, name: card.name })) }
+  { setName: "Genetic Apex", cards: cardDataSetsA1.map(card => ({ 
+      id: card.id, 
+      name: card.name,
+      rarity: card.rarity,
+      image: card.image ? `${card.image}/low.webp` : undefined
+    })) 
+  },
+  { setName: "Mythical Island", cards: cardDataSetsA1a.map(card => ({ 
+      id: card.id, 
+      name: card.name,
+      rarity: card.rarity,
+      image: card.image ? `${card.image}/low.webp` : undefined
+    }))
+  },
+  { 
+    setName: "Triumphant Light", 
+    cards: cardDataSetsA2a.map(card => ({ 
+      id: card.id, 
+      name: card.name, 
+      rarity: card.rarity,
+      image: card.image ? `${card.image}/low.webp` : undefined
+    })) 
+  },
+  { setName: "Space-Time Smackdown", cards: cardDataSetsA2.map(card => ({ 
+      id: card.id, 
+      name: card.name,
+      rarity: card.rarity,
+      image: card.image ? `${card.image}/low.webp` : undefined
+    }))
+  }
 ];
 
 const TradeCardSelection = ({ onCardsSelected, isDarkMode, loadExistingCards: shouldLoadExistingCards, onBack, selectionType }) => {
@@ -34,19 +58,8 @@ const TradeCardSelection = ({ onCardsSelected, isDarkMode, loadExistingCards: sh
   const [cardError, setCardError] = useState(null);
   const [visibleSetsCount, setVisibleSetsCount] = useState(1); // Control number of visible sets
   const [currentSelection, setCurrentSelection] = useState(selectionType);
-  const [selectedLanguage, setSelectedLanguage] = useState('it');
-  const [flags, setFlags] = useState([
-    { code: 'IT', isoCode: 'it' },
-    { code: 'GB', isoCode: 'gb' },
-    { code: 'FR', isoCode: 'fr' },
-    { code: 'ES', isoCode: 'es' },
-    { code: 'DE', isoCode: 'de' },
-    { code: 'JP', isoCode: 'jp' },
-    { code: 'CN', isoCode: 'cn' },
-  ]);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [showAd, setShowAd] = useState(false);
-
 
   const currentPalette = isDarkMode ? darkPalette : lightPalette;
   const flatListRef = useRef<FlatList>(null);
@@ -72,6 +85,17 @@ const TradeCardSelection = ({ onCardsSelected, isDarkMode, loadExistingCards: sh
           )
         })).filter(set => set.cards.length > 0);
       }
+      
+      // Filtro per escludere "two star", "three star" e "crown"
+      filteredSets = filteredSets.map(set => ({
+        ...set,
+        cards: set.cards.filter(card => {
+          if (!card.rarity) return true;
+          const rarityLower = card.rarity.toLowerCase();
+          return !["two star", "three star", "crown"].includes(rarityLower);
+        })
+      })).filter(set => set.cards.length > 0);
+      
       setSetsData(filteredSets.slice(0, visibleSetsCount)); // Load initial sets
     } catch (err) {
       setError(err.message);
@@ -97,6 +121,17 @@ const TradeCardSelection = ({ onCardsSelected, isDarkMode, loadExistingCards: sh
           )
         })).filter(set => set.cards.length > 0);
       }
+      
+      // Filtro per escludere "two star", "three star" e "crown"
+      filteredSets = filteredSets.map(set => ({
+        ...set,
+        cards: set.cards.filter(card => {
+          if (!card.rarity) return true;
+          const rarityLower = card.rarity.toLowerCase();
+          return !["two star", "three star", "crown"].includes(rarityLower);
+        })
+      })).filter(set => set.cards.length > 0);
+      
       const nextSets = filteredSets.slice(visibleSetsCount, nextVisibleSetsCount);
       if (nextSets.length > 0) {
         setSetsData(prevSetsData => [...prevSetsData, ...nextSets]);
@@ -164,33 +199,66 @@ const TradeCardSelection = ({ onCardsSelected, isDarkMode, loadExistingCards: sh
       if (cachedCard) {
         setSelectedTradeCards([...selectedTradeCards, { ...cachedCard, count: 1 }]);
       } else {
-        // This should rarely happen now, as renderCardItem fetches details
-        try {
-          const cardDetailsUrl = `https://api.tcgdex.net/v2/en/cards/${card.id}`;
-          const cardDetailsResponse = await fetch(cardDetailsUrl);
-
-          if (!cardDetailsResponse.ok) {
-            setCardError(`Failed to fetch card details for ${card.name}`);
-            return;
-          }
-
-          const cardDetails = await cardDetailsResponse.json();
-          // *** KEY CHANGE: Modify rarity format here ***
-          const formattedRarity = cardDetails.rarity.toLowerCase().replace(/ /g, '_');
+        // Verifica se la carta ha già dati completi
+        if (card.image && card.rarity) {
+          // Se i dati sono già presenti nella carta, usali direttamente
           const updatedCard = {
             ...card,
-            image: cardDetails.image + "/low.webp",
-            rarity: formattedRarity, // Use the formatted rarity
             count: 1
           };
-
-          // Update cache
+          
+          // Aggiorna la cache
           cardCache.current[card.id] = updatedCard;
           setSelectedTradeCards([...selectedTradeCards, updatedCard]);
+        } else {
+          // Altrimenti ottieni i dati dall'API come prima
+          try {
+            const cardDetailsUrl = `https://api.tcgdex.net/v2/en/cards/${card.id}`;
+            const cardDetailsResponse = await fetch(cardDetailsUrl);
 
-        } catch (err) {
-          console.error("Error fetching card details:", err);
-          setCardError(`Error fetching card details for ${card.name}`);
+            if (!cardDetailsResponse.ok) {
+              setCardError(`Failed to fetch card details for ${card.name}`);
+              return;
+            }
+
+            const cardDetails = await cardDetailsResponse.json();
+            
+            // Verifica se la carta appartiene a uno dei nostri set con rarità già definita
+            let cardRarity = "diamond"; // Default rarità
+            // Estrai il codice del set dalla card.id (ad esempio 'A2a' da 'A2a-001')
+            const setCode = card.id.split('-')[0];
+            // Cerca il set corrispondente
+            const cardSet = sets.find(set => {
+              // Ottieni il nome del set dal codice
+              if (setCode === 'A1') return set.setName === "Genetic Apex";
+              if (setCode === 'A1a') return set.setName === "Mythical Island";
+              if (setCode === 'A2a') return set.setName === "Triumphant Light";
+              if (setCode === 'A2') return set.setName === "Space-Time Smackdown";
+              return false;
+            });
+            
+            if (cardSet) {
+              const cardInSet = cardSet.cards.find(c => c.id === card.id);
+              if (cardInSet && cardInSet.rarity) {
+                cardRarity = cardInSet.rarity;
+              }
+            }
+            
+            const updatedCard = {
+              ...card,
+              image: cardDetails.image + "/low.webp",
+              rarity: cardRarity,
+              count: 1
+            };
+
+            // Update cache
+            cardCache.current[card.id] = updatedCard;
+            setSelectedTradeCards([...selectedTradeCards, updatedCard]);
+
+          } catch (err) {
+            console.error("Error fetching card details:", err);
+            setCardError(`Error fetching card details for ${card.name}`);
+          }
         }
       }
     }
@@ -229,14 +297,22 @@ const TradeCardSelection = ({ onCardsSelected, isDarkMode, loadExistingCards: sh
         return;
       }
 
-      const cardData = selectedTradeCards.map(card => ({
-        id: card.id,
-        name: card.name,
-        image: card.image,
-        rarity: card.rarity,
-        count: card.count,
-        language: selectedLanguage,
-      }));
+      // Formatta la rarità con underscore (es. "Three Diamond" diventa "three_diamond")
+      const cardData = selectedTradeCards.map(card => {
+        // Formatta la rarità della carta
+        let formattedRarity = card.rarity;
+        if (formattedRarity) {
+          formattedRarity = formattedRarity.toLowerCase().replace(/ /g, '_');
+        }
+        
+        return {
+          id: card.id,
+          name: card.name,
+          image: card.image,
+          rarity: formattedRarity,
+          count: card.count,
+        };
+      });
 
       if (existingTradeCard) {
         const { error: updateError } = await supabase
@@ -289,6 +365,7 @@ const TradeCardSelection = ({ onCardsSelected, isDarkMode, loadExistingCards: sh
     Animated.timing(animatedValue, {
       toValue: 0,
       duration: 200,
+      useNativeDriver: false,
     }).start(() => setIsModalVisible(false));
   };
 
@@ -305,10 +382,14 @@ const TradeCardSelection = ({ onCardsSelected, isDarkMode, loadExistingCards: sh
       return (
         <View key={item.id} style={styles.cardItem}>
           <View style={styles.cardImageContainer}>
-            <Image
+            <FastImage
               style={[styles.cardImage, { borderColor: currentPalette.borderColor }]}
-              source={{ uri: cachedCard.image }}
-              resizeMode="contain"
+              source={{ 
+                uri: cachedCard.image,
+                priority: FastImage.priority.normal,
+                cache: FastImage.cacheControl.immutable
+              }}
+              resizeMode={FastImage.resizeMode.contain}
             />
             <TouchableOpacity
               style={[styles.selectButton, { backgroundColor: 'green' }]}
@@ -370,10 +451,14 @@ const TradeCardSelection = ({ onCardsSelected, isDarkMode, loadExistingCards: sh
     return (
       <View key={item.id} style={styles.cardItem}>
         <View style={styles.cardImageContainer}>
-          <Image
+          <FastImage
             style={[styles.cardImage, { borderColor: currentPalette.borderColor, width: '100%', height: undefined }]}
-            source={{ uri: item.image }}
-            resizeMode="contain"
+            source={{ 
+              uri: item.image,
+              priority: FastImage.priority.normal,
+              cache: FastImage.cacheControl.immutable
+            }}
+            resizeMode={FastImage.resizeMode.contain}
           />
           <Text style={[styles.rarityText, { color: currentPalette.text }]}>
             Rarity: {item.rarity}
@@ -466,20 +551,6 @@ const TradeCardSelection = ({ onCardsSelected, isDarkMode, loadExistingCards: sh
       ) : (
         <>
           <Accordion title="All Cards" >
-            <View style={styles.flagsContainer}>
-              {flags.map((flag) => (
-                <TouchableOpacity
-                  key={flag.isoCode}
-                  style={[
-                    styles.flagButton,
-                    selectedLanguage === flag.isoCode && styles.selectedFlag,
-                  ]}
-                  onPress={() => setSelectedLanguage(flag.isoCode)}
-                >
-                  <CountryFlag isoCode={flag.isoCode} size={25} />
-                </TouchableOpacity>
-              ))}
-            </View>
             <FlatList
               ref={flatListRef}
               data={setsData}
@@ -555,10 +626,14 @@ const TradeCardSelection = ({ onCardsSelected, isDarkMode, loadExistingCards: sh
             },
           ]}>
             {selectedCard && (
-              <Image
-                source={{ uri: selectedCard.image + "/low.webp" }}
+              <FastImage
+                source={{ 
+                  uri: selectedCard.image + "/low.webp",
+                  priority: FastImage.priority.normal,
+                  cache: FastImage.cacheControl.immutable
+                }}
                 style={styles.fullSizeCardImage}
-                resizeMode="contain"
+                resizeMode={FastImage.resizeMode.contain}
               />
             )}
           </Animated.View>
@@ -576,6 +651,32 @@ const FetchCardDetails = React.memo(({ cardId, cache, currentPalette }) => {
   useEffect(() => {
     const fetchDetails = async () => {
       try {
+        // Estrai il codice del set dalla cardId (ad esempio 'A2a' da 'A2a-001')
+        const setCodeId = cardId.split('-')[0];
+        
+        // Cerca il set corrispondente
+        const cardSet = sets.find(set => {
+          // Ottieni il nome del set dal codice
+          if (setCodeId === 'A1') return set.setName === "Genetic Apex";
+          if (setCodeId === 'A1a') return set.setName === "Mythical Island";
+          if (setCodeId === 'A2a') return set.setName === "Triumphant Light";
+          if (setCodeId === 'A2') return set.setName === "Space-Time Smackdown";
+          return false;
+        });
+        
+        if (cardSet) {
+          // Cerca la carta nel set
+          const card = cardSet.cards.find(c => c.id === cardId);
+          if (card && card.rarity) {
+            // La carta ha già tutti i dati necessari
+            cache.current[cardId] = card;
+            setCardDetails(card);
+            setLoading(false);
+            return;
+          }
+        }
+        
+        // Se la carta non è stata trovata o non ha rarità, procedi con la richiesta API
         const cardDetailsUrl = `https://api.tcgdex.net/v2/en/cards/${cardId}`;
         const cardDetailsResponse = await fetch(cardDetailsUrl);
 
@@ -585,15 +686,34 @@ const FetchCardDetails = React.memo(({ cardId, cache, currentPalette }) => {
         }
 
         const details = await cardDetailsResponse.json();
-         // *** KEY CHANGE: Modify rarity format here ***
-        const formattedRarity = details.rarity.toLowerCase().replace(/ /g, '_');
+        
+        // Determina la rarità della carta
+        let rarity = "diamond"; // Default value
+        // Per le carte dei nostri set, cerca la rarità nei file JSON
+        const setCodeDetails = cardId.split('-')[0];
+        // Cerca il set corrispondente
+        const relevantSet = sets.find(set => {
+          // Ottieni il nome del set dal codice
+          if (setCodeDetails === 'A1') return set.setName === "Genetic Apex";
+          if (setCodeDetails === 'A1a') return set.setName === "Mythical Island";
+          if (setCodeDetails === 'A2a') return set.setName === "Triumphant Light";
+          if (setCodeDetails === 'A2') return set.setName === "Space-Time Smackdown";
+          return false;
+        });
+        
+        if (relevantSet) {
+          const cardInSet = relevantSet.cards.find(c => c.id === cardId);
+          if (cardInSet && cardInSet.rarity) {
+            rarity = cardInSet.rarity;
+          }
+        }
+        
         const updatedCard = {
           id: details.id,
           name: details.name,
           image: details.image + "/low.webp",
-          rarity: formattedRarity, // Use formatted rarity
+          rarity: rarity
         };
-
 
         // Update the cache
         cache.current[cardId] = updatedCard;
@@ -622,10 +742,14 @@ const FetchCardDetails = React.memo(({ cardId, cache, currentPalette }) => {
   }
 
   return (
-    <Image
+    <FastImage
       style={[styles.cardImage, { borderColor: currentPalette.borderColor }]}
-      source={{ uri: cardDetails.image }}
-      resizeMode="contain"
+      source={{ 
+        uri: cardDetails.image,
+        priority: FastImage.priority.normal,
+        cache: FastImage.cacheControl.immutable
+      }}
+      resizeMode={FastImage.resizeMode.contain}
     />
   );
 });
@@ -794,21 +918,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginTop: 10,
     marginBottom: 5,
-  },
-  flagsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 0,
-  },
-  flagButton: {
-    marginHorizontal: 5,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    borderRadius: 0,
-  },
-  selectedFlag: {
-    borderColor: 'green',
   },
 });
 
