@@ -12,7 +12,7 @@ import TournamentDetailsScreen from './src/screens/TournamentDetailsScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
 import ManageParticipantsScreen from './src/screens/ManageParticipantsScreen';
-import ManageDecksScreen from './src/screens/ManageDecksScreen';
+//import ManageDecksScreen from './src/screens/ManageDecksScreen';
 import CreateTournamentScreen from './src/screens/CreateTournamentScreen';
 import LeaderboardScreen from './src/screens/LeaderboardScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
@@ -155,7 +155,6 @@ const App = () => {
               <Stack.Screen name="TournamentDetails" component={TournamentDetailsScreen} />
               <Stack.Screen name="Register" component={RegisterScreen} />
               <Stack.Screen name="ManageParticipants" component={ManageParticipantsScreen} />
-              <Stack.Screen name="ManageDecks" component={ManageDecksScreen} />
               <Stack.Screen name="CreateTournament" component={CreateTournamentScreen} />
               <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
               <Stack.Screen name="Profile" component={ProfileScreen} />
