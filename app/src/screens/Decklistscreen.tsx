@@ -360,14 +360,6 @@ const Decklistscreen = () => {
 
       <AddDeckButton onPress={handleAddDeck} />
 
-      {/* Pulsante per navigare alla pagina 3D */}
-      <TouchableOpacity
-        style={[styles.threeDButton, { backgroundColor: theme.primary }]}
-        onPress={() => navigation.navigate('ThreeDCube')} // Cambiato da '3dcube' a 'ThreeDCube'
-      >
-        <Text style={styles.threeDButtonText}>3D</Text>
-      </TouchableOpacity>
-
       {fetchingDeckList ? (
         <View style={styles.deckListLoading}>
           <ActivityIndicator size="small" color={theme.primary} />
