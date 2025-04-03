@@ -27,6 +27,7 @@ import ChatScreen from './src/screens/ChatScreen';
 import ChatListScreen from './src/screens/ChatListScreen';
 import TournamentDeckScreen from './src/screens/TournamentDeckScreen';
 import ThreeDCube from './src/screens/3dcube';
+import BracketScreen from './src/screens/BracketScreen';
 // Utils
 import { useAuth, useOnlineStatus } from './src/hooks/useAuth';
 import { supabase } from './src/lib/supabase';
@@ -168,6 +169,7 @@ const App = () => {
               <Stack.Screen name="ChatListScreen" component={ChatListScreen} />
               <Stack.Screen name="TournamentDeckScreen" component={TournamentDeckScreen}/>
               <Stack.Screen name="ThreeDCube" component={ThreeDCube} options={{ title: '3D Cube' }} />
+              <Stack.Screen name="Bracket" component={BracketScreen} />
             </Stack.Navigator>
           </SafeAreaView>
           <BottomNavigationBar />

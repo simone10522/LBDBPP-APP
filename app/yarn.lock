@@ -6574,6 +6574,15 @@ react-native-fast-image@^8.6.3:
   resolved "https://registry.yarnpkg.com/react-native-fast-image/-/react-native-fast-image-8.6.3.tgz#6edc3f9190092a909d636d93eecbcc54a8822255"
   integrity sha512-Sdw4ESidXCXOmQ9EcYguNY2swyoWmx53kym2zRsvi+VeFCHEdkO+WG1DK+6W81juot40bbfLNhkc63QnWtesNg==
 
+react-native-gesture-handler@^2.2.1:
+  version "2.25.0"
+  resolved "https://registry.yarnpkg.com/react-native-gesture-handler/-/react-native-gesture-handler-2.25.0.tgz#3a5a8912ea4f5e68ab211a9fa5a191c08ad50883"
+  integrity sha512-NPjJi6mislXxvjxQPU9IYwBjb1Uejp8GvAbE1Lhh+xMIMEvmgAvVIp5cz1P+xAbV6uYcRRArm278+tEInGOqWg==
+  dependencies:
+    "@egjs/hammerjs" "^2.0.17"
+    hoist-non-react-statics "^3.3.0"
+    invariant "^2.2.4"
+
 react-native-gesture-handler@~2.20.2:
   version "2.20.2"
   resolved "https://registry.npmjs.org/react-native-gesture-handler/-/react-native-gesture-handler-2.20.2.tgz"
@@ -6598,6 +6607,11 @@ react-native-google-mobile-ads@14.7.2:
   dependencies:
     "@iabtcf/core" "^1.5.3"
     use-deep-compare-effect "^1.8.1"
+
+react-native-linear-gradient@^2.8.3:
+  version "2.8.3"
+  resolved "https://registry.yarnpkg.com/react-native-linear-gradient/-/react-native-linear-gradient-2.8.3.tgz#9a116649f86d74747304ee13db325e20b21e564f"
+  integrity sha512-KflAXZcEg54PXkLyflaSZQ3PJp4uC4whM7nT/Uot9m0e/qxFV3p6uor1983D1YOBJbJN7rrWdqIjq0T42jOJyA==
 
 react-native-modal@^13.0.1:
   version "13.0.1"
@@ -6664,6 +6678,14 @@ react-native-size-matters@^0.3.1:
   resolved "https://registry.npmjs.org/react-native-size-matters/-/react-native-size-matters-0.3.1.tgz"
   integrity sha512-mKOfBLIBFBcs9br1rlZDvxD5+mAl8Gfr5CounwJtxI6Z82rGrMO+Kgl9EIg3RMVf3G855a85YVqHJL2f5EDRlw==
 
+react-native-svg@^12.3.0:
+  version "12.5.1"
+  resolved "https://registry.yarnpkg.com/react-native-svg/-/react-native-svg-12.5.1.tgz#7dfd9daf2f8ed7843c0f3e7a16af193bd5f9b287"
+  integrity sha512-c374ENsq2MWCfr+7jC7TGwSeOAuC1Dp0osh2pw8PjpYFxmmB/toFIwcnCLz+SgBd6iLJClRhbATealqM05HOGg==
+  dependencies:
+    css-select "^5.1.0"
+    css-tree "^1.1.3"
+
 react-native-svg@^15.11.2:
   version "15.11.2"
   resolved "https://registry.yarnpkg.com/react-native-svg/-/react-native-svg-15.11.2.tgz#7540e8e1eabc4dcd3b1e35ada5a1d9f1b96d37c4"
@@ -6682,6 +6704,14 @@ react-native-toast-message@^2.2.1:
   version "2.2.1"
   resolved "https://registry.yarnpkg.com/react-native-toast-message/-/react-native-toast-message-2.2.1.tgz#f395321e9bc818ce63274c38a3d294ed997a4a27"
   integrity sha512-iXFMnlxPcgKKs4bZOIl06W16m6KXMh/bAYpWLyVXlISSCdcL2+FX5WPpRP3TGQeM/u9q+j5ex48DDY+72en+Sw==
+
+react-native-tournament-bracket@^1.0.5:
+  version "1.0.5"
+  resolved "https://registry.yarnpkg.com/react-native-tournament-bracket/-/react-native-tournament-bracket-1.0.5.tgz#322fe58917c8b37cd7071bcef40c8229aa63e376"
+  integrity sha512-CrMXgJ+hroqBTa2g9AHy4sqQG1mCA8q+U4kjpUvm0tIlfnrZguwacmJS+PyCYifTYjF6FlVnuybQnCijdbLIaQ==
+  dependencies:
+    react-native-gesture-handler "^2.2.1"
+    react-native-svg "^12.3.0"
 
 react-native-url-polyfill@^2.0.0:
   version "2.0.0"
