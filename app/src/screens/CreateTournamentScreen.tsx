@@ -13,6 +13,10 @@ const calculateSwissRounds = (players: number | null): number | null => {
   return Math.ceil(Math.log(players) / Math.log(4));
 };
 
+const calculateKnockoutRounds = (players: number): number => {
+  return Math.ceil(Math.log2(players));
+};
+
 export default function CreateTournamentScreen() {
   const { user, isDarkMode } = useAuth();
   const navigation = useNavigation();
@@ -65,6 +69,12 @@ export default function CreateTournamentScreen() {
         const effectivePlayers = players % 2 === 0 ? players : players + 1;
         const totalRounds = effectivePlayers - 1;
         setMaxRounds(totalRounds.toString());
+      }
+    } else if (tournamentType === 'knockout' && maxPlayers) {
+      const players = parseInt(maxPlayers, 10);
+      if (!isNaN(players) && players > 0) {
+        const knockoutRounds = calculateKnockoutRounds(players);
+        setMaxRounds(knockoutRounds.toString());
       }
     }
   }, [tournamentType, maxPlayers]);
@@ -163,11 +173,15 @@ export default function CreateTournamentScreen() {
           const effectivePlayers = players % 2 === 0 ? players : players + 1;
           const totalRounds = effectivePlayers - 1;
           setMaxRounds(totalRounds.toString());
-        } else {
-          setMaxRounds('');
         }
-      } else {
-        setMaxRounds('');
+      }
+    } else if (itemValue === 'knockout') {
+      if (maxPlayers) {
+        const players = parseInt(maxPlayers, 10);
+        if (!isNaN(players) && players > 0) {
+          const knockoutRounds = calculateKnockoutRounds(players);
+          setMaxRounds(knockoutRounds.toString());
+        }
       }
     }
   }, [maxPlayers, setMaxRounds, setTournamentType]);
@@ -200,6 +214,7 @@ export default function CreateTournamentScreen() {
             <Picker.Item label="Select an option" value={null} />
             <Picker.Item label="Swiss Tournament" value="swiss" />
             <Picker.Item label="Round-Robin" value="round-robin" />
+            <Picker.Item label="Knockout Tournament" value="knockout" />
           </Picker>
 
           <Text style={[styles.label, { color: theme.text }]}>Description</Text>
@@ -255,13 +270,29 @@ export default function CreateTournamentScreen() {
           />
           <Text style={[styles.label, { color: theme.text }]}>Max Rounds</Text>
           <TextInput
-            style={[styles.input, { backgroundColor: theme.inputBackground, color: theme.text, borderColor: theme.borderColor }]}
+            style={[
+              styles.input, 
+              { 
+                backgroundColor: theme.inputBackground, 
+                color: theme.text, 
+                borderColor: theme.borderColor,
+                opacity: tournamentType === 'round-robin' || tournamentType === 'knockout' ? 0.5 : 1
+              }
+            ]}
             keyboardType="number-pad"
             value={maxRounds}
             onChangeText={setMaxRounds}
-            placeholder={tournamentType === 'round-robin' ? 'N/A for Round-Robin' : (tournamentType === 'swiss' ? 'Calculated Automatically (Min: ' + maxRounds + ')' : 'Unlimited')}
+            placeholder={
+              tournamentType === 'round-robin' 
+                ? 'N/A for Round-Robin' 
+                : tournamentType === 'swiss' 
+                ? 'Calculated Automatically (Min: ' + maxRounds + ')'
+                : tournamentType === 'knockout'
+                ? `Rounds: ${maxRounds} (Auto-calculated)`
+                : 'Unlimited'
+            }
             placeholderTextColor="#aaa"
-            editable={tournamentType !== 'round-robin'}
+            editable={tournamentType !== 'round-robin' && tournamentType !== 'knockout'}
           />
           <Text style={[styles.label, { color: theme.text }]}>Best of</Text>
           <Picker

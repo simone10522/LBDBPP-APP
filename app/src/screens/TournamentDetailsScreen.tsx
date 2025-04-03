@@ -414,7 +414,11 @@ export default function TournamentDetailsScreen() {
                 return;
             }
 
-            const functionName = tournament?.format === 'round-robin' ? 'generate_Robin_tournament_matches' : 'generate_tournament_matches';
+            const functionName = tournament?.format === 'round-robin' 
+                ? 'generate_Robin_tournament_matches' 
+                : tournament?.format === 'knockout'
+                ? 'generate_knockout_tournament_matches'
+                : 'generate_tournament_matches';
 
             // Add log here
             console.log(`Using Supabase function: ${functionName}`);
@@ -615,17 +619,29 @@ export default function TournamentDetailsScreen() {
             const lastRoundMatches = matches.filter(match => match.status === 'completed');
             const lastRoundNumber = lastRoundMatches.reduce((maxRound, match) => Math.max(maxRound, match.round), 0);
 
-            const { error: generateMatchesError } = await supabase.rpc('generate_next_round_matches', {
+            const functionName = tournament?.format === 'knockout' 
+                ? 'generate_next_knockout_round'
+                : 'generate_next_round_matches';
+
+            console.log('Generating next round for tournament format:', tournament?.format);
+            console.log('Using function:', functionName);
+            console.log('Previous round number:', lastRoundNumber);
+            console.log('Completed matches in previous round:', lastRoundMatches.length);
+
+            const { data, error: generateMatchesError } = await supabase.rpc(functionName, {
                 tournament_id_param: id,
                 previous_round_number: lastRoundNumber
             });
 
             if (generateMatchesError) {
+                console.error('Error generating next round:', generateMatchesError);
                 throw generateMatchesError;
             }
 
+            console.log('Next round generated successfully');
             fetchTournamentData();
         } catch (error: any) {
+            console.error('Error in handleGenerateNextRound:', error);
             setError(error.message);
         }
     };
@@ -786,11 +802,16 @@ export default function TournamentDetailsScreen() {
                             </TouchableOpacity>
 
                             <TouchableOpacity 
-                                onPress={() => navigation.navigate('Leaderboard', { id: id })} 
+                                onPress={() => navigation.navigate(
+                                    tournament.format === 'knockout' ? 'Bracket' : 'Leaderboard',
+                                    { id: id }
+                                )} 
                                 style={[styles.actionButton, { backgroundColor: theme.buttonBackground }]}
                             >
                                 <Trophy size={30} color={theme.buttonText} />
-                                <Text style={[styles.actionButtonText, { color: theme.buttonText }]}>Leaderboard</Text>
+                                <Text style={[styles.actionButtonText, { color: theme.buttonText }]}>
+                                    {tournament.format === 'knockout' ? 'Bracket' : 'Leaderboard'}
+                                </Text>
                             </TouchableOpacity>
 
                             {isParticipating && participantId && (

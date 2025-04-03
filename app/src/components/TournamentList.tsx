@@ -137,7 +137,12 @@ const TournamentCard: React.FC<{ tournament: Tournament; isCardMinimized: boolea
             {!isCardMinimized && (
               <>
                 <Text style={[styles.cardFormat, { color: theme.secondaryText }]}>
-                  {tournament.format ? (tournament.format === 'swiss' ? 'Swiss' : 'Round-Robin') : 'Format Not Set'}
+                  {tournament.format ? (tournament.format === 'swiss' 
+                    ? 'Swiss'
+                    : tournament.format === 'round-robin'
+                    ? 'Round-Robin'
+                    : 'Knockout'
+                  ) : 'Format Not Set'}
                 </Text>
                 <Text style={[styles.cardDescription, { color: theme.secondaryText }]} numberOfLines={2}>
                   {tournament.description}
@@ -236,6 +241,35 @@ const TournamentList: React.FC<TournamentListProps> = ({
     };
 
     fetchUnreadCounts();
+  }, [tournaments, user]);
+
+  useEffect(() => {
+    const updateTournaments = async () => {
+      if (!user) {
+        setFilteredTournaments([]);
+        return;
+      }
+      
+      const updatedTournaments = await Promise.all(
+        tournaments.map(async (tournament) => {
+          const { data, error } = await supabase
+            .from('matches')
+            .select('id')
+            .eq('tournament_id', tournament.id)
+            .eq('read', false)
+            .or(`player1_id.eq.${user.id},player2_id.eq.${user.id}`);
+
+          return {
+            ...tournament,
+            unreadCount: error ? 0 : (data?.length || 0)
+          };
+        })
+      );
+
+      setFilteredTournaments(updatedTournaments);
+    };
+
+    updateTournaments();
   }, [tournaments, user]);
 
   const filteredResults = filteredTournaments.filter((tournament) =>

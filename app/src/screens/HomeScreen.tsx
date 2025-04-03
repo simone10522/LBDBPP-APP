@@ -12,7 +12,7 @@ import {
   Easing,
   Dimensions,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import TournamentList from '../components/TournamentList';
@@ -61,7 +61,7 @@ const HomeScreen = () => {
 
   // ... (rest of your component, using the theme object as before) ...
 
-    const fetchUserData = useCallback(async () => {
+  const fetchUserData = useCallback(async () => {
     setLoading(true);
     try {
       if (!user) {
@@ -152,9 +152,13 @@ const HomeScreen = () => {
     fetchUserData();
   }, [fetchUserData]);
 
-  useEffect(() => {
-    fetchUserTournaments();
-  }, [fetchUserTournaments]);
+  useFocusEffect(
+    useCallback(() => {
+      if (user) {
+        fetchUserTournaments();
+      }
+    }, [user, fetchUserTournaments])
+  );
 
   useEffect(() => {
     Animated.timing(logoTopPosition, {
@@ -292,8 +296,6 @@ const HomeScreen = () => {
     </View>
   );
 };
-
-
 
 const styles = StyleSheet.create({
   backgroundImage: {
@@ -436,7 +438,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 10,
   },
-    bannerAdContainer: {
+  bannerAdContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingBottom: 10, // Add some padding to separate from buttons

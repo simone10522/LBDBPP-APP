@@ -17,9 +17,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../hooks/useAuth';
 import { lightPalette, darkPalette } from '../context/themes';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import Icon from 'react-native-vector-icons/FontAwesome';
+import LinearGradient from 'react-native-linear-gradient';
 
 const DeckCard = React.memo(({ deckNumber, deckName, isSelected, onSelect, onEdit, onDelete }) => {
   const { isDarkMode } = useAuth();
@@ -47,27 +48,28 @@ const DeckCard = React.memo(({ deckNumber, deckName, isSelected, onSelect, onEdi
   return (
     <Animated.View style={{ transform: [{ scale: cardScale }] }}>
       <TouchableOpacity
-        style={[
-          styles.deckCard,
-          { backgroundColor: theme.cardBackground },
-          isSelected && styles.selectedDeckCard,
-        ]}
         onPress={onSelect}
         onPressIn={animateCard}
         onPressOut={resetCard}
         activeOpacity={1}
       >
-        <Text style={[styles.deckCardText, { color: theme.text }]}>
-          {deckName || `Deck #${deckNumber}`}
-        </Text>
-        <View style={styles.deckCardActions}>
-          <TouchableOpacity onPress={onEdit} style={styles.editButton}>
-            <Icon name="pencil" size={16} color={theme.text} />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={onDelete} style={styles.deleteButton}>
-            <Icon name="trash" size={16} color={theme.text} />
-          </TouchableOpacity>
-        </View>
+        <LinearGradient
+          start={{x: 0, y: 0}} end={{x: 1, y: 0}}
+          colors={['#696969','#8f8f8f' ]}
+          style={[styles.deckCard, isSelected && styles.selectedDeckCard]}
+        >
+          <Text style={[styles.deckCardText, { color: 'white' }]}>
+            {deckName || `Deck #${deckNumber}`}
+          </Text>
+          <View style={styles.deckCardActions}>
+            <TouchableOpacity onPress={onEdit} style={styles.editButton}>
+              <Icon name="pencil" size={16} color="white" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={onDelete} style={styles.deleteButton}>
+              <Icon name="trash" size={16} color="white" />
+            </TouchableOpacity>
+          </View>
+        </LinearGradient>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -134,6 +136,8 @@ const Decklistscreen = () => {
   const { isDarkMode, user } = useAuth();
   const theme = isDarkMode ? darkPalette : lightPalette;
   const navigation = useNavigation();
+  const route = useRoute();
+  const { refresh } = route.params || {};
   const [deckCount, setDeckCount] = useState(0);
   const [selectedDeck, setSelectedDeck] = useState(null);
   const [deckList, setDeckList] = useState(null);
@@ -224,6 +228,12 @@ const Decklistscreen = () => {
     fetchDeckCount();
     fetchDeckNames();
   }, [fetchDeckCount, fetchDeckNames]);
+
+  useEffect(() => {
+    if (refresh) {
+      onRefresh();
+    }
+  }, [refresh, onRefresh]);
 
   const handleAddDeck = () => {
     navigation.navigate('MyDecks');
@@ -381,6 +391,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 10,
+    backgroundColor: '#e0e0e0', // Un grigio più visibile, puoi cambiarlo con il colore che preferisci
   },
   title: {
     fontSize: 24,
@@ -398,6 +409,14 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 10,
     marginBottom: 10,
+    elevation: 3, // Aggiunge un'ombra su Android
+    shadowColor: '#000', // Per iOS
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
   selectedDeckCard: {
     borderColor: 'yellow',
