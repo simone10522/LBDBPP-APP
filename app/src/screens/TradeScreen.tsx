@@ -488,7 +488,39 @@ const TradeScreen = () => {
     }
   };
 
-  const handleYourCardsPress = () => {
+  const validateMatchPassword = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('match_password')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching match password:', error);
+        return false;
+      }
+
+      // Check if match_password exists and matches the format of 16 digits
+      const isValidFormat = data.match_password && /^\d{16}$/.test(data.match_password);
+      return isValidFormat;
+    } catch (error) {
+      console.error('Error in validateMatchPassword:', error);
+      return false;
+    }
+  };
+
+  const handleYourCardsPress = async () => {
+    const isValidPassword = await validateMatchPassword();
+    if (!isValidPassword) {
+      Toast.show({
+        type: 'error',
+        text1: 'Friend Code Not Set',
+        text2: 'Please enter it in the profile page.',
+      });
+      return;
+    }
+
     setSelectionType('have');
     setShouldLoadExistingCards(true);
     setShowCardSelection(true);
@@ -496,11 +528,21 @@ const TradeScreen = () => {
       toValue: 1,
       duration: 300,
       useNativeDriver: true,
-      easing: Easing.inOut(Easing.quad), // Example: Add an easing function
+      easing: Easing.inOut(Easing.quad),
     }).start();
   };
 
-  const handleCardsYouWantPress = () => {
+  const handleCardsYouWantPress = async () => {
+    const isValidPassword = await validateMatchPassword();
+    if (!isValidPassword) {
+      Toast.show({
+        type: 'error',
+        text1: 'Friend Code Not Set',
+        text2: 'Please enter it in the profile page.',
+      });
+      return;
+    }
+
     setSelectionType('want');
     setShouldLoadExistingCards(true);
     setShowCardSelection(true);
@@ -508,7 +550,7 @@ const TradeScreen = () => {
       toValue: 1,
       duration: 300,
       useNativeDriver: true,
-      easing: Easing.inOut(Easing.quad), // Example: Add an easing function
+      easing: Easing.inOut(Easing.quad),
     }).start();
   };
 

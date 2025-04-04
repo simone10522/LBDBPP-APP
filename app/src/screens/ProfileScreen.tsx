@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Switch, ActivityIndicator, ScrollView, Alert, RefreshControl, Image } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Switch, ActivityIndicator, ScrollView, Alert, RefreshControl, Image, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
@@ -10,6 +10,10 @@ import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import BannerAdComponent from '../components/BannerAd';
+import * as FileSystem from 'expo-file-system';
+import * as ImageManipulator from 'expo-image-manipulator';
+import { Ionicons, Entypo } from '@expo/vector-icons';
+import Toast from 'react-native-toast-message';
 
 const ProfileScreen = () => {
   const { user, setUser, isDarkMode, setIsDarkMode } = useAuth();
@@ -21,6 +25,8 @@ const ProfileScreen = () => {
   const navigation = useNavigation();
   const [pushTokenEnabled, setPushTokenEnabled] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [urlInput, setUrlInput] = useState('');
 
   const theme = isDarkMode ? darkPalette : lightPalette;
 
@@ -72,40 +78,162 @@ const ProfileScreen = () => {
       if (updateError) {
         console.error("Supabase update error:", updateError);
         setError(updateError.message);
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: updateError.message
+        });
       } else {
-        alert('Profile updated successfully!');
+        Toast.show({
+          type: 'success',
+          text1: 'Success',
+          text2: 'Profile updated successfully!'
+        });
       }
     } catch (error: any) {
       console.error("Error during profile update:", error);
       setError(error.message);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: error.message
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const pickImage = async () => {
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    });
+  const uploadToImgur = async (uri: string) => {
+    try {
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
 
-    if (!result.canceled) {
-      const uri = result.assets[0].uri;
-      const fileExtension = uri.split('.').pop()?.toLowerCase();
-      
-      // Verifica se il file è un formato supportato
-      if (fileExtension === 'gif' || fileExtension === 'webp' || 
-          fileExtension === 'png' || fileExtension === 'jpg' || 
-          fileExtension === 'jpeg') {
-        setProfileImage(uri);
-      } else {
-        Alert.alert(
-          "Formato non supportato",
-          "Per favore seleziona un'immagine in formato GIF, WebP, PNG o JPG/JPEG"
-        );
+      const response = await fetch('https://api.imgur.com/3/image', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Client-ID f6e26633ee3ad93',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          image: base64,
+          type: 'base64'
+        })
+      });
+
+      console.log('Imgur Response Status:', response.status);
+      const responseText = await response.text();
+      console.log('Imgur Raw Response:', responseText);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+
+      const data = JSON.parse(responseText);
+      if (data.success) {
+        return data.data.link;
+      } else {
+        throw new Error(data.data?.error || 'Imgur upload failed');
+      }
+    } catch (error) {
+      console.error('Error uploading to Imgur:', error);
+      if (error instanceof Error) {
+        console.error('Error details:', error.message);
+      }
+      throw error;
+    }
+  };
+
+  const convertToWebP = async (uri: string): Promise<string> => {
+    const fileExtension = uri.split('.').pop()?.toLowerCase();
+    
+    if (fileExtension === 'gif') {
+      return uri;
+    }
+
+    const result = await ImageManipulator.manipulateAsync(
+      uri,
+      [{ resize: { width: 500, height: 500 } }],
+      { compress: 0.8, format: ImageManipulator.SaveFormat.WEBP }
+    );
+
+    return result.uri;
+  };
+
+  const pickImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (status !== 'granted') {
+        Toast.show({
+          type: 'error',
+          text1: 'Permission needed',
+          text2: 'Please grant camera roll permissions to upload a profile picture.'
+        });
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.5,
+      });
+
+      if (!result.canceled) {
+        setLoading(true);
+        try {
+          const uri = result.assets[0].uri;
+          console.log("Selected image URI:", uri);
+          
+          const optimizedUri = await convertToWebP(uri);
+          console.log("Optimized image URI:", optimizedUri);
+          
+          const fileInfo = await FileSystem.getInfoAsync(optimizedUri);
+          if (!fileInfo.exists) {
+            throw new Error('File does not exist');
+          }
+          
+          const imgurUrl = await uploadToImgur(optimizedUri);
+          console.log("Imgur URL:", imgurUrl);
+          
+          setProfileImage(imgurUrl);
+          const { error: updateError } = await supabase
+            .from('profiles')
+            .update({ profile_image: imgurUrl })
+            .eq('id', user.id);
+
+          if (updateError) {
+            Toast.show({
+              type: 'error',
+              text1: 'Error',
+              text2: 'Failed to update profile image'
+            });
+          } else {
+            Toast.show({
+              type: 'success',
+              text1: 'Success',
+              text2: 'Profile image updated successfully'
+            });
+          }
+        } catch (error) {
+          console.error('Error uploading image:', error);
+          Toast.show({
+            type: 'error',
+            text1: 'Error',
+            text2: 'Failed to upload image. Please try again.'
+          });
+        } finally {
+          setLoading(false);
+        }
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to pick image. Please try again.'
+      });
     }
   };
 
@@ -164,14 +292,22 @@ const ProfileScreen = () => {
         finalStatus = status;
       }
       if (finalStatus !== 'granted') {
-        alert('Failed to get push token for push notification!');
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: 'Failed to get push token for push notification!'
+        });
         return null;
       }
       token = await Notifications.getExpoPushTokenAsync({
         projectId: Constants.expoConfig?.extra?.eas.projectId,
       });
     } else {
-      alert('Must use physical device for Push Notifications');
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Must use physical device for Push Notifications'
+      });
       return null;
     }
 
@@ -194,13 +330,25 @@ const ProfileScreen = () => {
           if (updateError) {
             console.error("Error updating push token:", updateError);
             setError(updateError.message);
-            alert('Failed to enable push token.');
+            Toast.show({
+              type: 'error',
+              text1: 'Error',
+              text2: 'Failed to enable push token.'
+            });
           } else {
             console.log("Push token enabled successfully");
-            alert('Push token enabled successfully!');
+            Toast.show({
+              type: 'success',
+              text1: 'Success',
+              text2: 'Push token enabled successfully!'
+            });
           }
         } else {
-          alert('Failed to get push token.');
+          Toast.show({
+            type: 'error',
+            text1: 'Error',
+            text2: 'Failed to get push token.'
+          });
         }
       } else {
         const { error: updateError } = await supabase
@@ -211,17 +359,64 @@ const ProfileScreen = () => {
         if (updateError) {
           console.error("Error disabling push token:", updateError);
           setError(updateError.message);
-          alert('Failed to disable push token.');
+          Toast.show({
+            type: 'error',
+            text1: 'Error',
+            text2: 'Failed to disable push token.'
+          });
         } else {
           console.log("Push token disabled successfully");
-          alert('Push token disabled successfully!');
+          Toast.show({
+            type: 'success',
+            text1: 'Success',
+            text2: 'Push token disabled successfully!'
+          });
         }
       }
       setPushTokenEnabled(value);
     } catch (error: any) {
       console.error("Error during push token toggle:", error);
       setError(error.message);
-      alert('An error occurred while toggling push notifications.');
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'An error occurred while toggling push notifications.'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUrlSubmit = async () => {
+    setLoading(true);
+    try {
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ profile_image: urlInput })
+        .eq('id', user.id);
+
+      if (updateError) {
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: 'Failed to update profile image'
+        });
+      } else {
+        setProfileImage(urlInput);
+        Toast.show({
+          type: 'success',
+          text1: 'Success',
+          text2: 'Profile image updated successfully'
+        });
+        setModalVisible(false);
+      }
+    } catch (error) {
+      console.error('Error updating profile image:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to update profile image'
+      });
     } finally {
       setLoading(false);
     }
@@ -229,20 +424,65 @@ const ProfileScreen = () => {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={[styles.modalContent, { backgroundColor: theme.background }]}>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>Enter Image URL</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: theme.inputBackground, color: theme.text, borderColor: theme.inputBorder }]}
+              value={urlInput}
+              onChangeText={setUrlInput}
+              placeholder="Enter image URL"
+              placeholderTextColor={theme.placeholderText}
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.button, { backgroundColor: theme.buttonBackground, flex: 1, marginRight: 10 }]}
+                onPress={handleUrlSubmit}
+                disabled={loading}
+              >
+                <Text style={[styles.buttonText, { color: theme.buttonText }]}>Save</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.button, { backgroundColor: theme.error, flex: 1, marginLeft: 10 }]}
+                onPress={() => setModalVisible(false)}
+              >
+                <Text style={[styles.buttonText, { color: theme.buttonText }]}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <ScrollView 
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
         <View style={styles.profileSection}>
-          <TouchableOpacity onPress={pickImage}>
-            <Image
-              source={profileImage ? { uri: profileImage } : require('../../assets/pokemon_hero_bg.png')}
-              style={styles.avatar}
-              resizeMode="cover"
-              defaultSource={require('../../assets/pokemon_hero_bg.png')}
-            />
-          </TouchableOpacity>
+          <View style={styles.imageContainer}>
+            <View style={styles.buttonOverlay}>
+              <TouchableOpacity style={styles.iconButton} onPress={() => setModalVisible(true)}>
+                <Entypo name="dots-three-horizontal" size={18} color={theme.text} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.iconButton} onPress={pickImage}>
+                <Ionicons name="folder-outline" size={18} color={theme.text} />
+              </TouchableOpacity>
+            </View>
+            <View>
+              <Image
+                source={profileImage ? { uri: profileImage } : require('../../assets/pokemon_hero_bg.png')}
+                style={styles.avatar}
+                resizeMode="cover"
+                defaultSource={require('../../assets/pokemon_hero_bg.png')}
+              />
+            </View>
+          </View>
         </View>
 
         <View style={styles.inputGroup}>
@@ -254,18 +494,6 @@ const ProfileScreen = () => {
             placeholder="Enter your username"
             placeholderTextColor={theme.placeholderText}
             accessibilityLabel="Username Input"
-          />
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={[styles.label, { color: theme.text }]}>Avatar URL</Text>
-          <TextInput
-            style={[styles.input, { backgroundColor: theme.inputBackground, color: theme.text, borderColor: theme.inputBorder }]}
-            value={profileImage}
-            onChangeText={setProfileImage}
-            placeholder="Enter avatar URL"
-            placeholderTextColor={theme.placeholderText}
-            accessibilityLabel="Avatar URL Input"
           />
         </View>
 
@@ -323,6 +551,7 @@ const ProfileScreen = () => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      <Toast />
     </SafeAreaView>
   );
 };
@@ -341,6 +570,26 @@ const styles = StyleSheet.create({
   profileSection: {
     alignItems: 'center',
     marginBottom: 30,
+    width: '100%',
+    position: 'relative',
+  },
+  imageContainer: {
+    alignItems: 'center',
+    position: 'relative',
+    width: 120,
+  },
+  buttonOverlay: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 60,
+    position: 'absolute',
+    top: 90,
+    zIndex: 1,
+  },
+  iconButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(92, 92, 92, 0.8)',
   },
   avatar: {
     width: 120,
@@ -394,6 +643,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingBottom: 10,
+    marginTop: 20,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    padding: 20,
+  },
+  modalContent: {
+    width: '100%',
+    padding: 20,
+    borderRadius: 10,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     marginTop: 20,
   },
 });

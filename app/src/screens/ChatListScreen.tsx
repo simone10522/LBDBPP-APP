@@ -12,8 +12,9 @@ interface Profile {
 }
 
 interface Chat {
-  user: Profile; // This will now always be the *other* user
+  user: Profile;
   lastMessage: { message_text: string; created_at: string };
+  muted?: boolean;
 }
 
 const ChatListScreen = () => {
@@ -27,73 +28,106 @@ const ChatListScreen = () => {
   const fetchChats = useCallback(async () => {
     setLoading(true);
     try {
-      // Fetch recent messages for the current user
-      const { data: messages, error } = await supabase
-        .from('messages')
-        .select(`
-          id,
-          created_at,
-          message_text,
-          sender_id,
-          receiver_id,
-          sender_profile:sender_id (
+      // Fetch messages and mute settings
+      const [messagesResponse, muteSettingsResponse] = await Promise.all([
+        supabase
+          .from('messages')
+          .select(`
             id,
-            username,
-            profile_image
-          ),
-          receiver_profile:receiver_id (
-            id,
-            username,
-            profile_image
-          )
-        `)
-        .or(`sender_id.eq.${user?.id},receiver_id.eq.${user?.id}`)
-        .order('created_at', { ascending: false });
+            created_at,
+            message_text,
+            sender_id,
+            receiver_id,
+            sender_profile:sender_id (id, username, profile_image),
+            receiver_profile:receiver_id (id, username, profile_image)
+          `)
+          .or(`sender_id.eq.${user?.id},receiver_id.eq.${user?.id}`)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('chat_settings')
+          .select('*')
+          .eq('user_id', user?.id)
+      ]);
 
-      if (error) {
-        console.error('Error fetching chats:', error);
-      } else if (messages) {
-        const processedChats: Chat[] = [];
-        const chatMap: Map<string, Chat> = new Map();
+      if (messagesResponse.error) {
+        console.error('Error fetching chats:', messagesResponse.error);
+        return;
+      }
 
-        messages.forEach(message => {
-          const otherUserId = message.sender_id === user?.id ? message.receiver_id : message.sender_id;
-          const otherUser = message.sender_id === user?.id ? message.receiver_profile : message.sender_profile; // Correctly identify the *other* user
+      const muteSettings = new Map(
+        (muteSettingsResponse.data || []).map(setting => [setting.other_user_id, setting.muted])
+      );
 
-          if (!chatMap.has(otherUserId)) {
-            // Create a new chat entry if it doesn't exist
+      const chatMap = new Map();
+      messagesResponse.data?.forEach(message => {
+        const otherUserId = message.sender_id === user?.id ? message.receiver_id : message.sender_id;
+        const otherUser = message.sender_id === user?.id ? message.receiver_profile : message.sender_profile;
+
+        if (!chatMap.has(otherUserId)) {
+          chatMap.set(otherUserId, {
+            user: otherUser,
+            lastMessage: {
+              message_text: message.message_text,
+              created_at: message.created_at,
+            },
+            muted: muteSettings.get(otherUserId) || false
+          });
+        } else {
+          const existingChat = chatMap.get(otherUserId)!;
+          const currentMessageDate = new Date(message.created_at);
+          const existingLastMessageDate = new Date(existingChat.lastMessage.created_at);
+
+          if (currentMessageDate > existingLastMessageDate) {
             chatMap.set(otherUserId, {
-              user: otherUser, // Use the *other* user's profile
+              user: otherUser,
               lastMessage: {
                 message_text: message.message_text,
                 created_at: message.created_at,
               },
+              muted: muteSettings.get(otherUserId) || false
             });
-          } else {
-            // Update the last message if this message is newer
-            const existingChat = chatMap.get(otherUserId)!;
-            const currentMessageDate = new Date(message.created_at);
-            const existingLastMessageDate = new Date(existingChat.lastMessage.created_at);
-
-            if (currentMessageDate > existingLastMessageDate) {
-              chatMap.set(otherUserId, {
-                user: otherUser, // Still use the *other* user's profile
-                lastMessage: {
-                  message_text: message.message_text,
-                  created_at: message.created_at,
-                },
-              });
-            }
           }
-        });
-        setChats(Array.from(chatMap.values()));
-      }
+        }
+      });
+
+      setChats(Array.from(chatMap.values()));
     } catch (err) {
       console.error("Error fetching chats:", err);
     } finally {
       setLoading(false);
     }
   }, [user?.id]);
+
+  const toggleMute = async (chatUserId: string) => {
+    try {
+      const updatedChats = chats.map(chat => {
+        if (chat.user.id === chatUserId) {
+          return { ...chat, muted: !chat.muted };
+        }
+        return chat;
+      });
+      setChats(updatedChats);
+      
+      // Persist mute state
+      await supabase
+        .from('chat_settings')
+        .upsert({
+          user_id: user?.id,
+          other_user_id: chatUserId,
+          muted: !chats.find(chat => chat.user.id === chatUserId)?.muted,
+          updated_at: new Date().toISOString()
+        });
+
+      // Update notification settings in memory
+      if (window.notificationSettings) {
+        window.notificationSettings.set(chatUserId, {
+          muted: !chats.find(chat => chat.user.id === chatUserId)?.muted
+        });
+      }
+    } catch (error) {
+      console.error('Error toggling mute:', error);
+    }
+  };
 
   const handleSearch = async (text: string) => {
     setSearchText(text);
@@ -167,7 +201,13 @@ const ChatListScreen = () => {
       ) : (
         <FlatList
           data={filteredChats}
-          renderItem={({ item }) => <ChatListItem chat={item} />}
+          renderItem={({ item }) => (
+            <ChatListItem 
+              chat={item}
+              palette={palette}
+              onToggleMute={() => toggleMute(item.user.id)}
+            />
+          )}
           keyExtractor={(item) => item.user.id}
           style={styles.chatList}
           contentContainerStyle={styles.chatListContent}
