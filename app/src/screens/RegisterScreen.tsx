@@ -127,7 +127,6 @@ const RegisterScreen = () => {
         style={styles.logo}
         resizeMode="contain"
       />
-      <Text style={[styles.title, { color: theme.text }]}>Registrati</Text>
       {error && (
         <View style={styles.errorContainer}>
           <Text style={[styles.error, { color: theme.error }]}>{error}</Text>
@@ -166,10 +165,10 @@ const RegisterScreen = () => {
         </TouchableOpacity>
       </View>
       <TouchableOpacity style={[styles.button, { backgroundColor: theme.buttonBackground }]} onPress={handleRegister}>
-        <Text style={[styles.buttonText, { color: theme.buttonText }]}>Registrati</Text>
+        <Text style={[styles.buttonText, { color: theme.buttonText }]}>Register</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.loginButton} onPress={() => navigation.navigate('Login')}>
-        <Text style={[styles.loginButtonText, { color: theme.buttonBackground }]}>Hai già un account? Accedi</Text>
+        <Text style={[styles.loginButtonText, { color: theme.buttonBackground }]}>Already have an account? Log in</Text>
       </TouchableOpacity>
     </View>
   );
@@ -183,9 +182,9 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   logo: {
-    width: Dimensions.get('window').width * 0.8,
-    height: 100,
-    marginBottom: 20,
+    width: Dimensions.get('window').width * 1.0,
+    height: 200,
+    marginBottom: 10,
     resizeMode: 'contain',
   },
   title: {
@@ -213,6 +212,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   loginButtonText: {
+    color: '#4a90e2',
     textDecorationLine: 'underline',
   },
   errorContainer: {

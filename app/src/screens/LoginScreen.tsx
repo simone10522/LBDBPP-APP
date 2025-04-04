@@ -83,7 +83,6 @@ export default function LoginScreen() {
         style={styles.logo}
         resizeMode="contain"
       />
-      <Text style={[styles.title, { color: theme.text }]}>Log In</Text>
       {error && (
         <View style={styles.errorContainer}>
           <Text style={[styles.error, { color: theme.error }]}>{error}</Text>
