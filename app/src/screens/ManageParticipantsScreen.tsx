@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Image,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
@@ -217,6 +218,25 @@ export default function ManageParticipantsScreen() {
   const isTournamentActive = tournamentStatus === 'in_progress' || tournamentStatus === 'completed';
 
   const openModal = (participant: TournamentParticipant) => {
+    if (tournamentStatus === 'draft' && participant.id !== participantId) {
+      Toast.show({
+        type: 'info',
+        text2: 'You can’t view other players’ decks until the tournament starts.',
+        position: 'top',
+        visibilityTime: 3000,
+        props: {
+          style: {
+            backgroundColor: palette.cardBackground,
+          },
+          textStyle: {
+            fontSize: 16,
+            color: palette.text,
+            fontWeight: '500',
+          }
+        }
+      });
+      return;
+    }
     setSelectedParticipant(participant);
     setIsModalVisible(true);
   };
@@ -263,113 +283,136 @@ export default function ManageParticipantsScreen() {
   };
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: palette.background }]}>
-      <View style={[styles.header, { backgroundColor: palette.cardBackground }]}>
-        <Text style={[styles.headerTitle, { color: palette.text }]}>Participants List</Text>
-        <Text style={[styles.headerSubTitle, { color: palette.text }]}>
-          ({tournamentParticipants.length}/{maxPlayers === null ? '∞' : maxPlayers})
-        </Text>
-      </View>
-      {error && <Text style={[styles.error, { color: palette.error }]}>{error}</Text>}
-      {loading ? (
-        <ActivityIndicator size="large" color={palette.text} />
-      ) : (
-        <View style={styles.listContainer}>
-          {tournamentParticipants.map((p) => (
-            <View
-              key={p.id}
-              style={[
-                styles.listItem,
-                { backgroundColor: palette.cardBackground, borderColor: palette.borderColor },
-              ]}
-            >
-              <Text style={[styles.listItemText, { color: palette.text }]}>{p.username}</Text>
-              <View style={styles.actionButtonsContainer}>
-                {tournament?.created_by === user?.id && !isTournamentActive && (
+    <>
+      <ScrollView style={[styles.container, { backgroundColor: palette.background }]}>
+        <View style={[styles.header, { backgroundColor: palette.cardBackground }]}>
+          <Text style={[styles.headerTitle, { color: palette.text }]}>Participants List</Text>
+          <Text style={[styles.headerSubTitle, { color: palette.text }]}>
+            ({tournamentParticipants.length}/{maxPlayers === null ? '∞' : maxPlayers})
+          </Text>
+        </View>
+        {error && <Text style={[styles.error, { color: palette.error }]}>{error}</Text>}
+        {loading ? (
+          <ActivityIndicator size="large" color={palette.text} />
+        ) : (
+          <View style={styles.listContainer}>
+            {tournamentParticipants.map((p) => (
+              <View
+                key={p.id}
+                style={[
+                  styles.listItem,
+                  { backgroundColor: palette.cardBackground, borderColor: palette.borderColor },
+                ]}
+              >
+                <Text style={[styles.listItemText, { color: palette.text }]}>{p.username}</Text>
+                <View style={styles.actionButtonsContainer}>
+                  {tournament?.created_by === user?.id && !isTournamentActive && (
+                    <TouchableOpacity 
+                      onPress={() => handleRemoveParticipant(p.id)} 
+                      style={[styles.removeButton]}
+                    >
+                      <Text style={[styles.buttonText, { color: palette.buttonText }]}>Rimuovi</Text>
+                    </TouchableOpacity>
+                  )}
                   <TouchableOpacity 
-                    onPress={() => handleRemoveParticipant(p.id)} 
-                    style={[styles.removeButton]}
+                    onPress={() => openModal(p)} 
+                    style={[
+                      styles.listIconButton,
+                      // Disable the button visually if cannot view decks
+                      tournamentStatus === 'draft' && p.id !== participantId && { opacity: 0.5 }
+                    ]}
                   >
-                    <Text style={[styles.buttonText, { color: palette.buttonText }]}>Rimuovi</Text>
+                    <ListIcon color={palette.buttonText} size={24} />
                   </TouchableOpacity>
-                )}
-                <TouchableOpacity 
-                  onPress={() => openModal(p)} 
-                  style={styles.listIconButton}
-                >
-                  <ListIcon color={palette.buttonText} size={24} />
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Modal for Decks */}
+        <Modal
+          visible={isModalVisible}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={closeModal}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: palette.cardBackground }]}>
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, { color: palette.text }]}>
+                  {selectedParticipant?.username}'s Decks
+                </Text>
+                <TouchableOpacity onPress={closeModal} style={styles.closeButton}>
+                  <Text style={[styles.closeButtonText, { color: palette.buttonText }]}>Chiudi</Text>
                 </TouchableOpacity>
               </View>
-            </View>
-          ))}
-        </View>
-      )}
-
-      {/* Modal for Decks */}
-      <Modal
-        visible={isModalVisible}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={closeModal}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: palette.cardBackground }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: palette.text }]}>
-                {selectedParticipant?.username}'s Decks
-              </Text>
-              <TouchableOpacity onPress={closeModal} style={styles.closeButton}>
-                <Text style={[styles.closeButtonText, { color: palette.buttonText }]}>Chiudi</Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={styles.modalScrollView}>
-              <View style={styles.deckSection}>
-                <Text style={[styles.deckSectionTitle, { color: palette.text }]}>
-                  {selectedParticipant?.deck_1_name || 'Deck 1'}
-                </Text>
-                <View style={styles.cardGrid}>
-                  {groupCardsById(selectedParticipant?.deck_1 || []).map((card, index) => (
-                    <View key={index} style={styles.cardGridItem}>
-                      <Image
-                        source={{ uri: card.cachedImage }}
-                        style={styles.cardImage}
-                        resizeMode="contain"
-                      />
-                      {card.quantity > 1 && (
-                        <View style={styles.cardQuantityContainer}>
-                          <Text style={styles.cardQuantity}>x{card.quantity}</Text>
-                        </View>
-                      )}
-                    </View>
-                  ))}
+              <ScrollView style={styles.modalScrollView}>
+                <View style={styles.deckSection}>
+                  <Text style={[styles.deckSectionTitle, { color: palette.text }]}>
+                    {selectedParticipant?.deck_1_name || 'Deck 1'}
+                  </Text>
+                  <View style={styles.cardGrid}>
+                    {groupCardsById(selectedParticipant?.deck_1 || []).map((card, index) => (
+                      <View key={index} style={styles.cardGridItem}>
+                        <Image
+                          source={{ uri: card.cachedImage }}
+                          style={styles.cardImage}
+                          resizeMode="contain"
+                        />
+                        {card.quantity > 1 && (
+                          <View style={styles.cardQuantityContainer}>
+                            <Text style={styles.cardQuantity}>x{card.quantity}</Text>
+                          </View>
+                        )}
+                      </View>
+                    ))}
+                  </View>
                 </View>
-              </View>
-              <View style={styles.deckSection}>
-                <Text style={[styles.deckSectionTitle, { color: palette.text }]}>
-                  {selectedParticipant?.deck_2_name || 'Deck 2'}
-                </Text>
-                <View style={styles.cardGrid}>
-                  {groupCardsById(selectedParticipant?.deck_2 || []).map((card, index) => (
-                    <View key={index} style={styles.cardGridItem}>
-                      <Image
-                        source={{ uri: card.cachedImage }}
-                        style={styles.cardImage}
-                        resizeMode="contain"
-                      />
-                      {card.quantity > 1 && (
-                        <View style={styles.cardQuantityContainer}>
-                          <Text style={styles.cardQuantity}>x{card.quantity}</Text>
-                        </View>
-                      )}
-                    </View>
-                  ))}
+                <View style={styles.deckSection}>
+                  <Text style={[styles.deckSectionTitle, { color: palette.text }]}>
+                    {selectedParticipant?.deck_2_name || 'Deck 2'}
+                  </Text>
+                  <View style={styles.cardGrid}>
+                    {groupCardsById(selectedParticipant?.deck_2 || []).map((card, index) => (
+                      <View key={index} style={styles.cardGridItem}>
+                        <Image
+                          source={{ uri: card.cachedImage }}
+                          style={styles.cardImage}
+                          resizeMode="contain"
+                        />
+                        {card.quantity > 1 && (
+                          <View style={styles.cardQuantityContainer}>
+                            <Text style={styles.cardQuantity}>x{card.quantity}</Text>
+                          </View>
+                        )}
+                      </View>
+                    ))}
+                  </View>
                 </View>
-              </View>
-            </ScrollView>
+              </ScrollView>
+            </View>
           </View>
-        </View>
-      </Modal>
-    </ScrollView>
+        </Modal>
+      </ScrollView>
+      <Toast 
+        config={{
+          info: (props) => (
+            <View style={[
+              styles.toastContainer,
+              props.props?.style
+            ]}>
+              <Text style={[
+                styles.toastText,
+                props.props?.textStyle
+              ]}>
+                {props.text2}
+              </Text>
+            </View>
+          )
+        }}
+      />
+    </>
   );
 }
 
@@ -530,6 +573,19 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 10,
+    textAlign: 'center',
+  },
+  toastContainer: {
+    padding: 16,
+    borderRadius: 8,
+    marginHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  toastText: {
     textAlign: 'center',
   },
 });
