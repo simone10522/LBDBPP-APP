@@ -102,7 +102,7 @@ export default function ManageDecksScreen() {
         </View>
       </View>
       <TouchableOpacity style={[styles.button, { backgroundColor: palette.buttonBackground }]} onPress={handleSubmit}>
-        <Text style={[styles.buttonText, { color: palette.buttonText }]}>Salva</Text>
+        <Text style={[styles.buttonText, { color: palette.buttonText }]}>Save</Text>
       </TouchableOpacity>
       {error && <Text style={[styles.error, { color: palette.error }]}>{error}</Text>}
     </ScrollView>

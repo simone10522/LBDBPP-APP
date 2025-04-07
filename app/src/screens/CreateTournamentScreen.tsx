@@ -309,7 +309,7 @@ import React, { useState, useEffect, useCallback } from 'react';
               {/* End Private Tournament Section */}
 
               <TouchableOpacity style={[styles.button, { backgroundColor: theme.buttonBackground }]} onPress={handleSubmit}>
-                <Text style={[styles.buttonText, { color: theme.buttonText }]}>{isEditing ? 'Salva Modifiche' : 'Crea Torneo'}</Text>
+                <Text style={[styles.buttonText, { color: theme.buttonText }]}>{isEditing ? 'Save Changes' : 'Create Tournament'}</Text>
               </TouchableOpacity>
             </View>
           </View>
