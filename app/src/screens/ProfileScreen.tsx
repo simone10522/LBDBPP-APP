@@ -27,6 +27,7 @@ const ProfileScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [urlInput, setUrlInput] = useState('');
+  const [friendCodeError, setFriendCodeError] = useState('');
 
   const theme = isDarkMode ? darkPalette : lightPalette;
 
@@ -65,7 +66,26 @@ const ProfileScreen = () => {
     setRefreshing(false);
   }, []);
 
+  const validateFriendCode = (code: string) => {
+    const numbersOnly = code.replace(/[^\d]/g, '');
+    if (numbersOnly.length !== 16) {
+      setFriendCodeError('Friend code must be exactly 16 numbers');
+      return false;
+    }
+    setFriendCodeError('');
+    return true;
+  };
+
   const handleSaveProfile = async () => {
+    if (matchPassword && !validateFriendCode(matchPassword)) {
+      Toast.show({
+        type: 'error',
+        text1: 'Invalid Friend Code',
+        text2: 'Please enter exactly 16 numbers'
+      });
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -500,13 +520,27 @@ const ProfileScreen = () => {
         <View style={styles.inputGroup}>
           <Text style={[styles.label, { color: theme.text }]}>Friend Code</Text>
           <TextInput
-            style={[styles.input, { backgroundColor: theme.inputBackground, color: theme.text, borderColor: theme.inputBorder }]}
+            style={[
+              styles.input,
+              { backgroundColor: theme.inputBackground, color: theme.text, borderColor: friendCodeError ? theme.error : theme.inputBorder }
+            ]}
             value={matchPassword}
-            onChangeText={setMatchPassword}
-            placeholder="Enter friend code"
+            onChangeText={(text) => {
+              const numbersOnly = text.replace(/[^\d]/g, '');
+              if (numbersOnly.length <= 16) {
+                setMatchPassword(numbersOnly);
+                validateFriendCode(numbersOnly);
+              }
+            }}
+            placeholder="Enter friend code (16 numbers)"
             placeholderTextColor={theme.placeholderText}
+            keyboardType="numeric"
+            maxLength={16}
             accessibilityLabel="Friend Code Input"
           />
+          {friendCodeError ? (
+            <Text style={[styles.errorText, { color: theme.error }]}>{friendCodeError}</Text>
+          ) : null}
         </View>
 
         <View style={styles.switchContainer}>
@@ -635,9 +669,8 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   errorText: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginVertical: 20,
+    fontSize: 12,
+    marginTop: 5,
   },
   bannerAdContainer: {
     alignItems: 'center',
