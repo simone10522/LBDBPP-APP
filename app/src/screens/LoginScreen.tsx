@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, Image, Animated, Dimensions, Switch } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, Image, Animated, Dimensions, Switch, Linking } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
@@ -112,6 +112,12 @@ export default function LoginScreen() {
           <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={24} color={theme.text} />
         </TouchableOpacity>
       </View>
+      <TouchableOpacity 
+        style={styles.forgotPasswordButton} 
+        onPress={() => Linking.openURL('https://pocket-tournament.netlify.app/reset-password')}
+      >
+        <Text style={[styles.forgotPasswordText, { color: theme.primary }]}>Forgot Password?</Text>
+      </TouchableOpacity>
       <TouchableOpacity style={[styles.button, { backgroundColor: theme.buttonBackground }]} onPress={handleLogin}>
         <Text style={[styles.buttonText, { color: theme.buttonText }]}>Log In</Text>
       </TouchableOpacity>
@@ -161,7 +167,7 @@ const styles = StyleSheet.create({
   passwordContainer: {
     width: '100%',
     position: 'relative',
-    marginBottom: 10,
+    marginBottom: 0,
   },
   eyeIcon: {
     position: 'absolute',
@@ -185,6 +191,16 @@ const styles = StyleSheet.create({
   registerButtonText: {
     color: '#4a90e2',
     textDecorationLine: 'underline',
+  },
+  forgotPasswordButton: {
+    marginTop: 4,
+    marginBottom: 20,
+    alignSelf: 'flex-end',
+  },
+  forgotPasswordText: {
+    color: '#4a90e2',
+    textDecorationLine: 'underline',
+    textAlign: 'right',
   },
   error: {
     color: 'red',
