@@ -30,6 +30,7 @@
     "date-fns": "2.30.0",
     "expo": "~52.0.38",
     "expo-clipboard": "~7.0.1",
+    "expo-dev-client": "~5.0.19",
     "expo-device": "^7.0.2",
     "expo-gl": "~15.0.4",
     "expo-image-manipulator": "~13.0.6",
