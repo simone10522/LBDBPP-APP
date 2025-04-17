@@ -1,0 +1,212 @@
+[
+    {
+      "Schema": "public",
+      "Name": "check_rarity_match",
+      "Arguments": "card1 jsonb, card2 jsonb",
+      "Return type": "bool",
+      "Type": "normal function",
+      "Volatility": "immutable",
+      "Security": "security invoker",
+      "Definition": "CREATE OR REPLACE FUNCTION public.check_rarity_match(card1 jsonb, card2 jsonb)\n RETURNS boolean\n LANGUAGE plpgsql\n IMMUTABLE\nAS $function$\r\nBEGIN\r\n    -- Verifica che entrambe le carte abbiano la chiave 'rarity' e che i valori corrispondano.\r\n    RETURN card1->>'rarity' = card2->>'rarity';\r\nEND;\r\n$function$\n"
+    },
+    {
+      "Schema": "public",
+      "Name": "cleanup_invalid_trades",
+      "Arguments": "",
+      "Return type": "void",
+      "Type": "normal function",
+      "Volatility": "volatile",
+      "Security": "security invoker",
+      "Definition": "CREATE OR REPLACE FUNCTION public.cleanup_invalid_trades()\n RETURNS void\n LANGUAGE plpgsql\nAS $function$\r\nDECLARE\r\n  trade_match RECORD;\r\n  user1_have_valid BOOLEAN;\r\n  user2_have_valid BOOLEAN;\r\n  user1_want_valid BOOLEAN;\r\n  user2_want_valid BOOLEAN;\r\nBEGIN\r\n  -- Scansiona tutti i trade matches attivi\r\n  FOR trade_match IN SELECT * FROM trade_matches WHERE status IN ('pending', 'request sent', 'confirmed') LOOP\r\n    \r\n    -- Controlla se le carte che il primo utente offre sono ancora nella sua lista \"what_i_have\"\r\n    SELECT EXISTS (\r\n      SELECT 1 \r\n      FROM trade_cards tc, \r\n           jsonb_array_elements(tc.what_i_have) AS user_card,\r\n           jsonb_array_elements(trade_match.user1_cards) AS trade_card\r\n      WHERE tc.user_id = trade_match.user1_id\r\n        AND user_card->>'id' = trade_card->>'id'\r\n        AND user_card->>'rarity' = trade_card->>'rarity'\r\n    ) INTO user1_have_valid;\r\n    \r\n    -- Controlla se le carte che il secondo utente offre sono ancora nella sua lista \"what_i_have\"\r\n    SELECT EXISTS (\r\n      SELECT 1 \r\n      FROM trade_cards tc, \r\n           jsonb_array_elements(tc.what_i_have) AS user_card,\r\n           jsonb_array_elements(trade_match.user2_cards) AS trade_card\r\n      WHERE tc.user_id = trade_match.user2_id\r\n        AND user_card->>'id' = trade_card->>'id'\r\n        AND user_card->>'rarity' = trade_card->>'rarity'\r\n    ) INTO user2_have_valid;\r\n    \r\n    -- Controlla se le carte che il primo utente riceve sono ancora nella sua lista \"what_i_want\"\r\n    SELECT EXISTS (\r\n      SELECT 1 \r\n      FROM trade_cards tc, \r\n           jsonb_array_elements(tc.what_i_want) AS user_want,\r\n           jsonb_array_elements(trade_match.user2_cards) AS trade_card\r\n      WHERE tc.user_id = trade_match.user1_id\r\n        AND user_want->>'id' = trade_card->>'id'\r\n        AND user_want->>'rarity' = trade_card->>'rarity'\r\n    ) INTO user1_want_valid;\r\n    \r\n    -- Controlla se le carte che il secondo utente riceve sono ancora nella sua lista \"what_i_want\"\r\n    SELECT EXISTS (\r\n      SELECT 1 \r\n      FROM trade_cards tc, \r\n           jsonb_array_elements(tc.what_i_want) AS user_want,\r\n           jsonb_array_elements(trade_match.user1_cards) AS trade_card\r\n      WHERE tc.user_id = trade_match.user2_id\r\n        AND user_want->>'id' = trade_card->>'id'\r\n        AND user_want->>'rarity' = trade_card->>'rarity'\r\n    ) INTO user2_want_valid;\r\n    \r\n    -- Se una delle condizioni non è più valida, rimuovi il trade\r\n    IF NOT user1_have_valid OR NOT user2_have_valid OR NOT user1_want_valid OR NOT user2_want_valid THEN\r\n      RAISE NOTICE 'Removing invalid trade match % (user1_have: %, user2_have: %, user1_want: %, user2_want: %)', \r\n        trade_match.id, user1_have_valid, user2_have_valid, user1_want_valid, user2_want_valid;\r\n      \r\n      DELETE FROM trade_matches WHERE id = trade_match.id;\r\n    END IF;\r\n  END LOOP;\r\nEND;\r\n$function$\n"
+    },
+    {
+      "Schema": "public",
+      "Name": "complete_trade",
+      "Arguments": "trade_match_id uuid",
+      "Return type": "void",
+      "Type": "normal function",
+      "Volatility": "volatile",
+      "Security": "security definer",
+      "Definition": "CREATE OR REPLACE FUNCTION public.complete_trade(trade_match_id uuid)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\nAS $function$\r\nDECLARE\r\n  tm RECORD;\r\nBEGIN\r\n  -- Retrieve the trade match record\r\n  SELECT * INTO tm FROM trade_matches WHERE id = trade_match_id;\r\n  IF tm IS NULL THEN\r\n    RAISE NOTICE 'Trade match % not found', trade_match_id;\r\n    RETURN;\r\n  END IF;\r\n  \r\n  -- Per user1: Decrementa o rimuove la carta dal suo what_i_have\r\n  UPDATE trade_cards\r\n  SET what_i_have = (\r\n    SELECT jsonb_agg(\r\n      CASE \r\n        WHEN elem->>'id' = tm.user1_cards->0->>'id' THEN \r\n          CASE WHEN (elem->>'count')::int > 1 \r\n               THEN jsonb_set(elem, '{count}', to_jsonb((elem->>'count')::int - 1))\r\n               ELSE NULL \r\n          END\r\n        ELSE elem\r\n      END\r\n    )\r\n    FROM jsonb_array_elements((SELECT what_i_have FROM trade_cards WHERE user_id = tm.user1_id)) AS elem\r\n  )\r\n  WHERE user_id = tm.user1_id;\r\n  RAISE NOTICE 'User1 trade_cards updated for card id %', tm.user1_cards->0->>'id';\r\n  \r\n  -- Per user2: Decrementa o rimuove la carta dal suo what_i_have\r\n  UPDATE trade_cards\r\n  SET what_i_have = (\r\n    SELECT jsonb_agg(\r\n      CASE \r\n        WHEN elem->>'id' = tm.user2_cards->0->>'id' THEN \r\n          CASE WHEN (elem->>'count')::int > 1 \r\n               THEN jsonb_set(elem, '{count}', to_jsonb((elem->>'count')::int - 1))\r\n               ELSE NULL \r\n          END\r\n        ELSE elem\r\n      END\r\n    )\r\n    FROM jsonb_array_elements((SELECT what_i_have FROM trade_cards WHERE user_id = tm.user2_id)) AS elem\r\n  )\r\n  WHERE user_id = tm.user2_id;\r\n  RAISE NOTICE 'User2 trade_cards updated for card id %', tm.user2_cards->0->>'id';\r\n  \r\n  -- Delete the trade match record\r\n  DELETE FROM trade_matches WHERE id = trade_match_id;\r\n  RAISE NOTICE 'Trade match % completed and deleted successfully.', trade_match_id;\r\nEND;\r\n$function$\n"
+    },
+    {
+      "Schema": "public",
+      "Name": "create_trade_match_transaction",
+      "Arguments": "p_user1_id uuid, p_user2_id uuid, p_user1_cards jsonb, p_user2_cards jsonb",
+      "Return type": "void",
+      "Type": "normal function",
+      "Volatility": "volatile",
+      "Security": "security invoker",
+      "Definition": "CREATE OR REPLACE FUNCTION public.create_trade_match_transaction(p_user1_id uuid, p_user2_id uuid, p_user1_cards jsonb, p_user2_cards jsonb)\n RETURNS void\n LANGUAGE plpgsql\nAS $function$\r\nBEGIN\r\n    -- Inserisci il match nella tabella trade_matches\r\n    INSERT INTO trade_matches (user1_id, user2_id, user1_cards, user2_cards, status)\r\n    VALUES (p_user1_id, p_user2_id, p_user1_cards, p_user2_cards, 'pending');\r\n\r\n    -- Puoi aggiungere qui altre operazioni, se necessario (es., aggiornare lo stato di altre tabelle)\r\n    -- Tutte le operazioni all'interno di questa funzione saranno eseguite in una transazione.\r\n\r\n    -- Se arrivi qui senza errori, la transazione avrà successo.\r\nEND;\r\n$function$\n"
+    },
+    {
+      "Schema": "public",
+      "Name": "generate_Robin_tournament_matches",
+      "Arguments": "tournament_id_param uuid",
+      "Return type": "void",
+      "Type": "normal function",
+      "Volatility": "volatile",
+      "Security": "security definer",
+      "Definition": "CREATE OR REPLACE FUNCTION public.\"generate_Robin_tournament_matches\"(tournament_id_param uuid)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\nAS $function$DECLARE\r\n      participants_arr uuid[];\r\n      num_participants integer;\r\n      num_rounds integer;\r\n      i integer;\r\n      j integer;\r\n      player1_id uuid;\r\n      player2_id uuid;\r\n      match_password TEXT;\r\n    BEGIN\r\n      -- Get all participants for the tournament\r\n      SELECT array_agg(participant_id) INTO participants_arr\r\n      FROM tournament_participants\r\n      WHERE tournament_id = tournament_id_param;\r\n\r\n      -- Get the number of participants\r\n      num_participants := array_length(participants_arr, 1);\r\n\r\n      -- If there are less than 2 participants, exit\r\n      IF num_participants < 2 THEN\r\n        RETURN;\r\n      END IF;\r\n\r\n      -- Calculate the number of rounds\r\n      num_rounds := num_participants - 1;\r\n      IF num_participants % 2 <> 0 THEN\r\n        num_rounds := num_participants;\r\n      END IF;\r\n\r\n      -- Generate matches for each round\r\n      FOR i IN 1..num_rounds LOOP\r\n        FOR j IN 1..(num_participants / 2) LOOP\r\n          -- Calculate player indices\r\n          player1_id := participants_arr[j];\r\n          player2_id := participants_arr[num_participants - j + 1];\r\n\r\n          -- Insert the match\r\n          IF player1_id IS NOT NULL AND player2_id IS NOT NULL THEN\r\n            -- Generate a random alphanumeric password\r\n            match_password := encode(gen_random_bytes(5), 'hex'); -- Generates a 10-character alphanumeric password\r\n\r\n            INSERT INTO matches (tournament_id, player1_id, player2_id, round, match_password)\r\n            VALUES (tournament_id_param, player1_id, player2_id, i, match_password);\r\n          END IF;\r\n        END LOOP;\r\n\r\n        -- Rotate the participants array for the next round\r\n        participants_arr := array_append(participants_arr[2:array_length(participants_arr, 1)], participants_arr[1]);\r\n      END LOOP;\r\n    END;$function$\n"
+    },
+    {
+      "Schema": "public",
+      "Name": "generate_knockout_tournament_matches",
+      "Arguments": "tournament_id_param uuid",
+      "Return type": "void",
+      "Type": "normal function",
+      "Volatility": "volatile",
+      "Security": "security invoker",
+      "Definition": "CREATE OR REPLACE FUNCTION public.generate_knockout_tournament_matches(tournament_id_param uuid)\n RETURNS void\n LANGUAGE plpgsql\nAS $function$\r\nDECLARE\r\n    total_participants INTEGER;\r\n    participants_array UUID[];\r\n    match_pwd TEXT;\r\nBEGIN\r\n    -- Ottieni il numero totale di partecipanti e i loro ID in ordine casuale\r\n    SELECT ARRAY(\r\n        SELECT participant_id\r\n        FROM tournament_participants\r\n        WHERE tournament_id = tournament_id_param\r\n        ORDER BY random()\r\n    ) INTO participants_array;\r\n    \r\n    total_participants := array_length(participants_array, 1);\r\n    \r\n    -- Crea i match per il primo round\r\n    FOR i IN 1..total_participants BY 2 LOOP\r\n        -- Genera una password casuale alfanumerica di 10 caratteri\r\n        match_pwd := upper(substring(md5(random()::text || clock_timestamp()::text) from 1 for 10));\r\n        \r\n        -- Se c'è un partecipante successivo, crea un match completo\r\n        IF i + 1 <= total_participants THEN\r\n            INSERT INTO matches (\r\n                tournament_id,\r\n                player1_id,\r\n                player2_id,\r\n                round,\r\n                status,\r\n                match_password\r\n            ) VALUES (\r\n                tournament_id_param,\r\n                participants_array[i],\r\n                participants_array[i + 1],\r\n                1,\r\n                'scheduled',\r\n                match_pwd\r\n            );\r\n        -- Se non c'è un partecipante successivo, crea un bye\r\n        ELSE\r\n            INSERT INTO matches (\r\n                tournament_id,\r\n                player1_id,\r\n                round,\r\n                status,\r\n                match_password\r\n            ) VALUES (\r\n                tournament_id_param,\r\n                participants_array[i],\r\n                1,\r\n                'scheduled',\r\n                match_pwd\r\n            );\r\n        END IF;\r\n    END LOOP;\r\nEND;\r\n$function$\n"
+    },
+    {
+      "Schema": "public",
+      "Name": "generate_next_knockout_round",
+      "Arguments": "tournament_id_param uuid, previous_round_number integer",
+      "Return type": "void",
+      "Type": "normal function",
+      "Volatility": "volatile",
+      "Security": "security invoker",
+      "Definition": "CREATE OR REPLACE FUNCTION public.generate_next_knockout_round(tournament_id_param uuid, previous_round_number integer)\n RETURNS void\n LANGUAGE plpgsql\nAS $function$\r\nDECLARE\r\n    winners_array UUID[];\r\n    match_pwd TEXT;\r\nBEGIN\r\n    -- Seleziona i vincitori del round precedente\r\n    SELECT ARRAY(\r\n        SELECT winner_id\r\n        FROM matches\r\n        WHERE tournament_id = tournament_id_param \r\n        AND round = previous_round_number\r\n        AND winner_id IS NOT NULL\r\n        ORDER BY random()\r\n    ) INTO winners_array;\r\n\r\n    -- Se non ci sono vincitori, esci\r\n    IF array_length(winners_array, 1) IS NULL THEN\r\n        RETURN;\r\n    END IF;\r\n\r\n    -- Crea i match per il prossimo round\r\n    FOR i IN 1..array_length(winners_array, 1) BY 2 LOOP\r\n        -- Genera una password casuale alfanumerica di 10 caratteri\r\n        match_pwd := upper(substring(md5(random()::text || clock_timestamp()::text) from 1 for 10));\r\n        \r\n        -- Se c'è un altro vincitore per completare il match\r\n        IF i + 1 <= array_length(winners_array, 1) THEN\r\n            INSERT INTO matches (\r\n                tournament_id,\r\n                player1_id,\r\n                player2_id,\r\n                round,\r\n                status,\r\n                match_password\r\n            ) VALUES (\r\n                tournament_id_param,\r\n                winners_array[i],\r\n                winners_array[i + 1],\r\n                previous_round_number + 1,\r\n                'scheduled',\r\n                match_pwd\r\n            );\r\n        -- Se rimane un vincitore senza avversario (bye)\r\n        ELSE\r\n            INSERT INTO matches (\r\n                tournament_id,\r\n                player1_id,\r\n                round,\r\n                status,\r\n                match_password\r\n            ) VALUES (\r\n                tournament_id_param,\r\n                winners_array[i],\r\n                previous_round_number + 1,\r\n                'scheduled',\r\n                match_pwd\r\n            );\r\n        END IF;\r\n    END LOOP;\r\nEND;\r\n$function$\n"
+    },
+    {
+      "Schema": "public",
+      "Name": "generate_next_round_matches",
+      "Arguments": "tournament_id_param uuid, previous_round_number integer",
+      "Return type": "void",
+      "Type": "normal function",
+      "Volatility": "volatile",
+      "Security": "security definer",
+      "Definition": "CREATE OR REPLACE FUNCTION public.generate_next_round_matches(tournament_id_param uuid, previous_round_number integer)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\nAS $function$\r\nDECLARE\r\n    participants_cursor CURSOR FOR\r\n        SELECT tp.participant_id, tp.points\r\n        FROM tournament_participants tp\r\n        WHERE tp.tournament_id = tournament_id_param\r\n        ORDER BY tp.points DESC; -- Order by points (descending)\r\n    participant1_record RECORD;\r\n    participant2_record RECORD;\r\n    paired_participants uuid[] := '{}'; -- Array to track already paired participants\r\n    has_met BOOLEAN;\r\n    match_password TEXT;\r\nBEGIN\r\n    OPEN participants_cursor;\r\n    LOOP\r\n        FETCH participants_cursor INTO participant1_record;\r\n        EXIT WHEN NOT FOUND; -- Exit when no more participants to pair\r\n\r\n        -- Skip if participant1 has already been paired\r\n        IF participant1_record.participant_id = ANY(paired_participants) THEN\r\n            CONTINUE;\r\n        END IF;\r\n\r\n        -- Find an opponent not already paired and with a similar score\r\n        LOOP\r\n            FETCH participants_cursor INTO participant2_record;\r\n            EXIT WHEN NOT FOUND;\r\n\r\n            -- Skip if participant2 has already been paired\r\n            IF participant2_record.participant_id = ANY(paired_participants) THEN\r\n                CONTINUE;\r\n            END IF;\r\n\r\n            -- Check if participant1 and participant2 have already played against each other\r\n            SELECT EXISTS (\r\n                SELECT 1\r\n                FROM matches\r\n                WHERE tournament_id = tournament_id_param\r\n                AND (\r\n                    (player1_id = participant1_record.participant_id AND player2_id = participant2_record.participant_id)\r\n                    OR (player1_id = participant2_record.participant_id AND player2_id = participant1_record.participant_id)\r\n                )\r\n            ) INTO has_met;\r\n\r\n            -- If they haven't met, pair them\r\n            IF NOT has_met THEN\r\n                -- Generate a random alphanumeric password\r\n                match_password := encode(gen_random_bytes(5), 'hex'); -- Generates a 10-character alphanumeric password\r\n\r\n                -- Pair participant1 and participant2\r\n                INSERT INTO matches (tournament_id, player1_id, player2_id, round, match_password)\r\n                VALUES (tournament_id_param, participant1_record.participant_id, participant2_record.participant_id, previous_round_number + 1, match_password);\r\n\r\n                -- Add both participants to the list of paired participants\r\n                paired_participants := array_append(paired_participants, participant1_record.participant_id);\r\n                paired_participants := array_append(paired_participants, participant2_record.participant_id);\r\n                EXIT; -- Exit the inner loop after finding a valid match\r\n            END IF;\r\n        END LOOP;\r\n    END LOOP;\r\n    CLOSE participants_cursor;\r\n    -- Handle bye rounds (odd number of participants) - Optional, but good practice\r\n    IF array_length(paired_participants, 1) < (SELECT COUNT(*) FROM tournament_participants WHERE tournament_id = tournament_id_param) THEN\r\n        -- Logic to handle a bye round (e.g., give a win to the unpaired player, or just skip them)\r\n        -- For simplicity, we are not adding a specific bye round logic here.\r\n    END IF;\r\nEND;\r\n$function$\n"
+    },
+    {
+      "Schema": "public",
+      "Name": "generate_robin_tournament_matches",
+      "Arguments": "tournament_id_param uuid",
+      "Return type": "void",
+      "Type": "normal function",
+      "Volatility": "volatile",
+      "Security": "security definer",
+      "Definition": "CREATE OR REPLACE FUNCTION public.generate_robin_tournament_matches(tournament_id_param uuid)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\nAS $function$\r\n    DECLARE\r\n      participants_arr uuid[];\r\n      num_participants integer;\r\n      num_rounds integer;\r\n      i integer;\r\n      j integer;\r\n      player1_id uuid;\r\n      player2_id uuid;\r\n      match_password TEXT;\r\n    BEGIN\r\n      -- Get all participants for the tournament\r\n      SELECT array_agg(participant_id) INTO participants_arr\r\n      FROM tournament_participants\r\n      WHERE tournament_id = tournament_id_param;\r\n\r\n      -- Get the number of participants\r\n      num_participants := array_length(participants_arr, 1);\r\n\r\n      -- If there are less than 2 participants, exit\r\n      IF num_participants < 2 THEN\r\n        RETURN;\r\n      END IF;\r\n\r\n      -- Calculate the number of rounds\r\n      num_rounds := num_participants - 1;\r\n      IF num_participants % 2 <> 0 THEN\r\n        num_rounds := num_participants;\r\n      END IF;\r\n\r\n      -- Generate matches for each round\r\n      FOR i IN 1..num_rounds LOOP\r\n        FOR j IN 1..(num_participants / 2) LOOP\r\n          -- Calculate player indices\r\n          player1_id := participants_arr[j];\r\n          player2_id := participants_arr[num_participants - j + 1];\r\n\r\n          -- Insert the match\r\n          IF player1_id IS NOT NULL AND player2_id IS NOT NULL THEN\r\n            -- Generate a random alphanumeric password\r\n            match_password := encode(gen_random_bytes(5), 'hex'); -- Generates a 10-character alphanumeric password\r\n\r\n            INSERT INTO matches (tournament_id, player1_id, player2_id, round, match_password)\r\n            VALUES (tournament_id_param, player1_id, player2_id, i, match_password);\r\n          END IF;\r\n        END LOOP;\r\n\r\n        -- Rotate the participants array for the next round\r\n        participants_arr := array_append(participants_arr[2:array_length(participants_arr, 1)], participants_arr[1]);\r\n      END LOOP;\r\n    END;\r\n    $function$\n"
+    },
+    {
+      "Schema": "public",
+      "Name": "generate_tournament_matches",
+      "Arguments": "tournament_id_param uuid",
+      "Return type": "void",
+      "Type": "normal function",
+      "Volatility": "volatile",
+      "Security": "security definer",
+      "Definition": "CREATE OR REPLACE FUNCTION public.generate_tournament_matches(tournament_id_param uuid)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\nAS $function$\r\nDECLARE\r\n    participants_arr uuid[];\r\n    num_participants integer;\r\n    player1_id uuid;\r\n    player2_id uuid;\r\n    match_password TEXT; -- Declare match_password variable\r\nBEGIN\r\n    -- Get all participants for the tournament\r\n    SELECT array_agg(participant_id) INTO participants_arr\r\n    FROM tournament_participants\r\n    WHERE tournament_id = tournament_id_param;\r\n\r\n    -- Get the number of participants\r\n    num_participants := array_length(participants_arr, 1);\r\n\r\n    -- If there are less than 2 participants, exit\r\n    IF num_participants < 2 THEN\r\n        RETURN;\r\n    END IF;\r\n\r\n    -- Randomize the participants array\r\n    SELECT array_agg(pid ORDER BY random()) INTO participants_arr\r\n    FROM unnest(participants_arr) AS pid;\r\n\r\n    -- Generate matches for the first round\r\n    FOR j IN 1..(num_participants / 2) LOOP\r\n        -- Calculate player indices\r\n        player1_id := participants_arr[j];\r\n        player2_id := participants_arr[num_participants - j + 1];\r\n\r\n        -- Insert the match\r\n        IF player1_id IS NOT NULL AND player2_id IS NOT NULL THEN\r\n            match_password := encode(gen_random_bytes(5), 'hex'); -- Generate password\r\n            INSERT INTO matches (tournament_id, player1_id, player2_id, round, match_password) -- Include match_password\r\n            VALUES (tournament_id_param, player1_id, player2_id, 1, match_password);\r\n        END IF;\r\n    END LOOP;\r\nEND;\r\n$function$\n"
+    },
+    {
+      "Schema": "public",
+      "Name": "get_recent_chats_with_profiles",
+      "Arguments": "",
+      "Return type": "record",
+      "Type": "normal function",
+      "Volatility": "volatile",
+      "Security": "security definer",
+      "Definition": "CREATE OR REPLACE FUNCTION public.get_recent_chats_with_profiles()\n RETURNS TABLE(last_message_created_at timestamp with time zone, last_message_message_text text, last_message_sender_id uuid, last_message_receiver_id uuid, other_user_id uuid, other_username text, other_user_profile_image text)\n LANGUAGE plpgsql\n SECURITY DEFINER\nAS $function$\r\n    BEGIN\r\n        RETURN QUERY\r\n        SELECT\r\n            last_messages.created_at AS last_message_created_at,\r\n            last_messages.message_text AS last_message_message_text,\r\n            last_messages.sender_id AS last_message_sender_id,\r\n            last_messages.receiver_id AS last_message_receiver_id,\r\n            p.id AS other_user_id,\r\n            p.username AS other_username,\r\n            p.profile_image AS other_user_profile_image\r\n        FROM (\r\n            -- Subquery to get the latest message for each unique chat pair\r\n            SELECT DISTINCT ON (least(messages.sender_id, messages.receiver_id), greatest(messages.sender_id, messages.receiver_id))\r\n                messages.created_at,\r\n                messages.message_text,\r\n                messages.sender_id,\r\n                messages.receiver_id,\r\n                messages.sender_id AS user1_id, -- Alias sender_id for joining with profiles\r\n                messages.receiver_id AS user2_id -- Alias receiver_id for joining with profiles\r\n            FROM messages\r\n            WHERE messages.sender_id = auth.uid() OR messages.receiver_id = auth.uid() -- Filter messages for the logged-in user\r\n            ORDER BY least(messages.sender_id, messages.receiver_id), greatest(messages.sender_id, messages.receiver_id), messages.created_at DESC -- Order to get the latest message\r\n        ) AS last_messages\r\n        JOIN profiles p\r\n            -- Join with profiles table to get other user's profile information\r\n            -- Condition to get the profile of the other user in the chat (not the logged-in user)\r\n            ON (p.id = last_messages.user1_id AND p.id <> auth.uid()) OR (p.id = last_messages.user2_id AND p.id <> auth.uid());\r\n    END;\r\n    $function$\n"
+    },
+    {
+      "Schema": "public",
+      "Name": "handle_new_trade_notification",
+      "Arguments": "",
+      "Return type": "trigger",
+      "Type": "normal function",
+      "Volatility": "volatile",
+      "Security": "security definer",
+      "Definition": "CREATE OR REPLACE FUNCTION public.handle_new_trade_notification()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\nAS $function$\r\nbegin\r\n  perform pg_notify(\r\n    'new_trade_notification',\r\n    json_build_object(\r\n      'receiver_id', new.receiver_id,\r\n      'type', new.notification_type,\r\n      'trade_match_id', new.trade_match_id,\r\n      'created_at', new.created_at\r\n    )::text\r\n  );\r\n  return new;\r\nend;\r\n$function$\n"
+    },
+    {
+      "Schema": "public",
+      "Name": "increment_points",
+      "Arguments": "tournament_id_param uuid, participant_id_param uuid",
+      "Return type": "int4",
+      "Type": "normal function",
+      "Volatility": "volatile",
+      "Security": "security definer",
+      "Definition": "CREATE OR REPLACE FUNCTION public.increment_points(tournament_id_param uuid, participant_id_param uuid)\n RETURNS integer\n LANGUAGE plpgsql\n SECURITY DEFINER\nAS $function$\r\nDECLARE\r\n  current_points integer;\r\nBEGIN\r\n  UPDATE tournament_participants\r\n  SET points = points + 1\r\n  WHERE tournament_id = tournament_id_param\r\n  AND participant_id = participant_id_param\r\n  RETURNING points INTO current_points;\r\n  \r\n  RETURN current_points;\r\nEND;\r\n$function$\n"
+    },
+    {
+      "Schema": "public",
+      "Name": "match_trades",
+      "Arguments": "",
+      "Return type": "void",
+      "Type": "normal function",
+      "Volatility": "volatile",
+      "Security": "security definer",
+      "Definition": "CREATE OR REPLACE FUNCTION public.match_trades()\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\nAS $function$\r\nDECLARE\r\n  rec1 RECORD;\r\n  rec2 RECORD;\r\n  exists_match boolean;\r\n  candidate_user1_cards jsonb;\r\n  candidate_user2_cards jsonb;\r\nBEGIN\r\n  FOR rec1 IN SELECT * FROM trade_cards LOOP\r\n    FOR rec2 IN SELECT * FROM trade_cards WHERE user_id > rec1.user_id LOOP\r\n      -- Verifica match iniziale\r\n      IF EXISTS (\r\n        SELECT 1 \r\n        FROM jsonb_array_elements(rec1.what_i_want) AS w1,\r\n             jsonb_array_elements(rec2.what_i_have) AS h2\r\n        WHERE w1->>'id' = h2->>'id'\r\n          AND w1->>'rarity' = h2->>'rarity'\r\n      )\r\n      AND EXISTS (\r\n        SELECT 1 \r\n        FROM jsonb_array_elements(rec2.what_i_want) AS w2,\r\n             jsonb_array_elements(rec1.what_i_have) AS h1\r\n        WHERE w2->>'id' = h1->>'id'\r\n          AND w2->>'rarity' = h1->>'rarity'\r\n      ) THEN\r\n          -- Calcola gli array delle carte per il trade candidato\r\n          SELECT jsonb_agg(h2)\r\n          INTO candidate_user1_cards\r\n          FROM jsonb_array_elements(rec2.what_i_have) AS h2\r\n          WHERE EXISTS (\r\n            SELECT 1 \r\n            FROM jsonb_array_elements(rec1.what_i_want) AS w1\r\n            WHERE w1->>'id' = h2->>'id'\r\n              AND w1->>'rarity' = h2->>'rarity'\r\n          );\r\n\r\n          SELECT jsonb_agg(h1)\r\n          INTO candidate_user2_cards\r\n          FROM jsonb_array_elements(rec1.what_i_have) AS h1\r\n          WHERE EXISTS (\r\n            SELECT 1 \r\n            FROM jsonb_array_elements(rec2.what_i_want) AS w2\r\n            WHERE w2->>'id' = h1->>'id'\r\n              AND w2->>'rarity' = h1->>'rarity'\r\n          );\r\n\r\n          -- Verifica se esiste già un trade match simile\r\n          SELECT EXISTS(\r\n            SELECT 1 FROM trade_matches \r\n            WHERE (\r\n              (user1_id = rec1.user_id AND user2_id = rec2.user_id AND \r\n               user1_cards @> candidate_user1_cards AND user2_cards @> candidate_user2_cards)\r\n              OR \r\n              (user1_id = rec2.user_id AND user2_id = rec1.user_id AND \r\n               user1_cards @> candidate_user2_cards AND user2_cards @> candidate_user1_cards)\r\n            )\r\n            AND status IN ('pending', 'request sent', 'confirmed')\r\n          ) INTO exists_match;\r\n          \r\n          -- Inserisci solo se non esiste un match simile\r\n          IF NOT exists_match AND candidate_user1_cards IS NOT NULL AND candidate_user2_cards IS NOT NULL THEN\r\n              INSERT INTO trade_matches(user1_id, user2_id, user1_cards, user2_cards, status)\r\n              VALUES (\r\n                rec1.user_id,\r\n                rec2.user_id,\r\n                candidate_user1_cards,\r\n                candidate_user2_cards,\r\n                'pending'\r\n              );\r\n          END IF;\r\n      END IF;\r\n    END LOOP;\r\n  END LOOP;\r\nEND;\r\n$function$\n"
+    },
+    {
+      "Schema": "public",
+      "Name": "trigger_generate_knockout_matches",
+      "Arguments": "",
+      "Return type": "trigger",
+      "Type": "normal function",
+      "Volatility": "volatile",
+      "Security": "security invoker",
+      "Definition": "CREATE OR REPLACE FUNCTION public.trigger_generate_knockout_matches()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\r\nBEGIN\r\n    IF NEW.status = 'active' AND OLD.status != 'active' AND NEW.format = 'knockout' THEN\r\n        PERFORM generate_initial_knockout_matches(NEW.id);\r\n    END IF;\r\n    RETURN NEW;\r\nEND;\r\n$function$\n"
+    },
+    {
+      "Schema": "public",
+      "Name": "trigger_match_trades",
+      "Arguments": "",
+      "Return type": "trigger",
+      "Type": "normal function",
+      "Volatility": "volatile",
+      "Security": "security definer",
+      "Definition": "CREATE OR REPLACE FUNCTION public.trigger_match_trades()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\nAS $function$\r\nBEGIN\r\n  -- Disabilita temporaneamente l'esecuzione dei trigger per prevenire ricorsioni\r\n  PERFORM pg_catalog.set_config('session_replication_role', 'replica', true);\r\n  \r\n  PERFORM cleanup_invalid_trades();\r\n  PERFORM match_trades();\r\n  \r\n  -- Ripristina la modalità normale dei trigger\r\n  PERFORM pg_catalog.set_config('session_replication_role', 'origin', true);\r\n  \r\n  RETURN NEW;\r\nEND;\r\n$function$\n"
+    },
+    {
+      "Schema": "public",
+      "Name": "update_match_read_status",
+      "Arguments": "match_ids uuid[], user_id uuid",
+      "Return type": "void",
+      "Type": "normal function",
+      "Volatility": "volatile",
+      "Security": "security definer",
+      "Definition": "CREATE OR REPLACE FUNCTION public.update_match_read_status(match_ids uuid[], user_id uuid)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\nAS $function$\r\nbegin\r\n  update matches\r\n  set read = true\r\n  where id = any(match_ids)\r\n  and (player1_id = user_id or player2_id = user_id);\r\nend;\r\n$function$\n"
+    },
+    {
+      "Schema": "public",
+      "Name": "update_match_result",
+      "Arguments": "match_id_param uuid, player_param integer, increment_param boolean",
+      "Return type": "void",
+      "Type": "normal function",
+      "Volatility": "volatile",
+      "Security": "security definer",
+      "Definition": "CREATE OR REPLACE FUNCTION public.update_match_result(match_id_param uuid, player_param integer, increment_param boolean)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\nAS $function$\r\nDECLARE\r\n  current_results TEXT;\r\n  score1 INTEGER;\r\n  score2 INTEGER;\r\n  best_of_value INTEGER;\r\n  player1_id_value UUID;\r\n  player2_id_value UUID;\r\nBEGIN\r\n  -- Recupera i risultati attuali e il best_of dal match\r\n  SELECT results, tournaments.best_of, matches.player1_id, matches.player2_id\r\n  INTO current_results, best_of_value, player1_id_value, player2_id_value\r\n  FROM matches\r\n  JOIN tournaments ON matches.tournament_id = tournaments.id\r\n  WHERE matches.id = match_id_param;\r\n\r\n  -- Inizializza i punteggi se results è nullo o vuoto\r\n  IF current_results IS NULL OR current_results = '' THEN\r\n    score1 := 0;\r\n    score2 := 0;\r\n  ELSE\r\n    score1 := (string_to_array(current_results, '-'))[1]::INTEGER;\r\n    score2 := (string_to_array(current_results, '-'))[2]::INTEGER;\r\n  END IF;\r\n\r\n  -- Aggiorna il punteggio in base al giocatore e all'operazione (incrementa/decrementa)\r\n  IF player_param = 1 THEN\r\n    IF increment_param THEN\r\n      score1 := score1 + 1;\r\n    ELSE\r\n      score1 := GREATEST(0, score1 - 1); -- Evita punteggi negativi\r\n    END IF;\r\n  ELSEIF player_param = 2 THEN\r\n    IF increment_param THEN\r\n      score2 := score2 + 1;\r\n    ELSE\r\n      score2 := GREATEST(0, score2 - 1); -- Evita punteggi negativi\r\n    END IF;\r\n  END IF;\r\n\r\n  -- Aggiorna la colonna results con il nuovo punteggio\r\n  UPDATE matches\r\n  SET results = score1 || '-' || score2\r\n  WHERE id = match_id_param;\r\n\r\n  -- Determina il vincitore e aggiorna winner_id se necessario\r\n  IF score1 > score2 AND score1 >= CEIL((best_of_value + 1) / 2.0) THEN\r\n    UPDATE matches\r\n    SET winner_id = player1_id_value, status = 'completed'\r\n    WHERE id = match_id_param;\r\n  ELSIF score2 > score1 AND score2 >= CEIL((best_of_value + 1) / 2.0) THEN\r\n    UPDATE matches\r\n    SET winner_id = player2_id_value, status = 'completed'\r\n    WHERE id = match_id_param;\r\n  END IF;\r\n\r\nEND;\r\n$function$\n"
+    },
+    {
+      "Schema": "public",
+      "Name": "update_participant_points",
+      "Arguments": "match_id uuid, winner_id uuid",
+      "Return type": "void",
+      "Type": "normal function",
+      "Volatility": "volatile",
+      "Security": "security invoker",
+      "Definition": "CREATE OR REPLACE FUNCTION public.update_participant_points(match_id uuid, winner_id uuid)\n RETURNS void\n LANGUAGE plpgsql\nAS $function$DECLARE\r\n  tournament_id UUID;\r\n  rows_updated INTEGER := 0; -- Declare rows_updated variable\r\nBEGIN\r\n  -- Get the tournament ID from the match\r\n  SELECT tournament_id INTO tournament_id FROM matches WHERE id = match_id;\r\n  RAISE NOTICE 'Tournament ID: %', tournament_id; -- Added NOTICE statement\r\n\r\n  -- Update the participant's points\r\n   UPDATE tournament_participants\r\n  SET points = points + 1\r\n  WHERE tournament_id = tournament_id\r\n    AND participant_id = winner_id\r\n  RETURNING 1 INTO rows_updated;\r\n  RAISE NOTICE 'Rows updated: %', rows_updated;\r\n    \r\nEND;$function$\n"
+    },
+    {
+      "Schema": "public",
+      "Name": "update_tournament_participants_matches_won",
+      "Arguments": "",
+      "Return type": "trigger",
+      "Type": "normal function",
+      "Volatility": "volatile",
+      "Security": "security invoker",
+      "Definition": "CREATE OR REPLACE FUNCTION public.update_tournament_participants_matches_won()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\r\nBEGIN\r\n  BEGIN\r\n    -- Calculate matches_won for player1\r\n    UPDATE tournament_participants\r\n    SET matches_won = (\r\n      SELECT\r\n        COALESCE(SUM(CASE WHEN m.player1_id = NEW.player1_id THEN m.player1_win ELSE 0 END), 0) +\r\n        COALESCE(SUM(CASE WHEN m.player2_id = NEW.player1_id THEN m.player2_win ELSE 0 END), 0)\r\n      FROM matches m\r\n      WHERE m.tournament_id = NEW.tournament_id AND (m.player1_id = NEW.player1_id OR m.player2_id = NEW.player1_id)\r\n    ),\r\n    matches_lost = (\r\n      SELECT\r\n        COALESCE(SUM(CASE WHEN m.player1_id = NEW.player1_id THEN m.player1_loss ELSE 0 END), 0) +\r\n        COALESCE(SUM(CASE WHEN m.player2_id = NEW.player1_id THEN m.player2_loss ELSE 0 END), 0)\r\n      FROM matches m\r\n      WHERE m.tournament_id = NEW.tournament_id AND (m.player1_id = NEW.player1_id OR m.player2_id = NEW.player1_id)\r\n    )\r\n    WHERE tournament_id = NEW.tournament_id AND participant_id = NEW.player1_id;\r\n\r\n    -- Calculate matches_won for player2\r\n    UPDATE tournament_participants\r\n    SET matches_won = (\r\n      SELECT\r\n        COALESCE(SUM(CASE WHEN m.player1_id = NEW.player2_id THEN m.player1_win ELSE 0 END), 0) +\r\n        COALESCE(SUM(CASE WHEN m.player2_id = NEW.player2_id THEN m.player2_win ELSE 0 END), 0)\r\n      FROM matches m\r\n      WHERE m.tournament_id = NEW.tournament_id AND (m.player1_id = NEW.player2_id OR m.player2_id = NEW.player2_id)\r\n    ),\r\n    matches_lost = (\r\n      SELECT\r\n        COALESCE(SUM(CASE WHEN m.player1_id = NEW.player2_id THEN m.player1_loss ELSE 0 END), 0) +\r\n        COALESCE(SUM(CASE WHEN m.player2_id = NEW.player2_id THEN m.player2_loss ELSE 0 END), 0)\r\n      FROM matches m\r\n      WHERE m.tournament_id = NEW.tournament_id AND (m.player1_id = NEW.player2_id OR m.player2_id = NEW.player2_id)\r\n    )\r\n    WHERE tournament_id = NEW.tournament_id AND participant_id = NEW.player2_id;\r\n\r\n  EXCEPTION\r\n    WHEN OTHERS THEN\r\n      -- Ignora l'errore e registra un messaggio di notifica\r\n      RAISE NOTICE 'Errore ignorato nella funzione update_tournament_participants_matches_won: %', SQLERRM;\r\n  END;\r\n\r\n  RETURN NEW;\r\nEND;\r\n$function$\n"
+    },
+    {
+      "Schema": "public",
+      "Name": "update_updated_at_column",
+      "Arguments": "",
+      "Return type": "trigger",
+      "Type": "normal function",
+      "Volatility": "volatile",
+      "Security": "security invoker",
+      "Definition": "CREATE OR REPLACE FUNCTION public.update_updated_at_column()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\r\nBEGIN\r\n    NEW.updated_at = NOW();\r\n    RETURN NEW;\r\nEND;\r\n$function$\n"
+    }
+]

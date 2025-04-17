@@ -1,0 +1,4 @@
+CREATE OR REPLACE TRIGGER trg_match_trades
+AFTER INSERT OR UPDATE ON trade_cards
+FOR EACH ROW
+EXECUTE FUNCTION match_trades();

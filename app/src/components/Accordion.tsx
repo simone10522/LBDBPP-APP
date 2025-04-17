@@ -12,16 +12,29 @@ interface AccordionProps {
   showStatusIndicator?: boolean;
   titleStyle?: StyleProp<TextStyle>; // Add titleStyle prop
   status?: string;
+  onOpen?: () => void;
 }
 
-const Accordion: React.FC<AccordionProps> = ({ title, children, flags = [], showStatusIndicator = false, titleStyle, status }) => {
+const Accordion: React.FC<AccordionProps> = ({ 
+  title, 
+  children, 
+  flags = [], 
+  showStatusIndicator = false, 
+  titleStyle, 
+  status,
+  onOpen 
+}) => {
   const { isDarkMode } = useAuth();
   const [expanded, setExpanded] = useState(false);
 
   const theme = isDarkMode ? darkPalette : lightPalette;
 
   const toggleAccordion = () => {
-    setExpanded(!expanded);
+    const isExpanding = !expanded;
+    setExpanded(isExpanding);
+    if (isExpanding && onOpen) {
+      onOpen();
+    }
   };
 
   const getStatusColor = () => {

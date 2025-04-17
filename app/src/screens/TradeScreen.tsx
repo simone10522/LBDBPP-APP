@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Image, Alert, Animated, Easing, Switch } from 'react-native'; // Import Switch
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Image, Animated, Easing, Switch, ActivityIndicator, Modal, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { lightPalette, darkPalette } from '../context/themes';
 import TradeCardSelection from '../components/TradeCardSelection';
@@ -14,6 +14,9 @@ import Accordion from '../components/Accordion';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Clipboard from 'expo-clipboard';
 import { useNavigation } from '@react-navigation/native';
+import BannerAdComponent from '../components/BannerAd';
+import Toast from 'react-native-toast-message';
+import InterstitialAdComponent from '../components/InterstitialAd';
 
 const loadCardData = () => {
   const allCards = {};
@@ -56,11 +59,23 @@ const TradeScreen = () => {
   const [error, setError] = useState(null);
   const [userProfiles, setUserProfiles] = useState({});
   const [isNotifyButtonDisabled, setIsNotifyButtonDisabled] = useState(false);
-  const animation = useRef(new Animated.Value(0)).current; // Add Animated.Value
+  const animation = useRef(new Animated.Value(0)).current;
   const [acceptedTradeIds, setAcceptedTradeIds] = useState<string[]>([]);
   const navigation = useNavigation();
-  const [showOnlineOnly, setShowOnlineOnly] = useState(false); // Add state for the toggle
+  const [showOnlineOnly, setShowOnlineOnly] = useState(false);
+  const [friendCodeModalVisible, setFriendCodeModalVisible] = useState(false);
+  const [friendCodeInput, setFriendCodeInput] = useState('');
+  const [pendingSelectionType, setPendingSelectionType] = useState<'have' | 'want' | null>(null);
+  const [showAd, setShowAd] = useState(false);
 
+  const handleAdClosed = () => {
+    setShowAd(false);
+  };
+
+  const handleAdError = (error: any) => {
+    console.error('Ad failed to load:', error);
+    setShowAd(false);
+  };
 
   useEffect(() => {
     const loadAcceptedTradeIds = async () => {
@@ -76,6 +91,32 @@ const TradeScreen = () => {
 
     loadAcceptedTradeIds();
   }, []);
+
+  useEffect(() => {
+    const markNotificationsAsRead = async () => {
+      if (!userId) return;
+      
+      const { error } = await supabase
+        .from('trade_notifications')
+        .update({ read: true })
+        .eq('receiver_id', userId)
+        .eq('read', false);
+
+      if (error) {
+        console.error('Error marking notifications as read:', error);
+      }
+    };
+
+    markNotificationsAsRead();
+
+    const unsubscribe = navigation.addListener('focus', () => {
+      markNotificationsAsRead();
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [userId, navigation]);
 
   const saveAcceptedTradeIds = async (ids: string[]) => {
     try {
@@ -107,7 +148,6 @@ const TradeScreen = () => {
 
       let filteredTradeMatches = data || [];
 
-      // Filter trade matches based on the online status of the other user
       filteredTradeMatches = filteredTradeMatches.filter(match => {
         const otherUserId = match.user1_id === userId ? match.user2_id : match.user1_id;
         return !showOnlineOnly || userProfiles[otherUserId]?.status === 'online';
@@ -131,18 +171,50 @@ const TradeScreen = () => {
     return () => clearInterval(intervalId);
   }, [fetchTradeMatches]);
 
+  useEffect(() => {
+    // Poll only the status field for all loaded userProfiles every 5 seconds
+    const interval = setInterval(async () => {
+      const userIds = Object.keys(userProfiles);
+      if (userIds.length === 0) return;
+      try {
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, status')
+          .in('id', userIds);
+
+        if (!profilesError && profilesData) {
+          setUserProfiles(prevProfiles => {
+            const updatedProfiles = { ...prevProfiles };
+            profilesData.forEach(profile => {
+              if (updatedProfiles[profile.id]) {
+                updatedProfiles[profile.id] = {
+                  ...updatedProfiles[profile.id],
+                  status: profile.status,
+                };
+              }
+            });
+            return updatedProfiles;
+          });
+        }
+      } catch (err) {
+        // Silently ignore polling errors
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [userProfiles]);
+
   const fetchUserProfiles = async (userIds) => {
     try {
-      // Fetch only profiles that are not already in the state
       const userIdsToFetch = userIds.filter(id => !userProfiles[id]);
 
       if (userIdsToFetch.length === 0) {
-        return; // No new profiles to fetch
+        return;
       }
 
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select('id, username, push_token, match_password, status') // Fetch status
+        .select('id, username, push_token, match_password, status')
         .in('id', userIdsToFetch);
 
       if (profilesError) {
@@ -155,12 +227,11 @@ const TradeScreen = () => {
           username: profile.username,
           pushToken: profile.push_token,
           matchPassword: profile.match_password,
-          status: profile.status, // Store status
+          status: profile.status,
         };
         return acc;
       }, {});
 
-      // Merge new profiles into existing state
       setUserProfiles(prevProfiles => ({
         ...prevProfiles,
         ...profilesMap,
@@ -172,240 +243,238 @@ const TradeScreen = () => {
 
   const copyToClipboard = async (text) => {
     await Clipboard.setStringAsync(text);
-    Alert.alert('The friend code has been copied to your clipboard.');
+    Toast.show({
+      type: 'success',
+      text1: 'The friend code has been copied to your clipboard.',
+    });
   };
 
   const handleAcceptTrade = async (tradeMatchId) => {
-    setIsNotifyButtonDisabled(true); // Disable button immediately on press
+    setIsNotifyButtonDisabled(true);
     setLoading(true);
     setError(null);
 
-    let tradeMatch;
     try {
-      const { data, error: fetchError } = await supabase
+      const { data: tradeMatch } = await supabase
+        .from('trade_matches')
+        .select('*')
+        .eq('id', tradeMatchId)
+        .single();
+
+      if (!tradeMatch) {
+        setError("Trade match not found.");
+        return;
+      }
+
+      const isUser1 = tradeMatch.user1_id === userId;
+      const columnToUpdate = isUser1 ? 'user_1' : 'user_2';
+      const otherColumn = isUser1 ? 'user_2' : 'user_1';
+      const otherUserId = isUser1 ? tradeMatch.user2_id : tradeMatch.user1_id;
+
+      const { error: updateError } = await supabase
+        .from('trade_matches')
+        .update({ [columnToUpdate]: 'ok' })
+        .eq('id', tradeMatchId);
+
+      if (updateError) {
+        setError(`Update error: ${updateError.message}`);
+        return;
+      }
+
+      const otherUserProfile = userProfiles[otherUserId];
+      const otherPushToken = otherUserProfile?.pushToken;
+
+      if (otherPushToken) {
+        const myCards = isUser1 ? tradeMatch.user1_cards : tradeMatch.user2_cards;
+        const otherCards = isUser1 ? tradeMatch.user2_cards : tradeMatch.user1_cards;
+        const myCardName = myCards.length > 0 ? getCardName(myCards[0].id) : 'Unknown Card';
+        const otherCardName = otherCards.length > 0 ? getCardName(otherCards[0].id) : 'Unknown Card';
+        
+        const notificationMessage = tradeMatch[otherColumn] === 'ok' 
+          ? `Trade Confirmed! Both players have accepted the trade.`
+          : `Trade Request! Player ${userProfiles[userId]?.username} wants ${otherCardName} for ${myCardName}.`;
+
+        await fetch('https://lbdb-server-production.up.railway.app/send-notification', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            pushToken: otherPushToken,
+            message: notificationMessage,
+            userId: otherUserId,
+            notificationType: tradeMatch[otherColumn] === 'ok' ? 'trade_accepted' : 'trade',
+          }),
+        });
+
+        await supabase
+          .from('trade_notifications')
+          .insert({
+            sender_id: userId,
+            receiver_id: otherUserId,
+            trade_match_id: tradeMatchId,
+            notification_type: tradeMatch[otherColumn] === 'ok' ? 'trade_accepted' : 'new_trade_request',
+            message: notificationMessage,
+          });
+      }
+
+      fetchTradeMatches();
+      Toast.show({
+        type: 'success',
+        text1: tradeMatch[otherColumn] === 'ok' ? 'Trade Confirmed!' : 'Trade Request Sent',
+        text2: tradeMatch[otherColumn] === 'ok' ? 'Both players have accepted.' : 'Waiting for other player...',
+      });
+
+    } catch (err) {
+      setError(err.message);
+      console.error('Error in handleAcceptTrade:', err);
+    } finally {
+      setLoading(false);
+      setIsNotifyButtonDisabled(false);
+    }
+  };
+
+  const handleTradeCompleted = async (tradeMatchId) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      console.log('=== Trade Completion Debug ===');
+      
+      const { data: tradeMatch, error: fetchError } = await supabase
         .from('trade_matches')
         .select('*')
         .eq('id', tradeMatchId)
         .single();
 
       if (fetchError) {
-        setError(fetchError.message);
-        console.error('Error fetching trade match details:', fetchError);
-        setLoading(false);
-        setIsNotifyButtonDisabled(false); // Re-enable button in case of fetch error
-        return;
-      }
-      tradeMatch = data;
-    } catch (err) {
-      setError(err.message);
-      console.error('Unexpected error fetching trade match:', err);
-      setLoading(false);
-      setIsNotifyButtonDisabled(false); // Re-enable button in case of unexpected error
-      return;
-    }
-
-
-    if (!tradeMatch) {
-      setError("Trade match not found.");
-      setLoading(false);
-      setIsNotifyButtonDisabled(false); // Re-enable button if trade match not found
-      return;
-    }
-
-    if (tradeMatch.status !== 'pending' && tradeMatch.status !== 'request sent') {
-      setError(`Invalid trade status for acceptance: ${tradeMatch.status}`);
-      Alert.alert("Invalid Trade Status", `This trade is not in 'Pending' or 'Request Sent' status and cannot be accepted.`);
-      setLoading(false);
-      setIsNotifyButtonDisabled(false); // Re-enable button if status is invalid
-      return;
-    }
-
-    if (tradeMatch.status === 'request sent') {
-      // Logic to confirm the trade if status is 'request sent'
-      try {
-        const { error: updateError } = await supabase
-          .from('trade_matches')
-          .update({ status: 'confirmed' })
-          .eq('id', tradeMatchId);
-
-        if (updateError) {
-          console.error("Error updating trade status to confirmed:", updateError);
-          setError(`Supabase error: ${updateError.message}`);
-          Alert.alert("Status Update Error", "Failed to update trade status to confirmed. Please try again.");
-          setIsNotifyButtonDisabled(false); // Re-enable button after status update error
-        } else {
-          console.log(`Trade status updated successfully to 'confirmed' for match ID: ${tradeMatchId}`);
-          Alert.alert("Trade Confirmed", "Trade has been confirmed.");
-
-          // Send "Trade Accepted" notification to user1 (the initiator)
-          const initiatorUserId = tradeMatch.user1_id;
-          const initiatorUserProfile = userProfiles[initiatorUserId];
-          const initiatorPushToken = initiatorUserProfile?.pushToken;
-
-          if (initiatorPushToken) {
-            const initiatorUsername = initiatorUserProfile?.username || 'Unknown User';
-            const notificationMessage = `Trade Accepted! Player ${userProfiles[userId]?.username} has accepted your trade request.`;
-            sendTradeAcceptedNotification(initiatorPushToken, notificationMessage, initiatorUserId, initiatorUsername);
-          } else {
-            console.error("Could not retrieve push token for the trade initiator user.");
-          }
-
-          fetchTradeMatches(); // Refresh trade matches to update UI
-          setIsNotifyButtonDisabled(false); // Re-enable button after successful trade confirmation and notification
-        }
-      } catch (err) {
-        setError(err.message);
-        console.error('Unexpected error confirming trade:', err);
-        Alert.alert("Trade Confirmation Error", "Failed to confirm trade. Please try again.");
-        setIsNotifyButtonDisabled(false); // Re-enable button after unexpected confirmation error
-      } finally {
-        setLoading(false);
-        setIsNotifyButtonDisabled(false); // Ensure button is re-enabled in finally block
-      }
-    } else {
-      // Original logic for when status is 'pending' (send notification and update to 'request sent')
-      const otherUserId = tradeMatch.user1_id === userId ? tradeMatch.user2_id : tradeMatch.user1_id;
-      const myCards = tradeMatch.user1_id === userId ? tradeMatch.user1_cards : tradeMatch.user2_cards;
-      const otherCards = tradeMatch.user1_id === userId ? tradeMatch.user2_cards : tradeMatch.user1_cards;
-
-      const myCardName = myCards.length > 0 ? getCardName(myCards[0].id) : 'Unknown Card';
-      const otherCardName = otherCards.length > 0 ? getCardName(otherCards[0].id) : 'Unknown Card';
-
-      const otherUserProfile = userProfiles[otherUserId];
-      const otherUserPushToken = otherUserProfile?.pushToken;
-
-      if (!otherUserPushToken) {
-        setError("Could not retrieve push token for the other user.");
-        setLoading(false);
-        setIsNotifyButtonDisabled(false); // Re-enable button if push token not found
+        console.error('Error fetching trade:', fetchError);
         return;
       }
 
-      const notificationMessage = `Trade Request Sent! Player ${userProfiles[userId]?.username} has sent a trade request for ${otherCardName} for ${myCardName}. Please check the trade screen to respond.`;
-
-      const requestBody = JSON.stringify({
-        pushToken: otherUserPushToken,
-        message: notificationMessage,
-        userId: otherUserId,
-        notificationType: 'trade',
+      console.log('Trade initial fetch:', {
+        id: tradeMatch.id,
+        user_1: tradeMatch.user_1,
+        user_2: tradeMatch.user_2
       });
 
-      const serverUrl = 'https://lbdb-server.onrender.com/send-notification';
-      console.log("Sending notification request to:", serverUrl);
-      console.log("Request body:", requestBody);
+      const columnToUpdate = tradeMatch.user1_id === userId ? 'user_1' : 'user_2';
+      console.log('Updating column:', columnToUpdate, 'to completed');
 
-      try {
-        const response = await fetch(serverUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: requestBody,
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.error("Notification request failed with status:", response.status);
-          console.error("Error details from server:", errorData);
-          throw new Error(`Failed to send notification: ${response.status} - ${JSON.stringify(errorData)}`);
-          setIsNotifyButtonDisabled(false); // Re-enable button after notification error
-        }
-
-        console.log(`Trade request sent and notification dispatched for match ID: ${tradeMatchId}`);
-        Alert.alert("Trade Request Sent", "A trade request has been sent to the other user.");
-
-        // Update trade status in Supabase to 'request sent'
-        const { error: updateError } = await supabase
-          .from('trade_matches')
-          .update({ status: 'request sent' })
-          .eq('id', tradeMatchId);
-
-        if (updateError) {
-          console.error("Error updating trade status:", updateError);
-          setError(`Supabase error: ${updateError.message}`);
-          Alert.alert("Status Update Error", "Failed to update trade status. Please try again.");
-          setIsNotifyButtonDisabled(false); // Re-enable button after status update error
-        } else {
-          console.log(`Trade status updated successfully to 'request sent' for match ID: ${tradeMatchId}`);
-          // Optionally, refetch trade matches to update the UI
-          fetchTradeMatches();
-        }
-
-      } catch (notificationError) {
-        console.error("Error sending push notification:", notificationError);
-        setError(`Notification error: ${notificationError.message}`);
-        Alert.alert("Notification Error", "Failed to send notification. Please try again.");
-        setIsNotifyButtonDisabled(false); // Re-enable button after general notification error
-      } finally {
-        setLoading(false);
-        setIsNotifyButtonDisabled(false); // Ensure button is re-enabled in finally block
-      }
-    }
-  };
-
-  const sendTradeAcceptedNotification = async (pushToken, message, userId, username) => {
-    const requestBody = JSON.stringify({
-      pushToken: pushToken,
-      message: message,
-      userId: userId,
-      notificationType: 'trade_accepted',
-      username: username // Pass username if you want to include it in the backend logic
-    });
-
-    const serverUrl = 'https://lbdb-server.onrender.com/send-notification';
-    console.log("Sending 'Trade Accepted' notification request to:", serverUrl);
-    console.log("Request body:", requestBody);
-
-    try {
-      const response = await fetch(serverUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: requestBody,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Notification request failed with status:", response.status);
-        console.error("Error details from server:", errorData);
-        throw new Error(`Failed to send notification: ${response.status} - ${JSON.stringify(errorData)}`);
-      }
-
-      console.log("'Trade Accepted' notification sent successfully");
-      Alert.alert("Notification Sent", "'Trade Accepted' notification was sent to the other player."); // Optional alert for sender
-    } catch (notificationError) {
-      console.error("Error sending 'Trade Accepted' push notification:", notificationError);
-      setError(`Notification error: ${notificationError.message}`);
-      Alert.alert("Notification Error", "Failed to send notification. Please try again.");
-    }
-  };
-
-
-  const handleCancelTrade = async (tradeMatchId) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const { error: deleteError } = await supabase
+      const { error: updateError } = await supabase
         .from('trade_matches')
-        .delete()
+        .update({ [columnToUpdate]: 'completed' })
         .eq('id', tradeMatchId);
 
-      if (deleteError) {
-        setError(deleteError.message);
-        console.error('Error deleting trade match:', deleteError);
-      } else {
-        fetchTradeMatches();
+      if (updateError) {
+        console.error('Error updating trade:', updateError);
+        return;
       }
-    } catch (err) {
-      setError(err.message);
-      console.error('Unexpected error deleting trade:', err);
+
+      const { data: verifyState } = await supabase
+        .from('trade_matches')
+        .select('*')
+        .eq('id', tradeMatchId)
+        .single();
+
+      console.log('State after update:', {
+        id: verifyState.id,
+        user_1: verifyState.user_1,
+        user_2: verifyState.user_2
+      });
+
+      if (verifyState.user_1 === 'completed' && verifyState.user_2 === 'completed') {
+        console.log('Calling complete_trade for trade:', tradeMatchId);
+        
+        const { data, error: completeTradeError } = await supabase
+          .rpc('complete_trade', { trade_match_id: tradeMatchId });
+
+        console.log('Complete trade result:', { data, error: completeTradeError });
+
+        const { data: finalState } = await supabase
+          .from('trade_matches')
+          .select('*')
+          .eq('id', tradeMatchId)
+          .single();
+
+        console.log('Final trade state:', finalState ? {
+          id: finalState.id,
+          user_1: finalState.user_1,
+          user_2: finalState.user_2
+        } : 'Trade no longer exists');
+      }
+
+      console.log('=== End Debug ===');
+      fetchTradeMatches();
+
+      // Set showAd to true after trade is completed
+      setShowAd(true);
+
+    } catch (error) {
+      console.error('Error during trade completion:', error);
+      setError('Failed to complete trade');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleYourCardsPress = () => {
+  const handleCancelTrade = async (tradeMatchId) => {
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('trade_matches')
+        .delete()
+        .eq('id', tradeMatchId);
+
+      if (error) {
+        console.error('Error canceling trade:', error);
+        setError('Failed to cancel trade');
+        return;
+      }
+
+      fetchTradeMatches();
+      Toast.show({
+        type: 'success',
+        text1: 'Trade Canceled',
+        text2: 'The trade has been canceled successfully.',
+      });
+    } catch (error) {
+      console.error('Error in handleCancelTrade:', error);
+      setError('Failed to cancel trade');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const validateMatchPassword = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('match_password')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching match password:', error);
+        return false;
+      }
+
+      const isValidFormat = data.match_password && /^\d{16}$/.test(data.match_password);
+      return isValidFormat;
+    } catch (error) {
+      console.error('Error in validateMatchPassword:', error);
+      return false;
+    }
+  };
+
+  const handleYourCardsPress = async () => {
+    const isValidPassword = await validateMatchPassword();
+    if (!isValidPassword) {
+      setPendingSelectionType('have');
+      setFriendCodeModalVisible(true);
+      return;
+    }
+
     setSelectionType('have');
     setShouldLoadExistingCards(true);
     setShowCardSelection(true);
@@ -413,11 +482,18 @@ const TradeScreen = () => {
       toValue: 1,
       duration: 300,
       useNativeDriver: true,
-      easing: Easing.inOut(Easing.quad), // Example: Add an easing function
+      easing: Easing.inOut(Easing.quad),
     }).start();
   };
 
-  const handleCardsYouWantPress = () => {
+  const handleCardsYouWantPress = async () => {
+    const isValidPassword = await validateMatchPassword();
+    if (!isValidPassword) {
+      setPendingSelectionType('want');
+      setFriendCodeModalVisible(true);
+      return;
+    }
+
     setSelectionType('want');
     setShouldLoadExistingCards(true);
     setShowCardSelection(true);
@@ -425,8 +501,77 @@ const TradeScreen = () => {
       toValue: 1,
       duration: 300,
       useNativeDriver: true,
-      easing: Easing.inOut(Easing.quad), // Example: Add an easing function
+      easing: Easing.inOut(Easing.quad),
     }).start();
+  };
+
+  const handleFriendCodeSubmit = async () => {
+    const code = friendCodeInput.replace(/[^\d]/g, '');
+    if (code.length !== 16) {
+      Toast.show({
+        type: 'error',
+        text1: 'Invalid Friend Code',
+        text2: 'Friend Code must be exactly 16 numbers.'
+      });
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ match_password: code })
+        .eq('id', userId);
+      if (error) {
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: error.message
+        });
+        return;
+      }
+      Toast.show({
+        type: 'success',
+        text1: 'Friend Code set successfully!'
+      });
+    } catch (err: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: err.message || 'Failed to update Friend Code'
+      });
+    } finally {
+      setLoading(false);
+    }
+    setFriendCodeModalVisible(false);
+    if (pendingSelectionType === 'have') {
+      setSelectionType('have');
+      setShouldLoadExistingCards(true);
+      setShowCardSelection(true);
+      Animated.timing(animation, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+        easing: Easing.inOut(Easing.quad),
+      }).start();
+    } else if (pendingSelectionType === 'want') {
+      setSelectionType('want');
+      setShouldLoadExistingCards(true);
+      setShowCardSelection(true);
+      Animated.timing(animation, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+        easing: Easing.inOut(Easing.quad),
+      }).start();
+    }
+    setPendingSelectionType(null);
+    setFriendCodeInput('');
+  };
+
+  const handleFriendCodeCancel = () => {
+    setFriendCodeModalVisible(false);
+    setPendingSelectionType(null);
+    setFriendCodeInput('');
   };
 
   const handleBack = () => {
@@ -434,7 +579,7 @@ const TradeScreen = () => {
       toValue: 0,
       duration: 300,
       useNativeDriver: true,
-      easing: Easing.inOut(Easing.quad), // Example: Add an easing function
+      easing: Easing.inOut(Easing.quad),
     }).start(() => {
       setShowCardSelection(false);
       setShouldLoadExistingCards(false);
@@ -455,165 +600,28 @@ const TradeScreen = () => {
     return acceptedTradeIds.includes(tradeMatchId);
   };
 
-  const handleTradeCompleted = async (user1Cards, user2Cards) => {
-    let tradeMatchIdToDelete = null;
-    setLoading(true);
-    setError(null);
-
-    try {
-      // Fetch trade cards for both users
-      const { data: user1TradeCards, error: user1TradeCardsError } = await supabase
-        .from('trade_cards')
-        .select('what_i_have, what_i_want')
-        .eq('user_id', userId)
-        .single();
-
-      const tradeMatch = tradeMatches.find(match =>
-        (match.user1_id === userId && match.user1_cards[0].id === user1Cards[0].id && match.user2_cards[0].id === user2Cards[0].id) ||
-        (match.user2_id === userId && match.user2_cards[0].id === user1Cards[0].id && match.user1_cards[0].id === user2Cards[0].id)
-      );
-
-      if (!tradeMatch) {
-        setError("Trade match not found locally.");
-        setLoading(false);
-        return;
-      }
-
-      const otherUserId = tradeMatch.user1_id === userId ? tradeMatch.user2_id : tradeMatch.user1_id;
-
-      const { data: user2TradeCards, error: user2TradeCardsError } = await supabase
-        .from('trade_cards')
-        .select('what_i_have, what_i_want')
-        .eq('user_id', otherUserId)
-        .single();
-
-      if (user1TradeCardsError) {
-        console.error('Error fetching user1 trade cards:', user1TradeCardsError);
-        setError('Failed to update your cards.');
-        setLoading(false);
-        return;
-      }
-
-      if (user2TradeCardsError) {
-        console.error('Error fetching user2 trade cards:', user2TradeCardsError);
-        setError('Failed to update other user\'s cards.');
-        setLoading(false);
-        return;
-      }
-
-      let updatedUser1HaveCards = user1TradeCards?.what_i_have || [];
-      let updatedUser1WantCards = user1TradeCards?.what_i_want || [];
-      let updatedUser2HaveCards = user2TradeCards?.what_i_have || [];
-      let updatedUser2WantCards = user2TradeCards?.what_i_want || [];
-
-      // User 1 gives user1Cards[0], receives user2Cards[0]
-      // User 2 gives user2Cards[0], receives user1Cards[0]
-
-      // Update user 1's what_i_have (remove user1Cards[0])
-      const user1HaveCardIndex = updatedUser1HaveCards.findIndex(card => card.id === user1Cards[0].id);
-      if (user1HaveCardIndex !== -1) {
-        if (updatedUser1HaveCards[user1HaveCardIndex].count > 1) {
-          updatedUser1HaveCards[user1HaveCardIndex].count -= 1;
-        } else {
-          updatedUser1HaveCards.splice(user1HaveCardIndex, 1);
-        }
-      }
-
-      // Update user 1's what_i_want (remove user2Cards[0])
-      updatedUser1WantCards = updatedUser1WantCards.filter(card => card.id !== user2Cards[0].id);
-
-
-      // Update user 2's what_i_have (remove user2Cards[0])
-      const user2HaveCardIndex = updatedUser2HaveCards.findIndex(card => card.id === user2Cards[0].id);
-      if (user2HaveCardIndex !== -1) {
-        if (updatedUser2HaveCards[user2HaveCardIndex].count > 1) {
-          updatedUser2HaveCards[user2HaveCardIndex].count -= 1;
-        } else {
-          updatedUser2HaveCards.splice(user2HaveCardIndex, 1);
-        }
-      }
-
-      // Update user 2's what_i_want (remove user1Cards[0])
-      updatedUser2WantCards = updatedUser2WantCards.filter(card => card.id !== user1Cards[0].id);
-
-
-      // Update user 1's trade_cards
-      const { error: updateUser1Error } = await supabase
-        .from('trade_cards')
-        .update({ what_i_have: updatedUser1HaveCards, what_i_want: updatedUser1WantCards })
-        .eq('user_id', userId);
-
-      if (updateUser1Error) {
-        console.error('Error updating user 1 trade cards:', updateUser1Error);
-        setError('Failed to update your cards in the trade.');
-        setLoading(false);
-        return;
-      }
-
-      // Update user 2's trade_cards
-      const { error: updateUser2Error } = await supabase
-        .from('trade_cards')
-        .update({ what_i_have: updatedUser2HaveCards, what_i_want: updatedUser2WantCards })
-        .eq('user_id', otherUserId);
-
-      if (updateUser2Error) {
-        console.error('Error updating user 2 trade cards:', updateUser2Error);
-        setError('Failed to update the other user\'s cards in the trade.');
-        setLoading(false);
-        return;
-      }
-
-
-      // Fetch the trade_matches id before deleting
-      const { data: tradeMatchData, error: tradeMatchError } = await supabase
-        .from('trade_matches')
-        .select('id')
-        .or(`and(user1_id.eq.${userId},user1_cards.cs.[{"id":"${user1Cards[0].id}"}]),and(user2_id.eq.${userId},user2_cards.cs.[{"id":"${user1Cards[0].id}"}])`)
-        .eq('status', 'confirmed')
-        .limit(1);
-
-      if (tradeMatchError) {
-        console.error('Error fetching trade match:', tradeMatchError);
-      } else if (tradeMatchData && tradeMatchData.length > 0) {
-        tradeMatchIdToDelete = tradeMatchData[0].id;
-      }
-
-      // Delete the trade from trade_matches table
-      if (tradeMatchIdToDelete) {
-        const { error: deleteError } = await supabase
-          .from('trade_matches')
-          .delete()
-          .eq('id', tradeMatchIdToDelete);
-
-        if (deleteError) {
-          console.error('Error deleting trade match:', deleteError);
-        } else {
-          console.log('Trade match deleted successfully.');
-        }
-      } else {
-        console.log('No trade match found to delete.');
-      }
-
-    } catch (error) {
-      console.error('Error during trade completion:', error);
-      setError('Failed to complete trade.');
-    } finally {
-      setLoading(false);
-    }
-
-    navigation.navigate('TradeCompletedAnimation', {
-      myCardImage: getCardImage(user1Cards[0].id),
-      otherCardImage: getCardImage(user2Cards[0].id),
-    });
-  };
-
   const renderTradeMatchItem = ({ item }) => {
-    const otherUserId = item.user1_id === userId ? item.user2_id : item.user1_id;
+    const isUser1 = item.user1_id === userId;
+    const otherUserId = isUser1 ? item.user2_id : item.user1_id;
+    const myColumn = isUser1 ? item.user_1 : item.user_2;
+    const otherColumn = isUser1 ? item.user_2 : item.user_1;
+
+    const showConfirmButton = (!myColumn || myColumn === '') || 
+                            (isUser1 && myColumn === 'pending') ||
+                            (!isUser1 && myColumn === 'pending');
+
+    const showTradeCompleted = (
+        ((item.user_1 === 'ok' && item.user_2 === 'ok') ||
+        (item.user_1 === 'completed' && item.user_2 === 'ok') ||
+        (item.user_1 === 'ok' && item.user_2 === 'completed')) &&
+        myColumn !== 'completed'
+    );
+
     const user1Cards = item.user1_id === userId ? item.user1_cards : item.user2_cards;
     const user2Cards = item.user1_id === userId ? item.user2_cards : item.user1_cards;
     const otherUsername = userProfiles[otherUserId]?.username || 'Unknown User';
-    const otherUserMatchPassword = userProfiles[otherUserId]?.matchPassword || 'N/A'; // Get match_password
-    const otherUserStatus = userProfiles[otherUserId]?.status || 'offline'; // Get status, default to offline
+    const otherUserMatchPassword = userProfiles[otherUserId]?.matchPassword || 'N/A';
+    const otherUserStatus = userProfiles[otherUserId]?.status || 'offline';
 
     const user1CardName = user1Cards.length > 0 ? getCardName(user1Cards[0].id) : 'No Card';
     const user2CardName = user2Cards.length > 0 ? getCardName(user2Cards[0].id) : 'No Card';
@@ -626,7 +634,6 @@ const TradeScreen = () => {
       saveAcceptedTradeIds(updatedTradeIds);
     };
 
-     // Determine the color of the status indicator
     const statusColor = otherUserStatus === 'online' ? 'green' : 'red';
 
     return (
@@ -659,7 +666,7 @@ const TradeScreen = () => {
               ))}
             </View>
           </View>
-          {item.status === 'confirmed' && (
+          {showTradeCompleted && (
             <View style={styles.matchPasswordContainer}>
               <Text style={[styles.matchPasswordLabel, { color: theme.text }]}>Friend Code:</Text>
               <View style={styles.passwordRow}>
@@ -671,12 +678,21 @@ const TradeScreen = () => {
             </View>
           )}
           <View style={styles.actionButtonContainer}>
-            {item.status !== 'confirmed' ? (
+            {showTradeCompleted ? (
+              <TouchableOpacity
+                style={[styles.completedButton, { backgroundColor: theme.buttonBackground2 }]}
+                onPress={() => handleTradeCompleted(item.id)}
+              >
+                <Text style={[styles.completedButtonText, { color: theme.text }]}>
+                  Trade Completed
+                </Text>
+              </TouchableOpacity>
+            ) : (
               <>
-                {!isTradeAccepted(item.id) && (
+                {showConfirmButton && (
                   <TouchableOpacity
                     style={[styles.confirmButton, { backgroundColor: 'green' }]}
-                    onPress={() => handleAccept(item.id)}
+                    onPress={() => handleAcceptTrade(item.id)}
                     disabled={isNotifyButtonDisabled}
                   >
                     <MaterialCommunityIcons name="check" color="white" size={24} />
@@ -685,17 +701,11 @@ const TradeScreen = () => {
                 <TouchableOpacity
                   style={[styles.cancelButton, { backgroundColor: 'red' }]}
                   onPress={() => handleCancelTrade(item.id)}
+                  disabled={isNotifyButtonDisabled}
                 >
                   <MaterialCommunityIcons name="close" color="white" size={24} />
                 </TouchableOpacity>
               </>
-            ) : (
-              <TouchableOpacity
-                style={[styles.completedButton, { backgroundColor: theme.buttonBackground2 }]}
-                onPress={() => handleTradeCompleted(user1Cards, user2Cards)} // Add action for "Trade Completed" later
-              >
-                <Text style={[styles.completedButtonText, { color: theme.text }]}>Trade Completed</Text>
-              </TouchableOpacity>
             )}
           </View>
         </View>
@@ -732,23 +742,29 @@ const TradeScreen = () => {
       {
         translateX: animation.interpolate({
           inputRange: [0, 1],
-          outputRange: [300, 0], // Slide in from the right
+          outputRange: [300, 0],
         }),
       },
     ],
   };
 
+  useEffect(() => {
+    console.log('TradeScreen mounted. Auth state:', { authLoading, userId });
+  }, [authLoading, userId]);
+
   if (authLoading) {
+    console.log('TradeScreen: Still loading auth...', { authLoading, userId });
     return (
-      <View style={[styles.container, { backgroundColor: theme.background, justifyContent: 'center' }]}>
-        <Text style={{ color: theme.text }}>Loading authentication...</Text>
+      <View style={[styles.container, { backgroundColor: theme.background, justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={theme.text} />
+        <Text style={{ color: theme.text, marginTop: 10 }}>Loading...</Text>
       </View>
     );
   }
 
   if (!userId) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.background, justifyContent: 'center' }]}>
+      <View style={[styles.container, { backgroundColor: theme.background, justifyContent: 'center', alignItems: 'center' }]}>
         <Text style={{ color: theme.text }}>Please log in to view trades.</Text>
       </View>
     );
@@ -756,7 +772,58 @@ const TradeScreen = () => {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+      {/* Friend Code Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={friendCodeModalVisible}
+        onRequestClose={handleFriendCodeCancel}
+      >
+        <View style={styles.modalContainer}>
+          <View style={[styles.modalContent, { backgroundColor: theme.background }]}>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>
+              Your Friend Code hasn't been set yet. You need it to trade cards.
+            </Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: theme.inputBackground, color: theme.text, borderColor: theme.inputBorder }]}
+              value={friendCodeInput}
+              onChangeText={setFriendCodeInput}
+              placeholder="Enter Friend Code (16 numbers)"
+              placeholderTextColor={theme.placeholderText}
+              keyboardType="numeric"
+              maxLength={16}
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.button, { backgroundColor: theme.buttonBackground, flex: 1, marginRight: 10 }]}
+                onPress={handleFriendCodeSubmit}
+                disabled={loading}
+              >
+                <Text style={[styles.buttonText, { color: theme.buttonText }]}>Save</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.button, { backgroundColor: theme.error, flex: 1, marginLeft: 10 }]}
+                onPress={handleFriendCodeCancel}
+              >
+                <Text style={[styles.buttonText, { color: theme.buttonText }]}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <View style={styles.toggleContainer}>
+        <View style={styles.tradeHeader}>
+          <Text style={[styles.tradeInProgress, { color: theme.text }]}>Available Trade</Text>
+          <Text style={[styles.filter, { color: theme.text }]}>Online Only</Text>
+          <Switch
+            trackColor={{ false: '#767577', true: '#81b0ff' }}
+            thumbColor={showOnlineOnly ? '#f5dd4b' : '#f4f3f4'}
+            ios_backgroundColor="#3e3e3e"
+            onValueChange={setShowOnlineOnly}
+            value={showOnlineOnly}
+          />
+        </View>
       </View>
       <FlatList
         ListHeaderComponent={
@@ -765,17 +832,6 @@ const TradeScreen = () => {
               {renderOfferSection({ title: 'I Have', cards: selectedHaveCards, onPress: handleYourCardsPress })}
               {renderOfferSection({ title: 'I Want', cards: selectedWantCards, onPress: handleCardsYouWantPress })}
             </View>
-            <View style={styles.tradeHeader}>
-  <Text style={[styles.tradeInProgress, { color: theme.text }]}>Available Trade</Text>
-  <Text style={[styles.filter, { color: theme.text }]}>Online Only</Text>
-  <Switch
-          trackColor={{ false: '#767577', true: '#81b0ff' }}
-          thumbColor={showOnlineOnly ? '#f5dd4b' : '#f4f3f4'}
-          ios_backgroundColor="#3e3e3e"
-          onValueChange={setShowOnlineOnly}
-          value={showOnlineOnly}
-        />
-</View>
           </>
         }
         data={tradeMatches}
@@ -783,11 +839,18 @@ const TradeScreen = () => {
         keyExtractor={(item) => item.id.toString()}
         ListEmptyComponent={<Text style={{ color: theme.text }}>No trade matches found.</Text>}
         ListFooterComponent={
-          <>
-            {error && <Text style={{ color: 'red' }}>Error: {error}</Text>}
-          </>
+          error && <Text style={{ color: 'red' }}>Error: {error}</Text>
         }
       />
+      <View style={styles.bannerAdContainer}>
+        <BannerAdComponent />
+      </View>
+      {showAd && (
+        <InterstitialAdComponent
+          onAdClosed={handleAdClosed}
+          onAdFailedToLoad={handleAdError}
+        />
+      )}
       <Animated.View style={[slideIn, { flex: 1, position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: showCardSelection ? 1 : -1 }]}>
         {showCardSelection && (
           <TradeCardSelection
@@ -819,14 +882,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     marginRight: 10,
-    textAlign: 'center'
   },
   sectionTitle: {
     fontSize: 22,
     fontWeight: 'bold',
     marginBottom: 0,
     textAlign: 'center',
-    textAlignVertical: 'center'
   },
   cardList: {
     paddingHorizontal: 10,
@@ -934,16 +995,16 @@ const styles = StyleSheet.create({
   matchPasswordText: {
     fontSize: 16,
   },
+  passwordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   tradeHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 10,
-  },
-  passwordRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
   },
   toggleContainer: {
     flexDirection: 'row',
@@ -951,6 +1012,47 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 10,
     marginBottom: 10,
+  },
+  bannerAdContainer: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    backgroundColor: 'transparent'
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    padding: 20,
+  },
+  modalContent: {
+    width: '100%',
+    padding: 20,
+    borderRadius: 10,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  input: {
+    width: '100%',
+    padding: 10,
+    borderRadius: 5,
+    borderWidth: 1,
+    marginBottom: 15,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  button: {
+    padding: 10,
+    borderRadius: 5,
+    alignItems: 'center',
   },
 });
 

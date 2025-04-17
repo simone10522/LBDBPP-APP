@@ -4,6 +4,7 @@ import { supabase, getProfileImageUrl } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { lightPalette, darkPalette } from '../context/themes';
 import ChatListItem from '../components/ChatListItem';
+import BannerAdComponent from '../components/BannerAd';
 
 interface Profile {
   id: string;
@@ -12,81 +13,92 @@ interface Profile {
 }
 
 interface Chat {
-  user: Profile; // This will now always be the *other* user
+  user: Profile;
   lastMessage: { message_text: string; created_at: string };
+  muted?: boolean;
 }
 
 const ChatListScreen = () => {
   const [searchText, setSearchText] = useState('');
   const [chats, setChats] = useState<Chat[]>([]);
+  const [filteredChats, setFilteredChats] = useState<Chat[]>([]);
   const { user, isDarkMode } = useAuth();
   const palette = isDarkMode ? darkPalette : lightPalette;
   const [loading, setLoading] = useState(false);
 
   const fetchChats = useCallback(async () => {
+    if (!user?.id) {
+      console.log("fetchChats: utente non autenticato (user.id missing)"); // Log di debug
+      setChats([]);
+      return;
+    }
+    console.log("fetchChats: utente autenticato con id", user.id);
     setLoading(true);
     try {
-      // Fetch recent messages for the current user
-      const { data: messages, error } = await supabase
-        .from('messages')
-        .select(`
-          id,
-          created_at,
-          message_text,
-          sender_id,
-          receiver_id,
-          sender_profile:sender_id (
+      // Fetch messages and mute settings
+      const [messagesResponse, muteSettingsResponse] = await Promise.all([
+        supabase
+          .from('messages')
+          .select(`
             id,
-            username,
-            profile_image
-          ),
-          receiver_profile:receiver_id (
-            id,
-            username,
-            profile_image
-          )
-        `)
-        .or(`sender_id.eq.${user?.id},receiver_id.eq.${user?.id}`)
-        .order('created_at', { ascending: false });
+            created_at,
+            message_text,
+            sender_id,
+            receiver_id,
+            sender_profile:sender_id (id, username, profile_image),
+            receiver_profile:receiver_id (id, username, profile_image)
+          `)
+          .or(`sender_id.eq.${user?.id},receiver_id.eq.${user?.id}`)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('chat_settings')
+          .select('*')
+          .eq('user_id', user?.id)
+      ]);
 
-      if (error) {
-        console.error('Error fetching chats:', error);
-      } else if (messages) {
-        const processedChats: Chat[] = [];
-        const chatMap: Map<string, Chat> = new Map();
+      if (messagesResponse.error) {
+        console.error('Error fetching chats:', messagesResponse.error);
+        return;
+      }
 
-        messages.forEach(message => {
-          const otherUserId = message.sender_id === user?.id ? message.receiver_id : message.sender_id;
-          const otherUser = message.sender_id === user?.id ? message.receiver_profile : message.sender_profile; // Correctly identify the *other* user
+      const muteSettings = new Map(
+        (muteSettingsResponse.data || []).map(setting => [setting.other_user_id, setting.muted])
+      );
+      console.log("Fetched chat_settings (mute settings):", Array.from(muteSettings.entries()));
 
-          if (!chatMap.has(otherUserId)) {
-            // Create a new chat entry if it doesn't exist
+      const chatMap = new Map();
+      messagesResponse.data?.forEach(message => {
+        const otherUserId = message.sender_id === user?.id ? message.receiver_id : message.sender_id;
+        const otherUser = message.sender_id === user?.id ? message.receiver_profile : message.sender_profile;
+
+        if (!chatMap.has(otherUserId)) {
+          chatMap.set(otherUserId, {
+            user: otherUser,
+            lastMessage: {
+              message_text: message.message_text,
+              created_at: message.created_at,
+            },
+            muted: muteSettings.get(otherUserId) || false
+          });
+        } else {
+          const existingChat = chatMap.get(otherUserId)!;
+          const currentMessageDate = new Date(message.created_at);
+          const existingLastMessageDate = new Date(existingChat.lastMessage.created_at);
+
+          if (currentMessageDate > existingLastMessageDate) {
             chatMap.set(otherUserId, {
-              user: otherUser, // Use the *other* user's profile
+              user: otherUser,
               lastMessage: {
                 message_text: message.message_text,
                 created_at: message.created_at,
               },
+              muted: muteSettings.get(otherUserId) || false
             });
-          } else {
-            // Update the last message if this message is newer
-            const existingChat = chatMap.get(otherUserId)!;
-            const currentMessageDate = new Date(message.created_at);
-            const existingLastMessageDate = new Date(existingChat.lastMessage.created_at);
-
-            if (currentMessageDate > existingLastMessageDate) {
-              chatMap.set(otherUserId, {
-                user: otherUser, // Still use the *other* user's profile
-                lastMessage: {
-                  message_text: message.message_text,
-                  created_at: message.created_at,
-                },
-              });
-            }
           }
-        });
-        setChats(Array.from(chatMap.values()));
-      }
+        }
+      });
+
+      setChats(Array.from(chatMap.values()));
     } catch (err) {
       console.error("Error fetching chats:", err);
     } finally {
@@ -94,9 +106,92 @@ const ChatListScreen = () => {
     }
   }, [user?.id]);
 
+  const toggleMute = async (chatUserId: string) => {
+    try {
+      const updatedChats = chats.map(chat => {
+        if (chat.user.id === chatUserId) {
+          return { ...chat, muted: !chat.muted };
+        }
+        return chat;
+      });
+      setChats(updatedChats);
+      
+      // Persist mute state
+      await supabase
+        .from('chat_settings')
+        .upsert({
+          user_id: user?.id,
+          other_user_id: chatUserId,
+          muted: !chats.find(chat => chat.user.id === chatUserId)?.muted,
+          updated_at: new Date().toISOString()
+        });
+
+      // Update notification settings in memory
+      if (window.notificationSettings) {
+        window.notificationSettings.set(chatUserId, {
+          muted: !chats.find(chat => chat.user.id === chatUserId)?.muted
+        });
+      }
+    } catch (error) {
+      console.error('Error toggling mute:', error);
+    }
+  };
+
+  const handleSearch = async (text: string) => {
+    setSearchText(text);
+    
+    if (text.trim() === '') {
+      setFilteredChats(chats);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, username, profile_image')
+        .ilike('username', `%${text}%`)
+        .neq('id', user?.id);
+
+      if (error) {
+        console.error('Error searching users:', error);
+        return;
+      }
+
+      // Combine search results with existing chats
+      const searchResults: Chat[] = data.map(profile => ({
+        user: profile,
+        lastMessage: {
+          message_text: '',
+          created_at: new Date().toISOString()
+        }
+      }));
+
+      // Filter existing chats by username
+      const filteredExistingChats = chats.filter(chat =>
+        chat.user.username.toLowerCase().includes(text.toLowerCase())
+      );
+
+      // Combine and deduplicate results
+      const combinedResults = [...filteredExistingChats];
+      searchResults.forEach(result => {
+        if (!combinedResults.some(chat => chat.user.id === result.user.id)) {
+          combinedResults.push(result);
+        }
+      });
+
+      setFilteredChats(combinedResults);
+    } catch (err) {
+      console.error("Error during search:", err);
+    }
+  };
+
   useEffect(() => {
     fetchChats();
   }, [fetchChats]);
+
+  useEffect(() => {
+    setFilteredChats(chats);
+  }, [chats]);
 
   return (
     <View style={[styles.container, { backgroundColor: palette.background }]}>
@@ -106,20 +201,29 @@ const ChatListScreen = () => {
           placeholder="Search chats or users..."
           placeholderTextColor={palette.secondaryText}
           value={searchText}
-          onChangeText={setSearchText}
+          onChangeText={handleSearch}
         />
       </View>
       {loading ? (
         <ActivityIndicator size="large" color={palette.primary} style={{ marginTop: 20 }} />
       ) : (
         <FlatList
-          data={chats}
-          renderItem={({ item }) => <ChatListItem chat={item} />}
+          data={filteredChats}
+          renderItem={({ item }) => (
+            <ChatListItem 
+              chat={item}
+              palette={palette}
+              onToggleMute={() => toggleMute(item.user.id)}
+            />
+          )}
           keyExtractor={(item) => item.user.id}
           style={styles.chatList}
           contentContainerStyle={styles.chatListContent}
         />
       )}
+      <View style={styles.bannerAdContainer}>
+        <BannerAdComponent />
+      </View>
     </View>
   );
 };
@@ -145,6 +249,13 @@ const styles = StyleSheet.create({
   },
   chatListContent: {
     paddingVertical: 0, // Adjust vertical padding for list content if needed
+  },
+  bannerAdContainer: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    backgroundColor: 'transparent'
   },
 });
 

@@ -13,6 +13,7 @@ interface AuthState {
   isDarkMode: boolean;
   setIsDarkMode: (isDarkMode: boolean) => void;
   userId: string | null;
+  initializeAuth: () => Promise<void>;
 }
 
 export const useAuth = create<AuthState>()(
@@ -29,6 +30,49 @@ export const useAuth = create<AuthState>()(
       isDarkMode: true,
       setIsDarkMode: (isDarkMode: boolean) => set({ isDarkMode }),
       userId: null,
+      initializeAuth: async () => {
+        try {
+          console.log('Starting auth initialization...');
+          // First check if we have a persisted session
+          const persistedSession = await AsyncStorage.getItem('app-session');
+          console.log('Checking persisted session:', persistedSession ? 'Found' : 'Not found');
+
+          if (persistedSession) {
+            const sessionData = JSON.parse(persistedSession);
+            console.log('Attempting to restore session...');
+            const { data: { session }, error } = await supabase.auth.setSession({
+              access_token: sessionData.access_token,
+              refresh_token: sessionData.refresh_token,
+            });
+
+            if (session) {
+              console.log('Successfully restored session from storage', session.user.id);
+              set({ user: session.user, userId: session.user.id, loading: false });
+              return;
+            }
+          }
+
+          // If no persisted session, try getting current session
+          console.log('Checking current session...');
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            console.log('Found existing Supabase session', session.user.id);
+            set({ user: session.user, userId: session.user.id, loading: false });
+            
+            // Save the session for future use
+            await AsyncStorage.setItem('app-session', JSON.stringify({
+              access_token: session.access_token,
+              refresh_token: session.refresh_token
+            }));
+          } else {
+            console.log('No session found, setting loading to false');
+            set({ loading: false });
+          }
+        } catch (error) {
+          console.error('Auth initialization error:', error);
+          set({ loading: false });
+        }
+      },
     }),
     {
       name: 'auth-storage',
@@ -57,24 +101,29 @@ const updateUserStatus = async (userId: string, status: 'online' | 'offline') =>
 };
 
 supabase.auth.onAuthStateChange(async (event, session) => {
-  useAuth.getState().setLoading(true);
+  console.log("Auth state changed:", event, session ? "with session" : "no session");
+  
+  if (event === 'INITIAL_SESSION') {
+    console.log("Initial session event, maintaining current state");
+    return;
+  }
 
   if (session) {
-    useAuth.getState().setUser(session.user);
     try {
-      await AsyncStorage.setItem('supabase.auth.session', JSON.stringify(session));
+      await AsyncStorage.setItem('app-session', JSON.stringify({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token
+      }));
+      useAuth.getState().setUser(session.user);
+      console.log("Session saved successfully");
     } catch (error) {
       console.error("Error saving session:", error);
     }
-  } else {
+  } else if (event === 'SIGNED_OUT') {
+    await AsyncStorage.removeItem('app-session');
     useAuth.getState().setUser(null);
-    try {
-      await AsyncStorage.removeItem('supabase.auth.session');
-    } catch (error) {
-      console.error("Error removing session:", error);
-    }
+    console.log("Session cleared due to sign out");
   }
-  useAuth.getState().setLoading(false);
 });
 
 // Custom hook to manage online status
@@ -82,7 +131,7 @@ export const useOnlineStatus = () => {
   const userId = useAuth((state) => state.userId);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-    useEffect(() => {
+  useEffect(() => {
     if (userId) {
       // Update status to online when the component mounts (app opens)
       updateUserStatus(userId, 'online');
@@ -120,3 +169,32 @@ export const useOnlineStatus = () => {
     }
   }, [userId]);
 };
+
+export const fetchUserData = async (userId: string) => {
+  try {
+    // Aggiungiamo un delay di 3 secondi prima di fetchare i dati
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (error) {
+      // Ignora silenziosamente l'errore PGRST116
+      if (error.code === 'PGRST116') {
+        console.log('Profile not found yet, this is normal after registration');
+        return null;
+      }
+      console.error('Error in fetchUserData:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error in fetchUserData:', error);
+    return null;
+  }
+};
+

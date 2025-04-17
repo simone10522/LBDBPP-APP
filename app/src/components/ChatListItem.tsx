@@ -4,18 +4,20 @@ import { useNavigation } from '@react-navigation/native';
 import { lightPalette, darkPalette } from '../context/themes';
 import { useAuth } from '../hooks/useAuth';
 import Avatar from './Avatar';
+import { Volume2, VolumeX } from 'lucide-react-native';
 
 interface ChatListItemProps {
   chat: {
     user: { id: string; username: string; profile_image: string | null };
     lastMessage: { message_text: string; created_at: string };
+    muted?: boolean;
   };
+  palette: any; // Add palette prop
+  onToggleMute: () => void;
 }
 
-const ChatListItem: React.FC<ChatListItemProps> = ({ chat }) => {
+const ChatListItem: React.FC<ChatListItemProps> = ({ chat, palette, onToggleMute }) => {
   const navigation = useNavigation();
-  const { isDarkMode } = useAuth();
-  const palette = isDarkMode ? darkPalette : lightPalette;
 
   const handlePress = () => {
     navigation.navigate('ChatScreen', { receiverProfile: chat.user });
@@ -30,9 +32,21 @@ const ChatListItem: React.FC<ChatListItemProps> = ({ chat }) => {
           {chat.lastMessage.message_text}
         </Text>
       </View>
-      <Text style={[styles.timestamp, { color: palette.secondaryText }]}>
-        {new Date(chat.lastMessage.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-      </Text>
+      <View style={styles.timeContainer}>
+        <Text style={[styles.timestamp, { color: palette.secondaryText }]}>
+          {new Date(chat.lastMessage.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </Text>
+        <TouchableOpacity onPress={(e) => {
+          e.stopPropagation();
+          onToggleMute();
+        }}>
+          {chat.muted ? (
+            <VolumeX size={26} color={palette.secondaryText} strokeWidth={2} />
+          ) : (
+            <Volume2 size={26} color={palette.secondaryText} strokeWidth={2} />
+          )}
+        </TouchableOpacity>
+      </View>
     </TouchableOpacity>
   );
 };
@@ -54,12 +68,16 @@ const styles = StyleSheet.create({
   },
   lastMessage: {
     fontSize: 14,
-    // Add ellipsis and numberOfLines for long messages
     overflow: 'hidden',
   },
+  timeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginLeft: 8,
+  },
   timestamp: {
-    fontSize: 12,
-    marginLeft: 'auto', // Push timestamp to the right
+    fontSize: 22,
   },
 });
 

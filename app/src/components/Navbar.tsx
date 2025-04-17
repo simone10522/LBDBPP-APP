@@ -20,10 +20,17 @@ const Navbar = () => {
             .select('username, profile_image')
             .eq('id', user.id)
             .single();
+
           if (error) {
-            console.error("Error fetching user data:", error);
-            setUsername('Guest');
-            setProfileImage('');
+            // Ignora l'errore PGRST116 e usa i valori di default
+            if (error.code === 'PGRST116') {
+              setUsername('Guest');
+              setProfileImage('');
+            } else {
+              console.error("Error fetching user data:", error);
+              setUsername('Guest');
+              setProfileImage('');
+            }
           } else {
             setUsername(data?.username || 'Guest');
             setProfileImage(data?.profile_image || '');
@@ -33,11 +40,12 @@ const Navbar = () => {
           setUsername('Guest');
           setProfileImage('');
         }
+        setLoading(false);
       } else {
         setUsername('Guest');
         setProfileImage('');
+        setLoading(false);
       }
-      setLoading(false);
     };
     fetchUserData();
   }, [user]);

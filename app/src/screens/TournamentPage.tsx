@@ -4,6 +4,9 @@ import {
   StyleSheet,
   ScrollView,
   RefreshControl,
+  Text,
+  TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
@@ -11,6 +14,7 @@ import TournamentList from '../components/TournamentList';
 import { useAuth } from '../hooks/useAuth'; // Import useAuth hook
 import { lightPalette, darkPalette } from '../context/themes'; // Import lightPalette and darkPalette
 import { useFocusEffect } from '@react-navigation/native'; // Import useFocusEffect
+import BannerAdComponent from '../components/BannerAd';
 
 interface Tournament {
   id: string;
@@ -114,6 +118,9 @@ const TournamentPage = () => {
           toggleCardSize={toggleCardSize}
         />
       </ScrollView>
+      <View style={styles.bannerAdContainer}>
+        <BannerAdComponent />
+      </View>
     </SafeAreaView>
   );
 };
@@ -125,7 +132,16 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    padding: 10,
+    padding: 0,
+  },
+  bannerAdContainer: {
+    width: '100%',
+    position: 'absolute',
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 10,
+    backgroundColor: 'transparent',
   },
 });
 

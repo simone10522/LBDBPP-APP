@@ -102,7 +102,7 @@ export default function ManageDecks() {
         </View>
       </View>
       <TouchableOpacity style={styles.button} onPress={handleSubmit}>
-        <Text style={styles.buttonText}>Save</Text>
+        <Text style={styles.buttonText}>Salva</Text>
       </TouchableOpacity>
       {error && <Text style={styles.error}>{error}</Text>}
     </ScrollView>

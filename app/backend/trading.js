@@ -212,8 +212,11 @@ function keepServerAlive() {
     });
 }
 
-setInterval(checkTradeMatches, POLLING_INTERVAL);
-setInterval(keepServerAlive, keepAliveInterval);
-keepServerAlive(); // Esegui una prima volta all'avvio
+// Dopo aver testato l'edge function, sospendi l'esecuzione continua del polling
+// Commenta o rimuovi queste righe:
+// setInterval(checkTradeMatches, POLLING_INTERVAL);
+// setInterval(keepServerAlive, keepAliveInterval);
+// keepServerAlive();
+
 console.log(`Started polling trade_cards every ${POLLING_INTERVAL / 1000} seconds.`);
 console.log(`Started keep-alive ping every ${keepAliveInterval / 1000} seconds.`);

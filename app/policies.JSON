@@ -1,0 +1,322 @@
+[
+  {
+    "schemaname": "public",
+    "tablename": "matches",
+    "policyname": "Matches are viewable by everyone",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "matches",
+    "policyname": "Tournament participants can manage matches",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(EXISTS ( SELECT 1\n   FROM tournament_participants\n  WHERE ((tournament_participants.tournament_id = tournament_participants.tournament_id) AND (tournament_participants.participant_id = auth.uid()))))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "matches",
+    "policyname": "Tournament creators can manage matches",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(EXISTS ( SELECT 1\n   FROM tournaments\n  WHERE ((tournaments.id = matches.tournament_id) AND (tournaments.created_by = auth.uid()))))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "matches",
+    "policyname": "Tournament participants can update match results",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "((auth.uid() = player1_id) OR (auth.uid() = player2_id))",
+    "with_check": "((auth.uid() = player1_id) OR (auth.uid() = player2_id))"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "messages",
+    "policyname": "Users can select messages where they are sender or receiver",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "((auth.uid() = sender_id) OR (auth.uid() = receiver_id))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "messages",
+    "policyname": "Users can insert messages",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(auth.uid() = sender_id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "messages",
+    "policyname": "Users can update read status of messages",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(auth.uid() = receiver_id)",
+    "with_check": "(read = true)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "profiles",
+    "policyname": "Public profiles are viewable by everyone",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "profiles",
+    "policyname": "Users can insert their own profile",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(auth.uid() = id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "profiles",
+    "policyname": "Users can update own profile",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(auth.uid() = id)",
+    "with_check": "(auth.uid() = id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "ranked",
+    "policyname": "Users can select entries",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "ranked",
+    "policyname": "Users can delete their own entries",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(auth.uid() = player1)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "ranked",
+    "policyname": "Users can insert their own entries",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(auth.uid() = player1)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "tournament_participants",
+    "policyname": "Authenticated users can add partecipants",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(auth.uid() IS NOT NULL)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "tournament_participants",
+    "policyname": "Tournament participants are viewable by everyone",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "tournament_participants",
+    "policyname": "Tournament creators can manage participants",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(EXISTS ( SELECT 1\n   FROM tournaments\n  WHERE ((tournaments.id = tournament_participants.tournament_id) AND (tournaments.created_by = auth.uid()))))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "tournament_participants",
+    "policyname": "Participants can update their own deck",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "UPDATE",
+    "qual": "(participant_id = auth.uid())",
+    "with_check": "(participant_id = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "tournaments",
+    "policyname": "Tournaments are viewable by everyone",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "tournaments",
+    "policyname": "Tournament creators can update their tournaments",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(auth.uid() = created_by)",
+    "with_check": "(auth.uid() = created_by)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "tournaments",
+    "policyname": "Tournament creators can delete their tournaments",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(auth.uid() = created_by)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "tournaments",
+    "policyname": "Authenticated users can create tournaments",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "true"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "trade_matches",
+    "policyname": "Users can update their own trade matches",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "UPDATE",
+    "qual": "((auth.uid() = user1_id) OR (auth.uid() = user2_id))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "trade_matches",
+    "policyname": "Users can create trade match requests",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(auth.uid() = user1_id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "trade_matches",
+    "policyname": "Users can see their own trade matches",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "((auth.uid() = user1_id) OR (auth.uid() = user2_id))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "trade_notifications",
+    "policyname": "Users can update their received notifications",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "UPDATE",
+    "qual": "(auth.uid() = receiver_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "trade_notifications",
+    "policyname": "Users can view their notifications",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(auth.uid() = receiver_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "trade_notifications",
+    "policyname": "Users can insert notifications",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(auth.uid() = sender_id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "chat_settings",
+    "policyname": "Authenticated users can select chat settings",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "user_id = auth.uid()",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "trade_cards",
+    "policyname": "Users can select their own trade cards",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "trade_cards",
+    "policyname": "Users can insert their own trade cards",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(auth.uid() = user_id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "trade_cards",
+    "policyname": "Users can update their own trade cards",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "UPDATE",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": "(auth.uid() = user_id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "trade_cards",
+    "policyname": "Users can delete their own trade cards",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "DELETE",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": null
+  }
+]

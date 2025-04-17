@@ -10,15 +10,19 @@ import {
   Dimensions,
   Animated,
   Easing,
+  RefreshControl,
+  Image,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../hooks/useAuth';
 import { lightPalette, darkPalette } from '../context/themes';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import Icon from 'react-native-vector-icons/FontAwesome';
+import LinearGradient from 'react-native-linear-gradient';
 
-const DeckCard = React.memo(({ deckNumber, deckName, isSelected, onSelect, onEdit, onDelete }) => {
+const DeckCard = React.memo(({ deckNumber, deckName, isSelected, onSelect, onEdit, onDelete, user }) => {
   const { isDarkMode } = useAuth();
   const theme = isDarkMode ? darkPalette : lightPalette;
   const cardScale = new Animated.Value(1);
@@ -41,36 +45,94 @@ const DeckCard = React.memo(({ deckNumber, deckName, isSelected, onSelect, onEdi
     }).start();
   };
 
+  const [cardThumbnails, setCardThumbnails] = useState([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchThumbnails = async () => {
+      try {
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select(`DECK_LIST_${deckNumber}`)
+          .eq('id', user?.id)
+          .single();
+
+        if (!error && profile && profile[`DECK_LIST_${deckNumber}`]) {
+          const deck = JSON.parse(profile[`DECK_LIST_${deckNumber}`]);
+          const cards = deck.cards || [];
+          
+          // Usa un Set per tenere traccia degli ID unici
+          const uniqueIds = new Set();
+          const uniqueCards = cards.filter(card => {
+            if (!uniqueIds.has(card.id)) {
+              uniqueIds.add(card.id);
+              return true;
+            }
+            return false;
+          });
+
+          const thumbs = uniqueCards
+            .filter(card => typeof card.image === 'string' && card.image.length > 0)
+            .slice(0, 2)
+            .map(card => card.image.startsWith('http') ? card.image + '/low.webp' : card.image);
+
+          if (isMounted) setCardThumbnails(thumbs);
+        } else {
+          if (isMounted) setCardThumbnails([]);
+        }
+      } catch (e) {
+        if (isMounted) setCardThumbnails([]);
+      }
+    };
+    if (user) {
+      fetchThumbnails();
+    }
+    return () => { isMounted = false; };
+  }, [deckNumber, user]);
+
   return (
     <Animated.View style={{ transform: [{ scale: cardScale }] }}>
       <TouchableOpacity
-        style={[
-          styles.deckCard,
-          { backgroundColor: theme.cardBackground },
-          isSelected && styles.selectedDeckCard,
-        ]}
         onPress={onSelect}
         onPressIn={animateCard}
         onPressOut={resetCard}
         activeOpacity={1}
       >
-        <Text style={[styles.deckCardText, { color: theme.text }]}>
-          {deckName || `Deck #${deckNumber}`}
-        </Text>
-        <View style={styles.deckCardActions}>
-          <TouchableOpacity onPress={onEdit} style={styles.editButton}>
-            <Icon name="pencil" size={16} color={theme.text} />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={onDelete} style={styles.deleteButton}>
-            <Icon name="trash" size={16} color={theme.text} />
-          </TouchableOpacity>
-        </View>
+        <LinearGradient
+          start={{x: 0, y: 0}} end={{x: 1, y: 0}}
+          colors={['#696969','#8f8f8f' ]}
+          style={[styles.deckCard, isSelected && styles.selectedDeckCard]}
+        >
+          <Text style={[styles.deckCardText, { color: 'white' }]}>
+            {deckName || `Deck #${deckNumber}`}
+          </Text>
+          <View style={styles.deckCardActions}>
+            {cardThumbnails.length > 0 && (
+              <View style={styles.cardThumbnailsContainer}>
+                {cardThumbnails.map((img, idx) => (
+                  <Image
+                    key={idx}
+                    source={{ uri: img }}
+                    style={styles.cardThumbnail}
+                    resizeMode="cover"
+                  />
+                ))}
+              </View>
+            )}
+            <TouchableOpacity onPress={onEdit} style={styles.editButton}>
+              <Icon name="pencil" size={22} color="white" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={onDelete} style={styles.deleteButton}>
+              <Icon name="trash" size={22} color="white" />
+            </TouchableOpacity>
+          </View>
+        </LinearGradient>
       </TouchableOpacity>
     </Animated.View>
   );
 });
 
-const DeckList = React.memo(({ deckList, deckName, theme }) => {
+const DeckList = React.memo(({ deckList, deckName, theme, visible, onClose }) => {
   if (!deckList) {
     return (
       <View style={styles.emptyDeckList}>
@@ -80,16 +142,39 @@ const DeckList = React.memo(({ deckList, deckName, theme }) => {
   }
 
   return (
-    <View style={styles.deckListContainer}>
-      <Text style={[styles.deckListTitle, { color: theme.text }]}>{deckName} List:</Text>
-      <ScrollView>
-        {deckList.map((card, index) => (
-          <Text key={index} style={[styles.cardText, { color: theme.text }]}>
-            {card.name} {card.quantity > 1 ? `x${card.quantity}` : ''}
-          </Text>
-        ))}
-      </ScrollView>
-    </View>
+    <Modal
+      visible={visible}
+      transparent={true}
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+        <View style={[styles.modalContent, { backgroundColor: theme.cardBackground }]}>
+          <View style={styles.modalHeader}>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>{deckName}</Text>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <Icon name="close" size={24} color={theme.text} />
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.modalScrollView}>
+            <View style={styles.cardGrid}>
+              {deckList.map((card, index) => (
+                <View key={index} style={styles.cardGridItem}>
+                  <Image
+                    source={{ uri: card.image_url + "/low.webp" }}
+                    style={styles.cardImage}
+                    resizeMode="contain"
+                  />
+                  <View style={styles.cardQuantityContainer}>
+                    <Text style={[styles.cardQuantity, { color: theme.text }]}>x{card.quantity}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
   );
 });
 
@@ -105,15 +190,32 @@ const AddDeckButton = ({ onPress }) => {
 };
 
 const Decklistscreen = () => {
+  const MAX_DECKS = 40;
   const { isDarkMode, user } = useAuth();
   const theme = isDarkMode ? darkPalette : lightPalette;
   const navigation = useNavigation();
+  const route = useRoute();
+  const { refresh } = route.params || {};
   const [deckCount, setDeckCount] = useState(0);
   const [selectedDeck, setSelectedDeck] = useState(null);
   const [deckList, setDeckList] = useState(null);
   const [deckNames, setDeckNames] = useState({});
   const [loading, setLoading] = useState(false);
   const [fetchingDeckList, setFetchingDeckList] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [isDeckListModalVisible, setIsDeckListModalVisible] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([fetchDeckCount(), fetchDeckNames()]);
+    } catch (error) {
+      console.error('Error refreshing:', error);
+      Alert.alert('Error', 'Failed to refresh deck list.');
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchDeckCount, fetchDeckNames]);
 
   const fetchDeckCount = useCallback(async () => {
     if (!user) return;
@@ -133,7 +235,7 @@ const Decklistscreen = () => {
       }
 
       let count = 0;
-      for (let i = 1; i <= 10; i++) {
+      for (let i = 1; i <= MAX_DECKS; i++) {
         if (profile && profile[`DECK_LIST_${i}`]) {
           count++;
         }
@@ -165,7 +267,7 @@ const Decklistscreen = () => {
       }
 
       const names = {};
-      for (let i = 1; i <= 10; i++) {
+      for (let i = 1; i <= MAX_DECKS; i++) {
         if (profile && profile[`DECK_LIST_${i}`]) {
           const deckData = JSON.parse(profile[`DECK_LIST_${i}`]);
           names[i] = deckData.name;
@@ -185,13 +287,20 @@ const Decklistscreen = () => {
     fetchDeckNames();
   }, [fetchDeckCount, fetchDeckNames]);
 
+  useEffect(() => {
+    if (refresh) {
+      onRefresh();
+    }
+  }, [refresh, onRefresh]);
+
   const handleAddDeck = () => {
     navigation.navigate('MyDecks');
   };
 
   const handleDeckPress = async (deckNumber) => {
     if (selectedDeck === deckNumber) {
-      setSelectedDeck(null); // Toggle selection
+      setSelectedDeck(null);
+      setIsDeckListModalVisible(false);
       return;
     }
 
@@ -216,15 +325,20 @@ const Decklistscreen = () => {
         const deck = JSON.parse(profile[`DECK_LIST_${deckNumber}`]);
         const cardCounts = {};
         deck.cards.forEach((card) => {
-          cardCounts[card.name] = (cardCounts[card.name] || 0) + 1;
+          cardCounts[card.id] = (cardCounts[card.id] || 0) + 1;
         });
 
-        const countedDeckList = Object.entries(cardCounts).map(([name, quantity]) => ({
-          name,
-          quantity,
-        }));
+        const countedDeckList = Object.entries(cardCounts).map(([id, quantity]) => {
+          const card = deck.cards.find(c => c.id === id);
+          return {
+            id,
+            quantity,
+            image_url: card.image
+          };
+        });
 
         setDeckList(countedDeckList);
+        setIsDeckListModalVisible(true);
       } else {
         setDeckList(null);
       }
@@ -278,24 +392,39 @@ const Decklistscreen = () => {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-      <Text style={[styles.title, { color: theme.text }]}>My Deck Lists</Text>
+      <Text style={[styles.title, { color: theme.text }]}>
+        My Deck Lists ({deckCount}/{MAX_DECKS})
+      </Text>
 
       {loading ? (
         <ActivityIndicator size="large" color={theme.primary} />
       ) : (
-        <ScrollView style={styles.decksContainer}>
+        <ScrollView 
+          style={styles.decksContainer}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[theme.primary]}
+              tintColor={theme.primary}
+            />
+          }
+        >
           {deckCount > 0 ? (
-            Array.from({ length: deckCount }, (_, i) => i + 1).map((deckNumber) => (
-              <DeckCard
-                key={deckNumber}
-                deckNumber={deckNumber}
-                deckName={deckNames[deckNumber]}
-                isSelected={selectedDeck === deckNumber}
-                onSelect={() => handleDeckPress(deckNumber)}
-                onEdit={() => handleEditDeck(deckNumber)}
-                onDelete={() => handleDeleteDeck(deckNumber)}
-              />
-            ))
+            Array.from({ length: MAX_DECKS }, (_, i) => i + 1)
+              .filter((deckNumber) => deckNames[deckNumber])
+              .map((deckNumber) => (
+                <DeckCard
+                  key={deckNumber}
+                  deckNumber={deckNumber}
+                  deckName={deckNames[deckNumber]}
+                  isSelected={selectedDeck === deckNumber}
+                  onSelect={() => handleDeckPress(deckNumber)}
+                  onEdit={() => handleEditDeck(deckNumber)}
+                  onDelete={() => handleDeleteDeck(deckNumber)}
+                  user={user}
+                />
+              ))
           ) : (
             <Text style={[styles.noDecksText, { color: theme.text }]}>No decks saved yet.</Text>
           )}
@@ -309,7 +438,13 @@ const Decklistscreen = () => {
           <ActivityIndicator size="small" color={theme.primary} />
         </View>
       ) : (
-        selectedDeck && <DeckList deckList={deckList} deckName={deckNames[selectedDeck]} theme={theme} />
+        <DeckList 
+          deckList={deckList} 
+          deckName={deckNames[selectedDeck]} 
+          theme={theme}
+          visible={isDeckListModalVisible}
+          onClose={() => setIsDeckListModalVisible(false)}
+        />
       )}
     </SafeAreaView>
   );
@@ -319,6 +454,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 10,
+    backgroundColor: '#e0e0e0',
   },
   title: {
     fontSize: 24,
@@ -336,6 +472,14 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 10,
     marginBottom: 10,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
   selectedDeckCard: {
     borderColor: 'yellow',
@@ -347,6 +491,20 @@ const styles = StyleSheet.create({
   },
   deckCardActions: {
     flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cardThumbnailsContainer: {
+    flexDirection: 'row',
+    marginRight: 8,
+  },
+  cardThumbnail: {
+    width: 52,
+    height: 75,
+    borderRadius: 2,
+    borderWidth: 1,
+    borderColor: '#fff',
+    marginRight: 3,
+    backgroundColor: '#222',
   },
   editButton: {
     marginRight: 10,
@@ -371,25 +529,6 @@ const styles = StyleSheet.create({
     fontSize: 30,
     fontWeight: 'bold',
   },
-  deckListContainer: {
-    marginTop: 10,
-    padding: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  deckListTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  cardText: {
-    fontSize: 16,
-    marginBottom: 5,
-  },
-  noDecksText: {
-    textAlign: 'center',
-    marginTop: 20,
-  },
   deckListLoading: {
     marginTop: 10,
     alignItems: 'center',
@@ -397,7 +536,86 @@ const styles = StyleSheet.create({
   emptyDeckList: {
     padding: 20,
     alignItems: 'center'
-  }
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '90%',
+    height: '80%',
+    borderRadius: 10,
+    padding: 15,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  closeButton: {
+    padding: 5,
+  },
+  modalScrollView: {
+    flex: 1,
+  },
+  cardGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    padding: 5,
+  },
+  cardGridItem: {
+    width: '33%',
+    aspectRatio: 3/4,
+    marginBottom: 10,
+    position: 'relative',
+  },
+  cardImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  cardQuantityContainer: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderRadius: 10,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  cardQuantity: {
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  noDecksText: {
+    textAlign: 'center',
+    marginTop: 20,
+  },
+  threeDButton: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 5,
+  },
+  threeDButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
 });
 
 export default Decklistscreen;

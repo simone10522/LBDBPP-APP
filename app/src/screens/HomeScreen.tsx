@@ -12,12 +12,14 @@ import {
   Easing,
   Dimensions,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import TournamentList from '../components/TournamentList';
 // No need to import AsyncStorage
 import { lightPalette, darkPalette } from '../context/themes'; // Import palettes
+import BannerAdComponent from '../components/BannerAd';
+import { TestIds } from 'react-native-google-mobile-ads';
 
 interface Tournament {
   id: string;
@@ -59,7 +61,7 @@ const HomeScreen = () => {
 
   // ... (rest of your component, using the theme object as before) ...
 
-    const fetchUserData = useCallback(async () => {
+  const fetchUserData = useCallback(async () => {
     setLoading(true);
     try {
       if (!user) {
@@ -88,7 +90,7 @@ const HomeScreen = () => {
   }, [user]);
 
   const fetchUserTournaments = useCallback(async () => {
-    if (!user) {
+    if (!user?.id) {  // Changed this line to explicitly check for user.id
       setUserTournaments([]);
       return;
     }
@@ -99,7 +101,10 @@ const HomeScreen = () => {
         .select('*, profiles!tournaments_created_by_fkey(username)')
         .eq('created_by', user.id);
 
-      if (createdError) throw createdError;
+      if (createdError) {
+        console.error('Error fetching created tournaments:', createdError);
+        throw createdError;
+      }
 
       const { data: participantTournaments, error: participantError } = await supabase
         .from('tournament_participants')
@@ -150,9 +155,13 @@ const HomeScreen = () => {
     fetchUserData();
   }, [fetchUserData]);
 
-  useEffect(() => {
-    fetchUserTournaments();
-  }, [fetchUserTournaments]);
+  useFocusEffect(
+    useCallback(() => {
+      if (user) {
+        fetchUserTournaments();
+      }
+    }, [user, fetchUserTournaments])
+  );
 
   useEffect(() => {
     Animated.timing(logoTopPosition, {
@@ -241,7 +250,7 @@ const HomeScreen = () => {
             <Text style={[styles.yourTournamentsTitle, { color: theme.text }]}>Your Tournaments</Text>
             {!user && (
               <Text style={[styles.noTournamentsText, { color: theme.text }]}>
-                Nessun Torneo Disponibile, Esegui il Login
+                No Tournaments Available, Login now!
               </Text>
             )}
             {user && (
@@ -267,7 +276,7 @@ const HomeScreen = () => {
               onPressOut={() => resetButton(loginButtonScale)}
             >
               <Animated.Text style={[styles.loginButtonText, { transform: [{ scale: loginButtonScale }], color: theme.buttonText }]}>
-                Accedi
+                Login
               </Animated.Text>
             </TouchableOpacity>
           ) : (
@@ -283,12 +292,13 @@ const HomeScreen = () => {
             </TouchableOpacity>
           )}
         </View>
+        <View style={styles.bannerAdContainer}>
+          <BannerAdComponent />
+        </View>
       </View>
     </View>
   );
 };
-
-
 
 const styles = StyleSheet.create({
   backgroundImage: {
@@ -406,6 +416,7 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     marginHorizontal: 10,
     borderWidth: 1,
+    marginTop: 5,
   },
   createButtonText: {
     fontWeight: 'bold',
@@ -429,6 +440,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     marginTop: 10,
+  },
+  bannerAdContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 10, // Add some padding to separate from buttons
   },
 });
 

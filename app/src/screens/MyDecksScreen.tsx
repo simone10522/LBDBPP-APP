@@ -10,7 +10,9 @@ import cardDataSetsA1 from '../../assets/cards/A1.json';
 import cardDataSetsA1a from '../../assets/cards/A1a.json';
 import cardDataSetsA2a from '../../assets/cards/A2a.json';
 import cardDataSetsA2 from '../../assets/cards/A2.json';
+import cardDataSetsA2b from '../../assets/cards/A2b.json'; // Add this line
 import cardDataSetsPA from '../../assets/cards/PA.json';
+import BannerAdComponent from '../components/BannerAd';
 
 const MyDecksScreen = () => {
   const [setsData, setSetsData] = useState([]);
@@ -26,52 +28,49 @@ const MyDecksScreen = () => {
   const [visibleSets, setVisibleSets] = useState(1);
   const [deckName, setDeckName] = useState('');
   const [isSaveModalVisible, setIsSaveModalVisible] = useState(false);
-
+  const [isListExpanded, setIsListExpanded] = useState(false);
 
   const { isDarkMode, user } = useAuth();
   const currentPalette = isDarkMode ? darkPalette : lightPalette;
   const navigation = useNavigation();
-    const route = useRoute();
+  const route = useRoute();
   const flatListRef = useRef<FlatList>(null);
 
-    // Get the deckNumber from navigation parameters
-    const { deckNumber } = route.params || {};
+  const { deckNumber } = route.params || {};
 
   useEffect(() => {
-    console.log("MyDecksScreen useEffect: route.params =", route.params); // ADDED LOG
-    console.log("MyDecksScreen useEffect: deckNumber =", deckNumber);     // ADDED LOG
     fetchCardSets();
   }, []);
 
-    useEffect(() => {
+  useEffect(() => {
     if (deckNumber && user) {
       fetchDeckData(deckNumber);
     }
   }, [deckNumber, user]);
 
-    const fetchDeckData = async (deckNumber) => {
-        try {
-            const { data: profile, error } = await supabase
-                .from('profiles')
-                .select(`DECK_LIST_${deckNumber}`)
-                .eq('id', user.id)
-                .single();
+  const fetchDeckData = async (deckNumber) => {
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select(`DECK_LIST_${deckNumber}`)
+        .eq('id', user.id)
+        .single();
 
-            if (error) {
-                console.error("Error fetching deck list:", error);
-                return;
-            }
+      if (error) {
+        console.error("Error fetching deck list:", error);
+        return;
+      }
 
-            if (profile && profile[`DECK_LIST_${deckNumber}`]) {
-                const deck = JSON.parse(profile[`DECK_LIST_${deckNumber}`]);
-                setCurrentDeck(deck.cards);
-                setDeckName(deck.name); // Set the deck name
-                setIsDeckFull(deck.cards.length >= 20);
-            }
-        } catch (error) {
-            console.error("Error parsing deck list:", error);
-        }
-    };
+      if (profile && profile[`DECK_LIST_${deckNumber}`]) {
+        const deck = JSON.parse(profile[`DECK_LIST_${deckNumber}`]);
+        setCurrentDeck(deck.cards);
+        setDeckName(deck.name);
+        setIsDeckFull(deck.cards.length >= 20);
+      }
+    } catch (error) {
+      console.error("Error parsing deck list:", error);
+    }
+  };
 
   const fetchCardSets = async () => {
     setLoading(true);
@@ -102,6 +101,13 @@ const MyDecksScreen = () => {
         {
           setName: "Space-Time Smackdown",
           cards: cardDataSetsA2.cards.map(card => ({
+            ...card,
+            cachedImage: card.image + "/low.webp",
+          }))
+        },
+        {
+          setName: "Shining Revelry",
+          cards: cardDataSetsA2b.cards.map(card => ({
             ...card,
             cachedImage: card.image + "/low.webp",
           }))
@@ -142,13 +148,13 @@ const MyDecksScreen = () => {
   const handleCardPress = (card) => {
     setDeckError(null);
     if (currentDeck.length >= 20) {
-      setDeckError("Deck cannot exceed 20 cards.");
+      setDeckError();
       return;
     }
 
     const cardCount = currentDeck.filter((c) => c.name === card.name).length;
     if (cardCount >= 2) {
-      setDeckError("Cannot have more than two copies of the same card.");
+      setDeckError();
       return;
     }
 
@@ -158,9 +164,13 @@ const MyDecksScreen = () => {
   };
 
   const removeCardFromDeck = (cardToRemove) => {
-    const newDeck = currentDeck.filter(card => card.id !== cardToRemove.id);
-    setCurrentDeck(newDeck);
-    setIsDeckFull(newDeck.length >= 20);
+    const index = currentDeck.findIndex(card => card.id === cardToRemove.id);
+    if (index !== -1) {
+      const newDeck = [...currentDeck];
+      newDeck.splice(index, 1);
+      setCurrentDeck(newDeck);
+      setIsDeckFull(newDeck.length >= 20);
+    }
   };
 
   const closeModal = () => {
@@ -172,7 +182,10 @@ const MyDecksScreen = () => {
   };
 
   const openSaveModal = () => {
-    //setDeckName(''); // Reset deck name, we are setting on load
+    if (currentDeck.length < 20) {
+      Alert.alert("Attenzione", "Non puoi salvare un mazzo con meno di 20 carte.");
+      return;
+    }
     setIsSaveModalVisible(true);
   };
 
@@ -180,7 +193,7 @@ const MyDecksScreen = () => {
     setIsSaveModalVisible(false);
   };
 
-    const handleSaveDeck = async () => {
+  const handleSaveDeck = async () => {
     console.log("handleSaveDeck: deckNumber =", deckNumber);
     console.log("handleSaveDeck: route.params =", route.params);
     if (!user) {
@@ -193,12 +206,6 @@ const MyDecksScreen = () => {
       return;
     }
 
-        // REMOVED THIS CHECK - Now handle both create and edit cases
-        // if (!deckNumber) {
-        //     console.error("Deck number not provided for editing.");
-        //     return;
-        // }
-
     try {
       const deckData = {
         name: deckName,
@@ -206,7 +213,6 @@ const MyDecksScreen = () => {
       };
 
       if (deckNumber) {
-        // Editing existing deck
         const { error: updateError } = await supabase
           .from('profiles')
           .update({ [`DECK_LIST_${deckNumber}`]: deckData })
@@ -221,7 +227,6 @@ const MyDecksScreen = () => {
         Alert.alert("Success", `Deck "${deckName}" updated!`);
 
       } else {
-        // Creating new deck
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('*')
@@ -260,9 +265,8 @@ const MyDecksScreen = () => {
         }
       }
 
-
       closeSaveModal();
-      navigation.navigate('Decklistscreen');
+      navigation.navigate('Decklistscreen', { refresh: true });
 
     } catch (error) {
       console.error("Error saving deck:", error);
@@ -271,7 +275,10 @@ const MyDecksScreen = () => {
   };
 
   const renderCardItem = ({ item }) => {
-    const isInDeck = currentDeck.some(deckCard => deckCard.id === item.id);
+    const count = currentDeck.filter(deckCard => deckCard.id === item.id).length;
+    const isInDeck = count > 0;
+    // Disabilita solo il tasto + della carta che ha già 2 copie
+    const plusDisabled = count >= 2;
     return (
       <View key={item.id} style={styles.cardItem}>
         <View style={styles.cardImageContainer}>
@@ -280,9 +287,19 @@ const MyDecksScreen = () => {
             source={{ uri: item.cachedImage }}
             resizeMode="contain"
           />
+          {/* Badge count centrato sull'immagine */}
+          {isInDeck && (
+            <View style={styles.centerCountBadge}>
+              <Text style={styles.centerCountText}>×{count}</Text>
+            </View>
+          )}
           <TouchableOpacity
-            style={[styles.addButton, { backgroundColor: 'green' }]}
-            onPress={() => handleCardPress(item)}
+            style={[
+              styles.addButton,
+              { backgroundColor: plusDisabled ? '#888' : 'green', opacity: plusDisabled ? 0.6 : 1 }
+            ]}
+            onPress={() => !plusDisabled && handleCardPress(item)}
+            disabled={plusDisabled}
           >
             <Text style={styles.buttonText}>+</Text>
           </TouchableOpacity>
@@ -321,6 +338,28 @@ const MyDecksScreen = () => {
     setVisibleSets(prevVisibleSets => prevVisibleSets + 1);
   };
 
+  const renderSelectedCardThumbnail = ({ item }) => {
+    const count = currentDeck.filter(card => card.id === item.id).length;
+    return (
+      <View style={styles.thumbnailContainer}>
+        <TouchableOpacity onPress={() => removeCardFromDeck(item)}>
+          <Image
+            source={{ uri: item.cachedImage }}
+            style={styles.thumbnailImage}
+            resizeMode="contain"
+          />
+          {count > 1 && (
+            <View style={styles.countBadge}>
+              <Text style={styles.countText}>×{count}</Text>
+            </View>
+          )}
+          <View style={styles.removeIconContainer}>
+            <Text style={styles.removeIcon}>×</Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: currentPalette.background }]}>
@@ -332,6 +371,28 @@ const MyDecksScreen = () => {
         onChangeText={setSearchText}
       />
 
+      {/* Selected Cards Thumbnails */}
+      <View style={styles.selectedCardsContainer}>
+        <View style={styles.selectedCardsHeader}>
+          <Text style={[styles.selectedCardsTitle, { color: currentPalette.text }]}>
+            Selected Cards ({currentDeck.length}/20)
+          </Text>
+          {deckError && <Text style={styles.deckError}>{deckError}</Text>}
+        </View>
+        <FlatList
+          horizontal
+          data={Object.values(currentDeck.reduce((acc, card) => {
+            acc[card.id] = card;
+            return acc;
+          }, {}))}
+          renderItem={renderSelectedCardThumbnail}
+          keyExtractor={item => item.id}
+          contentContainerStyle={styles.thumbnailList}
+          showsHorizontalScrollIndicator={false}
+        />
+      </View>
+
+      {/* Rest of the cards grid */}
       {loading ? (
         <Text style={[styles.text, { color: currentPalette.text }]}>Loading cards...</Text>
       ) : error ? (
@@ -348,42 +409,22 @@ const MyDecksScreen = () => {
         />
       )}
 
-      <Text style={{ color: currentPalette.text, margin: 10 }}>
-        Deck Count: {currentDeck.length} / 20
-      </Text>
-      {deckError && <Text style={{ color: 'red', margin: 10 }}>{deckError}</Text>}
-
-      <FlatList
-        data={Object.values(currentDeck.reduce((acc, card) => {
-          if (!acc[card.id]) {
-            acc[card.id] = { ...card, count: 0 };
+      <TouchableOpacity
+        style={[
+          styles.saveButton, 
+          { 
+            backgroundColor: currentDeck.length >= 20 
+              ? currentPalette.primary 
+              : '#888888'
           }
-          acc[card.id].count += 1;
-          return acc;
-        }, {}))}
-        renderItem={({ item }) => (
-          <View key={item.id} style={styles.deckCardItem}>
-            <Text style={{ color: currentPalette.text }}>
-              {item.name} {item.count > 1 ? `X${item.count}` : ''}
-            </Text>
-            <TouchableOpacity onPress={() => removeCardFromDeck(item)}>
-              <Text style={{ color: 'red', marginLeft: 10, fontWeight: 'bold' }}>X</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-        keyExtractor={item => item.id}
-        style={{ maxHeight: 200, margin: 10 }}
-      />
-
-
-      {
-        <TouchableOpacity
-          style={[styles.saveButton, { backgroundColor: currentPalette.saveButton }]}
-          onPress={openSaveModal}
-        >
-          <Text style={styles.saveButtonText}>Save Deck</Text>
-        </TouchableOpacity>
-      }
+        ]}
+        onPress={openSaveModal}
+        disabled={currentDeck.length < 20}
+      >
+        <Text style={styles.saveButtonText}>
+          Save Deck
+        </Text>
+      </TouchableOpacity>
 
       {/* Save Deck Modal */}
       <Modal
@@ -453,6 +494,10 @@ const MyDecksScreen = () => {
           </Animated.View>
         </TouchableOpacity>
       </Modal>
+
+      <View style={styles.bannerAdContainer}>
+        <BannerAdComponent />
+      </View>
     </SafeAreaView>
   );
 };
@@ -497,7 +542,6 @@ const styles = StyleSheet.create({
     aspectRatio: 3 / 4,
     borderRadius: 5,
     borderWidth: 1,
-
   },
   addButton: {
     position: 'absolute',
@@ -548,7 +592,7 @@ const styles = StyleSheet.create({
     padding: 20,
     borderRadius: 10,
     width: '80%',
-    alignItems: 'center', // Center content horizontally
+    alignItems: 'center',
   },
   fullSizeCardImage: {
     width: '100%',
@@ -585,7 +629,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#CCCCCC'
   },
   saveButton: {
-    padding: 15,
+    padding: 5,
     margin: 10,
     borderRadius: 5,
     justifyContent: 'center',
@@ -604,23 +648,115 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 5,
     borderWidth: 1,
-    width: '100%', // Take full width
+    width: '100%',
     marginBottom: 10,
   },
   modalButtonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    width: '100%', // Take full width
+    width: '100%',
   },
   modalButton: {
     padding: 10,
     borderRadius: 5,
-    width: '40%', // Adjust button width
+    width: '40%',
     alignItems: 'center',
   },
   modalButtonText: {
     color: 'white',
     fontWeight: 'bold',
+  },
+  bannerAdContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 0,
+    marginTop: 0,
+  },
+  selectedCardsContainer: {
+    marginHorizontal: 10,
+    marginBottom: 10,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  selectedCardsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ccc',
+  },
+  selectedCardsTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  thumbnailList: {
+    padding: 8,
+  },
+  thumbnailContainer: {
+    marginRight: 8,
+    position: 'relative',
+  },
+  thumbnailImage: {
+    width: 60,
+    height: 84,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#ccc',
+  },
+  countBadge: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  countText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  removeIconContainer: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: 'red',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  removeIcon: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  deckError: {
+    color: '#ff4444',
+    fontSize: 12,
+    marginLeft: 8,
+  },
+  // Badge count centrato per la griglia principale e thumbnails
+  centerCountBadge: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: -18 }, { translateY: -12 }],
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    zIndex: 2,
+    minWidth: 32,
+    alignItems: 'center',
+  },
+  centerCountText: {
+    color: 'white',
+    fontSize: 26,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 });
 

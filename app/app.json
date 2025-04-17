@@ -1,17 +1,6 @@
 {
-  "expo": {
-    "name": "LBDBPP",
-    "slug": "lbdbpp",
-    "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#383838"
-    },
-    "assetBundlePatterns": [
+  "name": "Pocket Tournament",
+  "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
@@ -30,9 +19,13 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+
     "experiments": {
       "turboModules": false
     },
+	 "react-native-google-mobile-ads": {
+    "android_app_id": "ca-app-pub-3518274030390186~7173130626"
+  },
     "extra": {
       "eas": {
         "projectId": "c382d6da-ecee-4deb-9045-74b7ff0c5207"
