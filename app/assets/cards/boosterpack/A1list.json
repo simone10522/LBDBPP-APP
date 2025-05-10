@@ -1,0 +1,1519 @@
+{
+  "CHARIZARD": {
+    "cards": [
+      { "id": "011", "rarity": "One Diamond"},
+      {
+        "id": "012",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "013",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "018",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "019",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "020",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "021",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "022",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "023",
+        "rarity": "Four Diamond"
+      },
+      {
+        "id": "024",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "026",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "027",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "028",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "029",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "030",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "031",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "032",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "033",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "034",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "035",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "036",
+        "rarity": "Four Diamond"
+      },
+      {
+        "id": "037",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "038",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "042",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "043",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "044",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "045",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "046",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "047",
+        "rarity": "Four Diamond"
+      },
+      {
+        "id": "048",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "051",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "052",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "057",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "058",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "059",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "060",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "061",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "074",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "075",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "076",
+        "rarity": "Four Diamond"
+      },
+      {
+        "id": "079",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "085",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "086",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "087",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "088",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "089",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "090",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "091",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "092",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "093",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "105",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "106",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "110",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "111",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "112",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "115",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "116",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "117",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "118",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "119",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "133",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "134",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "135",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "136",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "137",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "138",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "141",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "142",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "143",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "144",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "145",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "146",
+        "rarity": "Four Diamond"
+      },
+      {
+        "id": "155",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "158",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "159",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "162",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "163",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "164",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "165",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "178",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "179",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "180",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "181",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "182",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "189",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "190",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "191",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "192",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "196",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "197",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "198",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "199",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "200",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "203",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "204",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "206",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "212",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "213",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "214",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "215",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "217",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "219",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "221",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "225",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "228",
+        "rarity": "One Star"
+      },
+      {
+        "id": "229",
+        "rarity": "One Star"
+      },
+      {
+        "id": "230",
+        "rarity": "One Star"
+      },
+      {
+        "id": "231",
+        "rarity": "One Star"
+      },
+      {
+        "id": "234",
+        "rarity": "One Star"
+      },
+      {
+        "id": "236",
+        "rarity": "One Star"
+      },
+      {
+        "id": "237",
+        "rarity": "One Star"
+      },
+      {
+        "id": "246",
+        "rarity": "One Star"
+      },
+      {
+        "id": "252",
+        "rarity": "Two Star"
+      },
+      {
+        "id": "253",
+        "rarity": "Two Star"
+      },
+      {
+        "id": "255",
+        "rarity": "Two Star"
+      },
+      {
+        "id": "257",
+        "rarity": "Two Star"
+      },
+      {
+        "id": "263",
+        "rarity": "Two Star"
+      },
+      {
+        "id": "266",
+        "rarity": "Two Star"
+      },
+      {
+        "id": "268",
+        "rarity": "Two Star"
+      },
+      {
+        "id": "272",
+        "rarity": "Two Star"
+      },
+      {
+        "id": "274",
+        "rarity": "Two Star"
+      },
+      {
+        "id": "278",
+        "rarity": "Two Star"
+      },
+      {
+        "id": "280",
+        "rarity": "Three Star"
+      },
+      {
+        "id": "284",
+        "rarity": "Crown"
+      },
+      {
+        "id": "285",
+        "rarity": "Crown"
+      },
+      {
+        "id": "286",
+        "rarity": "Crown"
+      }
+    ]
+  },
+  "MEWTWO": {
+    "cards": [
+      {
+        "id": "001",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "002",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "003",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "004",
+        "rarity": "Four Diamond"
+      },
+      {
+        "id": "008",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "009",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "010",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "016",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "017",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "025",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "026",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "027",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "028",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "029",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "030",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "042",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "043",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "048",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "049",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "050",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "051",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "052",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "057",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "058",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "062",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "063",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "066",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "067",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "068",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "069",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "080",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "083",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "084",
+        "rarity": "Four Diamond"
+      },
+      {
+        "id": "091",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "092",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "093",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "105",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "106",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "107",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "108",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "109",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "110",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "111",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "112",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "118",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "119",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "120",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "121",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "122",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "123",
+        "rarity": "Four Diamond"
+      },
+      {
+        "id": "126",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "127",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "128",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "129",
+        "rarity": "Four Diamond"
+      },
+      {
+        "id": "130",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "131",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "132",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "133",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "134",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "135",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "136",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "137",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "138",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "151",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "152",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "153",
+        "rarity": "Four Diamond"
+      },
+      {
+        "id": "154",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "156",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "157",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "162",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "163",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "164",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "165",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "172",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "173",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "174",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "175",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "176",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "177",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "179",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "180",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "183",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "184",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "185",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "186",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "187",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "188",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "189",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "190",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "198",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "199",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "200",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "201",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "205",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "207",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "209",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "210",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "212",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "213",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "214",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "215",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "218",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "222",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "223",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "227",
+        "rarity": "One Star"
+      },
+      {
+        "id": "239",
+        "rarity": "One Star"
+      },
+      {
+        "id": "242",
+        "rarity": "One Star"
+      },
+      {
+        "id": "243",
+        "rarity": "One Star"
+      },
+      {
+        "id": "244",
+        "rarity": "One Star"
+      },
+      {
+        "id": "245",
+        "rarity": "One Star"
+      },
+      {
+        "id": "247",
+        "rarity": "One Star"
+      },
+      {
+        "id": "249",
+        "rarity": "One Star"
+      },
+      {
+        "id": "251",
+        "rarity": "Two Star"
+      },
+      {
+        "id": "258",
+        "rarity": "Two Star"
+      },
+      {
+        "id": "261",
+        "rarity": "Two Star"
+      },
+      {
+        "id": "262",
+        "rarity": "Two Star"
+      },
+      {
+        "id": "264",
+        "rarity": "Two Star"
+      },
+      {
+        "id": "269",
+        "rarity": "Two Star"
+      },
+      {
+        "id": "270",
+        "rarity": "Two Star"
+      },
+      {
+        "id": "275",
+        "rarity": "Two Star"
+      },
+      {
+        "id": "277",
+        "rarity": "Two Star"
+      },
+      {
+        "id": "282",
+        "rarity": "Three Star"
+      },
+      {
+        "id": "284",
+        "rarity": "Crown"
+      },
+      {
+        "id": "285",
+        "rarity": "Crown"
+      },
+      {
+        "id": "286",
+        "rarity": "Crown"
+      }
+    ]
+  },
+  "PIKACHU": {
+    "cards": [
+      {
+        "id": "005",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "006",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "007",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "014",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "015",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "026",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "027",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "028",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "029",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "030",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "039",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "040",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "041",
+        "rarity": "Four Diamond"
+      },
+      {
+        "id": "042",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "043",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "048",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "051",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "052",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "053",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "054",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "055",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "056",
+        "rarity": "Four Diamond"
+      },
+      {
+        "id": "057",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "058",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "064",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "065",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "070",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "071",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "072",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "073",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "077",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "078",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "081",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "082",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "091",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "092",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "093",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "094",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "095",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "096",
+        "rarity": "Four Diamond"
+      },
+      {
+        "id": "097",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "098",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "099",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "100",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "101",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "102",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "103",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "104",
+        "rarity": "Four Diamond"
+      },
+      {
+        "id": "105",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "106",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "110",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "111",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "112",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "113",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "114",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "118",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "119",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "124",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "125",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "133",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "134",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "135",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "136",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "137",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "138",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "139",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "140",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "147",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "148",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "149",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "150",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "160",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "161",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "162",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "163",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "164",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "165",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "166",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "167",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "168",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "169",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "170",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "171",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "179",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "180",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "189",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "190",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "193",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "194",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "195",
+        "rarity": "Four Diamond"
+      },
+      {
+        "id": "198",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "199",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "200",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "202",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "208",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "211",
+        "rarity": "Three Diamond"
+      },
+      {
+        "id": "212",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "213",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "214",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "215",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "216",
+        "rarity": "One Diamond"
+      },
+      {
+        "id": "220",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "224",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "226",
+        "rarity": "Two Diamond"
+      },
+      {
+        "id": "232",
+        "rarity": "One Star"
+      },
+      {
+        "id": "233",
+        "rarity": "One Star"
+      },
+      {
+        "id": "235",
+        "rarity": "One Star"
+      },
+      {
+        "id": "238",
+        "rarity": "One Star"
+      },
+      {
+        "id": "240",
+        "rarity": "One Star"
+      },
+      {
+        "id": "241",
+        "rarity": "One Star"
+      },
+      {
+        "id": "248",
+        "rarity": "One Star"
+      },
+      {
+        "id": "250",
+        "rarity": "One Star"
+      },
+      {
+        "id": "254",
+        "rarity": "Two Star"
+      },
+      {
+        "id": "256",
+        "rarity": "Two Star"
+      },
+      {
+        "id": "259",
+        "rarity": "Two Star"
+      },
+      {
+        "id": "260",
+        "rarity": "Two Star"
+      },
+      {
+        "id": "265",
+        "rarity": "Two Star"
+      },
+      {
+        "id": "267",
+        "rarity": "Two Star"
+      },
+      {
+        "id": "271",
+        "rarity": "Two Star"
+      },
+      {
+        "id": "273",
+        "rarity": "Two Star"
+      },
+      {
+        "id": "276",
+        "rarity": "Two Star"
+      },
+      {
+        "id": "279",
+        "rarity": "Two Star"
+      },
+      {
+        "id": "281",
+        "rarity": "Three Star"
+      },
+      {
+        "id": "284",
+        "rarity": "Crown"
+      },
+      {
+        "id": "285",
+        "rarity": "Crown"
+      },
+      {
+        "id": "286",
+        "rarity": "Crown"
+      }
+    ]
+  }
+}

@@ -113,7 +113,7 @@ const TournamentCard: React.FC<{ tournament: Tournament; isCardMinimized: boolea
             <View style={styles.cardHeader}>
               <Image source={tournamentIcon} style={styles.cardIcon} />
               <Text style={[styles.cardCreatorText, { color: theme.secondaryText }]}>
-                Creato da: {tournament.created_by}
+                Creator: {tournament.created_by}
               </Text>
             </View>
           )}
@@ -384,6 +384,7 @@ const styles = StyleSheet.create({
   },
   tournamentsContainer: {
     paddingHorizontal: 10,
+    alignItems: 'center',
   },
   cardContainer: {
     marginBottom: 10,

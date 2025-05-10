@@ -301,6 +301,13 @@ const styles = StyleSheet.create({
   emoji: {
     fontSize: 44, // Customize this value to adjust emoji size
   },
+  bannerAdContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 10,
+    width: '100%',
+    backgroundColor: 'transparent',
+  },
 });
 
 export default ChatScreen;

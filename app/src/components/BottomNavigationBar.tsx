@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../hooks/useAuth';
-import { Home, List, User, BarChart4, Repeat, MessageSquare } from 'lucide-react-native';
+import { Home, List, User, BarChart4, Repeat, MessageSquare, Layers } from 'lucide-react-native'; // aggiungi Layers
 import { supabase } from '../lib/supabase'; // Assicurati di importare il client Supabase
 import { fetchUnreadMatchNotifications } from '../utils/notificationUtils';
 import { appEvents, EVENTS } from '../utils/eventEmitter';
@@ -190,7 +190,7 @@ const BottomNavigationBar = () => {
       <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('TournamentPage')}>
         <View>
           <List color="#fff" size={24} />
-          {tournamentNotifications > 0 && ( // Mostra il badge solo se il conteggio è maggiore di zero
+          {tournamentNotifications > 0 && (
             <View style={styles.badge}>
               <Text style={styles.badgeText}>{tournamentNotifications}</Text>
             </View>
@@ -198,12 +198,7 @@ const BottomNavigationBar = () => {
         </View>
         <Text style={styles.buttonText}>Tornei</Text>
       </TouchableOpacity>
-      {/* Rimosso temporaneamente il tasto Ranked */}
-      {/* <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('RankedScreen')}>
-        <BarChart4 color="#fff" size={24} />
-        <Text style={styles.buttonText}>Ranked</Text>
-      </TouchableOpacity> */}
-      {user && ( // Mostro il pulsante Chat solo se l'utente è loggato
+      {user && (
         <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('ChatListScreen')}>
           <View>
             <MessageSquare color="#fff" size={24} />
@@ -216,6 +211,11 @@ const BottomNavigationBar = () => {
           <Text style={styles.buttonText}>Chat</Text>
         </TouchableOpacity>
       )}
+      {/* Nuova icona per la pagina di selezione carte */}
+      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('PackToPull')}>
+        <Layers color="#fff" size={24} />
+        <Text style={styles.buttonText}>My Cards</Text>
+      </TouchableOpacity>
       <TouchableOpacity style={styles.button} onPress={handleTradePress}>
         <View>
           <Repeat color="#fff" size={24} />

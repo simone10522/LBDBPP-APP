@@ -135,12 +135,10 @@ const styles = StyleSheet.create({
     padding: 0,
   },
   bannerAdContainer: {
-    width: '100%',
-    position: 'absolute',
-    bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
     paddingBottom: 10,
+    width: '100%',
     backgroundColor: 'transparent',
   },
 });

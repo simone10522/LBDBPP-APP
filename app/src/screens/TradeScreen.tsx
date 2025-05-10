@@ -5,10 +5,11 @@ import { lightPalette, darkPalette } from '../context/themes';
 import TradeCardSelection from '../components/TradeCardSelection';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
-import A1 from '../../assets/cards/A1.json';
-import A2 from '../../assets/cards/A2.json';
-import A1a from '../../assets/cards/A1a.json';
-import A2a from '../../assets/cards/A2a.json';
+import A1 from '../../assets/cards/modified/A1.json';
+import A2 from '../../assets/cards/modified/A2.json';
+import A1a from '../../assets/cards/modified/A1a.json';
+import A2a from '../../assets/cards/modified/A2a.json';
+import A2b from '../../assets/cards/modified/A2b.json';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Accordion from '../components/Accordion';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -20,8 +21,8 @@ import InterstitialAdComponent from '../components/InterstitialAd';
 
 const loadCardData = () => {
   const allCards = {};
-  [A1, A2, A1a, A2a].forEach(set => {
-    set.cards.forEach(card => {
+  [A1, A2, A1a, A2a, A2b].forEach(set => {
+    set.forEach(card => {
       allCards[card.id] = card;
     });
   });
@@ -44,6 +45,16 @@ const getCardName = (cardId: string) => {
     return card.name;
   }
   return 'Unknown Card';
+};
+
+const groupTradesByOtherUser = (trades, userId) => {
+  const grouped = {};
+  trades.forEach(trade => {
+    const otherUserId = trade.user1_id === userId ? trade.user2_id : trade.user1_id;
+    if (!grouped[otherUserId]) grouped[otherUserId] = [];
+    grouped[otherUserId].push(trade);
+  });
+  return grouped;
 };
 
 const TradeScreen = () => {
@@ -637,7 +648,7 @@ const TradeScreen = () => {
     const statusColor = otherUserStatus === 'online' ? 'green' : 'red';
 
     return (
-      <Accordion title={accordionTitle} status={otherUserStatus} showStatusIndicator={true}>
+      <Accordion title={accordionTitle} status={otherUserStatus}>
         <View style={[styles.matchItem, { backgroundColor: theme.cardBackground }]}>
           <Text style={[styles.matchText, { color: theme.text }]}>Trade with: {otherUsername}</Text>
           <View style={styles.cardColumnsContainer}>
@@ -770,6 +781,8 @@ const TradeScreen = () => {
     );
   }
 
+  const groupedTrades = groupTradesByOtherUser(tradeMatches, userId);
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Friend Code Modal */}
@@ -834,13 +847,26 @@ const TradeScreen = () => {
             </View>
           </>
         }
-        data={tradeMatches}
-        renderItem={renderTradeMatchItem}
-        keyExtractor={(item) => item.id.toString()}
+        data={Object.entries(groupedTrades)}
+        keyExtractor={([otherUserId]) => otherUserId}
+        renderItem={({ item }) => {
+          const [otherUserId, trades] = item;
+          return (
+            <Accordion
+              title={`Scambi disponibili con ${userProfiles[otherUserId]?.username || otherUserId}`}
+              showStatusIndicator={true}
+              status={userProfiles[otherUserId]?.status}
+            >
+              {trades.map(trade => (
+                <View key={trade.id}>
+                  {renderTradeMatchItem({ item: trade })}
+                </View>
+              ))}
+            </Accordion>
+          );
+        }}
         ListEmptyComponent={<Text style={{ color: theme.text }}>No trade matches found.</Text>}
-        ListFooterComponent={
-          error && <Text style={{ color: 'red' }}>Error: {error}</Text>
-        }
+        ListFooterComponent={error && <Text style={{ color: 'red' }}>Error: {error}</Text>}
       />
       <View style={styles.bannerAdContainer}>
         <BannerAdComponent />
@@ -1014,11 +1040,11 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   bannerAdContainer: {
-    width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    backgroundColor: 'transparent'
+    paddingBottom: 10,
+    width: '100%',
+    backgroundColor: 'transparent',
   },
   modalContainer: {
     flex: 1,

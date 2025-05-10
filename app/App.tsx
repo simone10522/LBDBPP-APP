@@ -30,6 +30,9 @@ import TournamentDeckScreen from './src/screens/TournamentDeckScreen';
 import ThreeDCube from './src/screens/3dcube';
 import BracketScreen from './src/screens/BracketScreen';
 import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
+import PackToPullScreen from './src/screens/packtopull/packtopull';
+import CalculatePullScreen from './src/screens/packtopull/calculatepull';
+import LoadingScreen from './src/screens/LoadingScreen';
 // Utils
 import { useAuth, useOnlineStatus } from './src/hooks/useAuth';
 import { supabase } from './src/lib/supabase';
@@ -68,6 +71,7 @@ const toastConfig = {
 
 const App = () => {
   const { userId, user, initializeAuth } = useAuth();
+  const [isLoading, setIsLoading] = useState(true);
 
   async function requestUserPermission() {
     const authStatus = await messaging().requestPermission();
@@ -175,6 +179,7 @@ const App = () => {
       } else {
         console.log("Nessuna sessione attiva trovata. Verifica i token salvati.");
       }
+      setIsLoading(false); // <-- Loading finito
     }
 
     initApp();
@@ -206,10 +211,15 @@ const App = () => {
     return unsubscribe;
   }, [user]);
 
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
+
   return (
     <>
       <NavigationContainer>
         <View style={styles.background}>
+          {/* SafeAreaView deve essere fuori dal Navigator */}
           <SafeAreaView style={{ flex: 1 }}>
             <Stack.Navigator
               initialRouteName="Home"
@@ -249,6 +259,8 @@ const App = () => {
               <Stack.Screen name="TournamentDeckScreen" component={TournamentDeckScreen}/>
               <Stack.Screen name="ThreeDCube" component={ThreeDCube} options={{ title: '3D Cube' }} />
               <Stack.Screen name="Bracket" component={BracketScreen} />
+              <Stack.Screen name="PackToPull" component={PackToPullScreen} options={{ title: 'My Cards' }} />
+              <Stack.Screen name="CalculatePull" component={CalculatePullScreen} options={{ title: 'Calculate Pull' }} />
             </Stack.Navigator>
           </SafeAreaView>
           <BottomNavigationBar />

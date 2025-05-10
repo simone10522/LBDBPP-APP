@@ -605,8 +605,7 @@ const ProfileScreen = () => {
           </TouchableOpacity>
         </View>
       </ScrollView>
-
-      <View style={[styles.bannerAdContainer, { backgroundColor: theme.background }]}>
+      <View style={styles.bannerAdContainer}>
         <BannerAdComponent />
       </View>
       <Toast />
@@ -697,14 +696,11 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   bannerAdContainer: {
-    width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    position: 'absolute',
-    bottom: 0,
-    left: 20,
-    right: 0,
+    paddingBottom: 0,
+    width: '100%',
+    backgroundColor: 'transparent',
   },
   modalContainer: {
     flex: 1,

@@ -251,11 +251,11 @@ const styles = StyleSheet.create({
     paddingVertical: 0, // Adjust vertical padding for list content if needed
   },
   bannerAdContainer: {
-    width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    backgroundColor: 'transparent'
+    paddingBottom: 10,
+    width: '100%',
+    backgroundColor: 'transparent',
   },
 });
 

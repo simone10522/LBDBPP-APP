@@ -1,37 +1,51 @@
-import React, { useState, ReactNode } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Pressable, StyleProp, TextStyle } from 'react-native';
+import React, { useState, useRef, ReactNode } from 'react';
+import { View, Text, StyleSheet, Pressable, StyleProp, TextStyle, Animated, Easing, Platform, UIManager } from 'react-native';
 import { ChevronDown } from 'lucide-react-native';
 import { lightPalette, darkPalette } from '../context/themes';
 import { useAuth } from '../hooks/useAuth';
 import CountryFlag from "react-native-country-flag";
+
+// Enable LayoutAnimation on Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 interface AccordionProps {
   title: string;
   children: ReactNode;
   flags?: { code: string; isoCode: string }[];
   showStatusIndicator?: boolean;
-  titleStyle?: StyleProp<TextStyle>; // Add titleStyle prop
+  titleStyle?: StyleProp<TextStyle>;
   status?: string;
   onOpen?: () => void;
 }
 
-const Accordion: React.FC<AccordionProps> = ({ 
-  title, 
-  children, 
-  flags = [], 
-  showStatusIndicator = false, 
-  titleStyle, 
+const Accordion: React.FC<AccordionProps> = ({
+  title,
+  children,
+  flags = [],
+  showStatusIndicator = false,
+  titleStyle,
   status,
-  onOpen 
+  onOpen
 }) => {
   const { isDarkMode } = useAuth();
   const [expanded, setExpanded] = useState(false);
-
+  const animation = useRef(new Animated.Value(0)).current;
+  const contentRef = useRef(null);
   const theme = isDarkMode ? darkPalette : lightPalette;
 
   const toggleAccordion = () => {
     const isExpanding = !expanded;
     setExpanded(isExpanding);
+    
+    Animated.timing(animation, {
+      toValue: isExpanding ? 1 : 0,
+      duration: 300,
+      easing: Easing.linear,
+      useNativeDriver: false
+    }).start();
+
     if (isExpanding && onOpen) {
       onOpen();
     }
@@ -44,7 +58,7 @@ const Accordion: React.FC<AccordionProps> = ({
       case 'offline':
         return 'red';
       default:
-        return 'gray'; // Default color if status is unknown
+        return 'gray';
     }
   };
 
@@ -60,21 +74,43 @@ const Accordion: React.FC<AccordionProps> = ({
         {showStatusIndicator && (
           <View style={[styles.statusIndicator, { backgroundColor: getStatusColor() }]} />
         )}
-        <Text style={[styles.title, { color: theme.text }, titleStyle]} >{title}</Text>
-        <ChevronDown
-          size={20}
-          color={theme.text}
-          style={{ transform: [{ rotate: expanded ? '180deg' : '0deg' }] }}
-        />
+        <Text style={[styles.title, { color: theme.text }, titleStyle]}>{title}</Text>
+        <Animated.View
+          style={{
+            transform: [{
+              rotate: animation.interpolate({
+                inputRange: [0, 1],
+                outputRange: ['0deg', '180deg']
+              })
+            }]
+          }}
+        >
+          <ChevronDown size={20} color={theme.text} />
+        </Animated.View>
       </Pressable>
-      <View style={[styles.content, { display: expanded ? 'flex' : 'none' }]}>
+
+      <Animated.View
+        style={[
+          styles.content,
+          expanded
+            ? { opacity: animation }
+            : {
+                maxHeight: animation.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, 1000]
+                }),
+                opacity: animation,
+                overflow: 'hidden'
+              }
+        ]}
+      >
         <View style={styles.flagsContainer}>
           {flags.map((flag) => (
             <CountryFlag key={flag.code} isoCode={flag.isoCode} size={25} style={{ marginRight: 5 }} />
           ))}
         </View>
         {children}
-      </View>
+      </Animated.View>
     </View>
   );
 };
@@ -98,7 +134,7 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   content: {
-    padding: 10,
+    padding: 0,
   },
   flagsContainer: {
     flexDirection: 'row',

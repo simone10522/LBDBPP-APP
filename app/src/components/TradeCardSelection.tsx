@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TextInput, Modal, TouchableOpacity, Animated, PanResponder, ActivityIndicator } from 'react-native';
-import FastImage from 'react-native-fast-image';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, ActivityIndicator, Image, Modal, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { lightPalette, darkPalette } from '../context/themes';
 import { useAuth } from '../hooks/useAuth';
@@ -9,256 +8,124 @@ import cardDataSetsA2a from '../../assets/cards/modified/A2a.json';
 import cardDataSetsA1 from '../../assets/cards/modified/A1.json';
 import cardDataSetsA1a from '../../assets/cards/modified/A1a.json';
 import cardDataSetsA2 from '../../assets/cards/modified/A2.json';
+import cardDataSetsA2b from '../../assets/cards/modified/A2b.json';
+import { Undo2 } from 'lucide-react-native';
 import Accordion from './Accordion';
-import { Undo2 } from 'lucide-react-native'; // Import the specific Undo2 icon
+import cardImages from './cardImages'; // importa le immagini
+import rarityCrown from '../../assets/rarity_icons/crown.png';
+import rarityOneStar from '../../assets/rarity_icons/one_star.png';
+import rarityTwoStar from '../../assets/rarity_icons/two_star.png';
+import rarityThreeStar from '../../assets/rarity_icons/three_star.png';
+import rarityOneDiamond from '../../assets/rarity_icons/one_diamond.png';
+import rarityTwoDiamond from '../../assets/rarity_icons/two_diamond.png';
+import rarityThreeDiamond from '../../assets/rarity_icons/three_diamond.png';
+import rarityFourDiamond from '../../assets/rarity_icons/four_diamond.png';
+import rarityOneShiny from '../../assets/rarity_icons/one_shiny.png';
+import rarityTwoShiny from '../../assets/rarity_icons/two_shiny.png';
+import SideMenu from 'react-native-side-menu-updated';
 
 const sets = [
-  { setName: "Genetic Apex", cards: cardDataSetsA1.map(card => ({ 
-      id: card.id, 
-      name: card.name,
-      rarity: card.rarity,
-      image: card.image ? `${card.image}/low.webp` : undefined
-    })) 
-  },
-  { setName: "Mythical Island", cards: cardDataSetsA1a.map(card => ({ 
-      id: card.id, 
-      name: card.name,
-      rarity: card.rarity,
-      image: card.image ? `${card.image}/low.webp` : undefined
-    }))
-  },
-  { 
-    setName: "Triumphant Light", 
-    cards: cardDataSetsA2a.map(card => ({ 
-      id: card.id, 
-      name: card.name, 
-      rarity: card.rarity,
-      image: card.image ? `${card.image}/low.webp` : undefined
-    })) 
-  },
-  { setName: "Space-Time Smackdown", cards: cardDataSetsA2.map(card => ({ 
-      id: card.id, 
-      name: card.name,
-      rarity: card.rarity,
-      image: card.image ? `${card.image}/low.webp` : undefined
-    }))
-  }
+  { setName: "Genetic Apex", cards: cardDataSetsA1 },
+  { setName: "Mythical Island", cards: cardDataSetsA1a },
+  { setName: "Triumphant Light", cards: cardDataSetsA2a },
+  { setName: "Space-Time Smackdown", cards: cardDataSetsA2 },
+  { setName: "Shining Revelry", cards: cardDataSetsA2b }
 ];
 
-const TradeCardSelection = ({ onCardsSelected, isDarkMode, loadExistingCards: shouldLoadExistingCards, onBack, selectionType }) => {
-  const [setsData, setSetsData] = useState([]);
-  const [loading, setLoading] = useState(false); // Loading for initial data and loading more sets
-  const [error, setError] = useState(null);
+const rarityOptions = [
+  { label: 'All', value: '' },
+  { label: 'Crown', value: 'crown' },
+  { label: 'One Star', value: 'one star' },
+  { label: 'Two Star', value: 'two star' },
+  { label: 'Three Star', value: 'three star' },
+  { label: 'One Diamond', value: 'one diamond' },
+  { label: 'Two Diamond', value: 'two diamond' },
+  { label: 'Three Diamond', value: 'three diamond' },
+  { label: 'Four Diamond', value: 'four diamond' },
+  { label: 'One Shiny', value: 'one shiny' },
+  { label: 'Two Shiny', value: 'two shiny' },
+];
+
+// Solo le rarità visibili
+const visibleRarityOptions = [
+  { label: 'One Star', value: 'one star', icon: rarityOneStar },
+  { label: 'One Diamond', value: 'one diamond', icon: rarityOneDiamond },
+  { label: 'Two Diamond', value: 'two diamond', icon: rarityTwoDiamond },
+  { label: 'Three Diamond', value: 'three diamond', icon: rarityThreeDiamond },
+  { label: 'Four Diamond', value: 'four diamond', icon: rarityFourDiamond },
+];
+
+const TradeCardSelection = ({ onCardsSelected, isDarkMode, onBack, selectionType }) => {
+  const [selectedSetIndex, setSelectedSetIndex] = useState(0);
   const [searchText, setSearchText] = useState('');
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const [selectedCard, setSelectedCard] = useState(null);
-  const [animatedValue] = useState(new Animated.Value(0));
   const [selectedTradeCards, setSelectedTradeCards] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [cardError, setCardError] = useState(null);
-  const [visibleSetsCount, setVisibleSetsCount] = useState(1); // Control number of visible sets
-  const [currentSelection, setCurrentSelection] = useState(selectionType);
-  const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const [showGrid, setShowGrid] = useState(true); // nuovo stato per il toggle
+  const [isSideMenuOpen, setIsSideMenuOpen] = useState(false);
+  const [selectedRarity, setSelectedRarity] = useState('');
 
   const currentPalette = isDarkMode ? darkPalette : lightPalette;
-  const flatListRef = useRef<FlatList>(null);
   const { user } = useAuth();
 
-  // In-memory cache for card details
-  const cardCache = useRef({});
-
+  // Carica la lista delle carte selezionate da Supabase all'avvio
   useEffect(() => {
-    loadInitialSets();
-  }, [searchText]);
-
-  const loadInitialSets = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      let filteredSets = sets;
-      if (searchText) {
-        filteredSets = sets.map(set => ({
-          ...set,
-          cards: set.cards.filter(card =>
-            card.name && card.name.toLowerCase().includes(searchText.toLowerCase())
-          )
-        })).filter(set => set.cards.length > 0);
+    const loadCardsFromSupabase = async () => {
+      if (!user) return;
+      setLoading(true);
+      try {
+        const columnName = selectionType === 'have' ? 'what_i_have' : 'what_i_want';
+        const { data, error } = await supabase
+          .from('trade_cards')
+          .select(columnName)
+          .eq('user_id', user.id)
+          .single();
+        if (error && error.code !== 'PGRST116') {
+          setCardError(error.message);
+          return;
+        }
+        if (data && data[columnName]) {
+          setSelectedTradeCards(data[columnName].map(card => ({ ...card, count: card.count || 1 })));
+        }
+      } catch (err) {
+        setCardError("Error loading cards");
+      } finally {
+        setLoading(false);
       }
-      
-      // Filtro per escludere "two star", "three star" e "crown"
-      filteredSets = filteredSets.map(set => ({
-        ...set,
-        cards: set.cards.filter(card => {
-          if (!card.rarity) return true;
-          const rarityLower = card.rarity.toLowerCase();
-          return !["two star", "three star", "crown"].includes(rarityLower);
-        })
-      })).filter(set => set.cards.length > 0);
-      
-      setSetsData(filteredSets.slice(0, visibleSetsCount)); // Load initial sets
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+    loadCardsFromSupabase();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, selectionType]);
 
+  // Lista delle rarità da escludere
+  const excludedRarities = [
+    'two star',
+    'three star',
+    'crown',
+    'one shiny',
+    'two shiny'
+  ];
 
-  const loadMoreSets = useCallback(async () => {
-    if (isFetchingMore || loading || setsData.length >= sets.length) {
-      return; // Prevent loading more if already loading, initial loading, or all sets loaded
-    }
-    setIsFetchingMore(true);
-    try {
-      let nextVisibleSetsCount = visibleSetsCount + 1;
-      let filteredSets = sets;
-      if (searchText) {
-        filteredSets = sets.map(set => ({
-          ...set,
-          cards: set.cards.filter(card =>
-            card.name && card.name.toLowerCase().includes(searchText.toLowerCase())
-          )
-        })).filter(set => set.cards.length > 0);
-      }
-      
-      // Filtro per escludere "two star", "three star" e "crown"
-      filteredSets = filteredSets.map(set => ({
-        ...set,
-        cards: set.cards.filter(card => {
-          if (!card.rarity) return true;
-          const rarityLower = card.rarity.toLowerCase();
-          return !["two star", "three star", "crown"].includes(rarityLower);
-        })
-      })).filter(set => set.cards.length > 0);
-      
-      const nextSets = filteredSets.slice(visibleSetsCount, nextVisibleSetsCount);
-      if (nextSets.length > 0) {
-        setSetsData(prevSetsData => [...prevSetsData, ...nextSets]);
-        setVisibleSetsCount(nextVisibleSetsCount);
-      }
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setIsFetchingMore(false);
-    }
-  }, [visibleSetsCount, isFetchingMore, searchText, loading]);
+  // Filtra carte del set selezionato
+  const filteredCards = sets[selectedSetIndex].cards.filter(card => {
+    const rarity = card.rarity ? card.rarity.toLowerCase() : '';
+    const isExcluded = excludedRarities.some(r => rarity.includes(r));
+    return (
+      !isExcluded &&
+      (!selectedRarity || rarity.includes(selectedRarity)) &&
+      (!searchText || (card.name && card.name.toLowerCase().includes(searchText.toLowerCase())))
+    );
+  });
 
-
-  useEffect(() => {
-    if (shouldLoadExistingCards && selectionType === 'have') {
-      loadCardsFromSupabase('what_i_have');
-    }
-    if (shouldLoadExistingCards && selectionType === 'want') {
-      loadCardsFromSupabase('what_i_want');
-    }
-  }, [shouldLoadExistingCards, selectionType]);
-
-  const loadCardsFromSupabase = async (columnName) => {
-    if (!user) {
-      console.error("User not authenticated.");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('trade_cards')
-        .select(columnName)
-        .eq('user_id', user.id)
-        .single();
-
-      if (error && error.code !== 'PGRST116') {
-        setError(error.message);
-        return;
-      }
-
-      if (data && data[columnName]) {
-        // Ensure count is initialized
-        setSelectedTradeCards(data[columnName].map(card => ({ ...card, count: card.count || 1 })));
-      }
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCardPress = async (card) => {
+  const handleCardPress = (card) => {
     setCardError(null);
-
     const existingCardIndex = selectedTradeCards.findIndex(selectedCard => selectedCard.id === card.id);
-
     if (existingCardIndex > -1) {
       const updatedSelectedCards = [...selectedTradeCards];
       updatedSelectedCards[existingCardIndex].count = (updatedSelectedCards[existingCardIndex].count || 1) + 1;
       setSelectedTradeCards(updatedSelectedCards);
     } else {
-      // Use cached data if available
-      const cachedCard = cardCache.current[card.id];
-      if (cachedCard) {
-        setSelectedTradeCards([...selectedTradeCards, { ...cachedCard, count: 1 }]);
-      } else {
-        // Verifica se la carta ha già dati completi
-        if (card.image && card.rarity) {
-          // Se i dati sono già presenti nella carta, usali direttamente
-          const updatedCard = {
-            ...card,
-            count: 1
-          };
-          
-          // Aggiorna la cache
-          cardCache.current[card.id] = updatedCard;
-          setSelectedTradeCards([...selectedTradeCards, updatedCard]);
-        } else {
-          // Altrimenti ottieni i dati dall'API come prima
-          try {
-            const cardDetailsUrl = `https://api.tcgdex.net/v2/en/cards/${card.id}`;
-            const cardDetailsResponse = await fetch(cardDetailsUrl);
-
-            if (!cardDetailsResponse.ok) {
-              setCardError(`Failed to fetch card details for ${card.name}`);
-              return;
-            }
-
-            const cardDetails = await cardDetailsResponse.json();
-            
-            // Verifica se la carta appartiene a uno dei nostri set con rarità già definita
-            let cardRarity = "diamond"; // Default rarità
-            // Estrai il codice del set dalla card.id (ad esempio 'A2a' da 'A2a-001')
-            const setCode = card.id.split('-')[0];
-            // Cerca il set corrispondente
-            const cardSet = sets.find(set => {
-              // Ottieni il nome del set dal codice
-              if (setCode === 'A1') return set.setName === "Genetic Apex";
-              if (setCode === 'A1a') return set.setName === "Mythical Island";
-              if (setCode === 'A2a') return set.setName === "Triumphant Light";
-              if (setCode === 'A2') return set.setName === "Space-Time Smackdown";
-              return false;
-            });
-            
-            if (cardSet) {
-              const cardInSet = cardSet.cards.find(c => c.id === card.id);
-              if (cardInSet && cardInSet.rarity) {
-                cardRarity = cardInSet.rarity;
-              }
-            }
-            
-            const updatedCard = {
-              ...card,
-              image: cardDetails.image + "/low.webp",
-              rarity: cardRarity,
-              count: 1
-            };
-
-            // Update cache
-            cardCache.current[card.id] = updatedCard;
-            setSelectedTradeCards([...selectedTradeCards, updatedCard]);
-
-          } catch (err) {
-            console.error("Error fetching card details:", err);
-            setCardError(`Error fetching card details for ${card.name}`);
-          }
-        }
-      }
+      setSelectedTradeCards([...selectedTradeCards, { ...card, count: 1 }]);
     }
   };
 
@@ -276,457 +143,479 @@ const TradeCardSelection = ({ onCardsSelected, isDarkMode, loadExistingCards: sh
   };
 
   const handleDoneSelecting = async () => {
-    if (!user) {
-      console.error("User not authenticated.");
-      return;
-    }
-
+    if (!user) return;
+    setLoading(true);
     const supabaseColumnName = selectionType === 'have' ? 'what_i_have' : 'what_i_want';
-    
     try {
+      const cardData = selectedTradeCards.map(card => ({
+        id: card.id,
+        name: card.name,
+        count: card.count,
+      })) || [];
       const { data: existingTradeCard, error: selectError } = await supabase
         .from('trade_cards')
         .select('*')
         .eq('user_id', user.id)
         .single();
-
-      if (selectError && selectError.code !== 'PGRST116') {
-        console.error("Error checking existing trade card:", selectError);
-        return;
-      }
-
-      // Assicurati che cardData sia sempre un array, anche se vuoto
-      const cardData = selectedTradeCards.map(card => ({
-        id: card.id,
-        name: card.name,
-        image: card.image,
-        rarity: card.rarity?.toLowerCase().replace(/ /g, '_'),
-        count: card.count,
-      })) || [];  // Se selectedTradeCards è vuoto, usa array vuoto
-
+      if (selectError && selectError.code !== 'PGRST116') return;
       if (existingTradeCard) {
-        const { error: updateError } = await supabase
+        await supabase
           .from('trade_cards')
           .update({ [supabaseColumnName]: cardData })
           .eq('user_id', user.id);
-
-        if (updateError) {
-          console.error(`Error updating trade card for ${supabaseColumnName}:`, updateError);
-          return;
-        }
       } else {
-        const { error: insertError } = await supabase
+        await supabase
           .from('trade_cards')
           .insert([{ 
             user_id: user.id, 
             [supabaseColumnName]: cardData,
-            // Assicurati che l'altra colonna abbia almeno un array vuoto
             [selectionType === 'have' ? 'what_i_want' : 'what_i_have']: []
           }]);
-
-        if (insertError) {
-          console.error(`Error inserting trade card for ${supabaseColumnName}:`, insertError);
-          return;
-        }
       }
-
       onCardsSelected(selectedTradeCards);
-
     } catch (err) {
-      console.error("Error in handleDoneSelecting:", err);
+      setCardError("Error saving cards");
+    } finally {
+      setLoading(false);
     }
-  };
-
-  const closeModal = () => {
-    Animated.timing(animatedValue, {
-      toValue: 0,
-      duration: 200,
-      useNativeDriver: false,
-    }).start(() => setIsModalVisible(false));
   };
 
   const renderCardItem = ({ item }) => {
     const isSelected = selectedTradeCards.some(selectedCard => selectedCard.id === item.id);
     const selectedItem = selectedTradeCards.find(selectedCard => selectedCard.id === item.id);
     const cardCount = selectedItem ? selectedItem.count : 0;
-
-    // Use cached data if available
-    const cachedCard = cardCache.current[item.id];
-
-    if (cachedCard) {
-      // Render from cache
-      return (
-        <View key={item.id} style={styles.cardItem}>
-          <View style={styles.cardImageContainer}>
-            <FastImage
-              style={[styles.cardImage, { borderColor: currentPalette.borderColor }]}
-              source={{ 
-                uri: cachedCard.image,
-                priority: FastImage.priority.normal,
-                cache: FastImage.cacheControl.immutable
-              }}
-              resizeMode={FastImage.resizeMode.contain}
-            />
-            <TouchableOpacity
-              style={[styles.selectButton, { backgroundColor: 'green' }]}
-              onPress={() => handleCardPress(item)}
-            >
-              <Text style={styles.buttonText}>+</Text>
-            </TouchableOpacity>
-            {isSelected && (
-              <TouchableOpacity
-                style={[styles.removeButton, { backgroundColor: 'red' }]}
-                onPress={() => handleRemoveCard(cachedCard)}
-              >
-                <Text style={styles.buttonText}>-</Text>
-              </TouchableOpacity>
-            )}
-            {cardCount > 0 && (
-              <View style={styles.countBadge}>
-                <Text style={styles.countText}>{cardCount}</Text>
-              </View>
-            )}
-          </View>
-        </View>
-      );
-    } else {
-      // Fetch and render
-      return (
-        <View key={item.id} style={styles.cardItem}>
-          <View style={styles.cardImageContainer}>
-            <Text style={[styles.rarityText, { color: currentPalette.text }]}>Loading...</Text>
-            <TouchableOpacity
-              style={[styles.selectButton, { backgroundColor: 'green' }]}
-              onPress={() => handleCardPress(item)}
-            >
-              <Text style={styles.buttonText}>+</Text>
-            </TouchableOpacity>
-            {isSelected && (
-                <TouchableOpacity
-                  style={[styles.removeButton, { backgroundColor: 'red' }]}
-                  onPress={() => handleRemoveCard(item)}
-                >
-                  <Text style={styles.buttonText}>-</Text>
-                </TouchableOpacity>
-              )}
-            {cardCount > 0 && (
-              <View style={styles.countBadge}>
-                <Text style={styles.countText}>{cardCount}</Text>
-              </View>
-            )}
-            {/* Fetch card details on mount */}
-            <FetchCardDetails cardId={item.id} cache={cardCache} currentPalette={currentPalette} />
-          </View>
-        </View>
-      );
-    }
-  };
-
-  const renderSelectedItem = ({ item }) => {
-
     return (
-      <View key={item.id} style={styles.cardItem}>
-        <View style={styles.cardImageContainer}>
-          <FastImage
-            style={[styles.cardImage, { borderColor: currentPalette.borderColor, width: '100%', height: undefined }]}
-            source={{ 
-              uri: item.image,
-              priority: FastImage.priority.normal,
-              cache: FastImage.cacheControl.immutable
-            }}
-            resizeMode={FastImage.resizeMode.contain}
-          />
-          <Text style={[styles.rarityText, { color: currentPalette.text }]}>
-            Rarity: {item.rarity}
-          </Text>
+      <View style={styles.cardItemRow}>
+        <View style={styles.cardInfoContainer}>
+          <Text style={[styles.cardIdText, { color: currentPalette.text }]}>{item.id}</Text>
+          <Text style={[styles.cardNameText, { color: currentPalette.text }]}>{item.name}</Text>
+        </View>
+        <TouchableOpacity
+          style={[styles.selectButton, { backgroundColor: 'green', position: 'relative', left: 0, bottom: 0 }]}
+          onPress={() => handleCardPress(item)}
+        >
+          <Text style={styles.buttonText}>+</Text>
+        </TouchableOpacity>
+        {isSelected && (
           <TouchableOpacity
-            style={[
-              styles.removeButton,
-              { backgroundColor: 'red' },
-            ]}
+            style={[styles.removeButton, { backgroundColor: 'red', position: 'relative', left: 0, bottom: 0 }]}
             onPress={() => handleRemoveCard(item)}
           >
             <Text style={styles.buttonText}>-</Text>
           </TouchableOpacity>
+        )}
+        {cardCount > 0 && (
+          <View style={styles.countBadge}>
+            <Text style={styles.countText}>{cardCount}</Text>
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  // Funzione di mapping rarity -> icona
+  const getRarityIcon = (rarity) => {
+    if (!rarity) return null;
+    const r = rarity.toLowerCase();
+    if (r.includes('crown')) return rarityCrown;
+    if (r.includes('one star')) return rarityOneStar;
+    if (r.includes('two star')) return rarityTwoStar;
+    if (r.includes('three star')) return rarityThreeStar;
+    if (r.includes('one diamond')) return rarityOneDiamond;
+    if (r.includes('two diamond')) return rarityTwoDiamond;
+    if (r.includes('three diamond')) return rarityThreeDiamond;
+    if (r.includes('four diamond')) return rarityFourDiamond;
+    if (r.includes('one shiny')) return rarityOneShiny;
+    if (r.includes('two shiny')) return rarityTwoShiny;
+    return null;
+  };
+
+  const getRarityIconSize = (rarity) => {
+    if (!rarity) return { width: 28, height: 28 };
+    const r = rarity.toLowerCase();
+    if (r.includes('crown')) return { width: 36, height: 36 };
+    if (r.includes('one diamond')) return { width: 20, height: 20 };
+    if (r.includes('two diamond')) return { width: 38, height: 38 };
+    if (r.includes('three diamond')) return { width: 58, height: 58 };
+    if (r.includes('four diamond')) return { width: 78, height: 78 };
+    if (r.includes('star')) return { width: 24, height: 24 };
+    if (r.includes('shiny')) return { width: 32, height: 32 };
+    return { width: 28, height: 28 };
+  };
+
+  const getRarityIconStyle = (rarity) => {
+    const size = getRarityIconSize(rarity);
+    // Calcola un offset negativo per centrare la base dell’icona
+    let bottom = 4;
+    if (size.height > 28) bottom = -((size.height - 28) / 2);
+    return {
+      position: 'absolute',
+      left: 8,
+      bottom,
+      width: size.width,
+      height: size.height,
+      zIndex: 3,
+    };
+  };
+
+  // Render per la griglia con immagini
+  const renderCardGridItem = ({ item }) => {
+    const isSelected = selectedTradeCards.some(selectedCard => selectedCard.id === item.id);
+    const selectedItem = selectedTradeCards.find(selectedCard => selectedCard.id === item.id);
+    const cardCount = selectedItem ? selectedItem.count : 0;
+    const rarityIcon = getRarityIcon(item.rarity);
+    const rarityIconSize = getRarityIconSize(item.rarity);
+    return (
+      <View style={styles.cardGridItem}>
+        <TouchableOpacity onPress={() => handleCardPress(item)}>
+          <View>
+            {cardImages[item.id] && (
+              <View style={styles.cardImageWrapper}>
+                <Image
+                  source={cardImages[item.id]}
+                  style={{ width: 120, height: 168, borderRadius: 8 }}
+                  resizeMode="contain"
+                />
+                {rarityIcon && (
+                  <Image
+                    source={rarityIcon}
+                    style={getRarityIconStyle(item.rarity)}
+                    resizeMode="contain"
+                  />
+                )}
+              </View>
+            )}
+            {cardCount > 0 && (
+              <View style={styles.countBadgeGrid}>
+                <Text style={styles.countText}>{cardCount}</Text>
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
+        {isSelected && (
+          <TouchableOpacity style={styles.removeButtonGrid} onPress={() => handleRemoveCard(item)}>
+            <Text style={styles.buttonText}>-</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  };
+
+  // Aggiungi una versione grid anche per le carte selezionate
+  const renderSelectedGridItem = ({ item }) => {
+    const rarityIcon = getRarityIcon(item.rarity);
+    const rarityIconSize = getRarityIconSize(item.rarity);
+    return (
+      <View style={styles.cardGridItem}>
+        <View>
+          {cardImages[item.id] && (
+            <View style={styles.cardImageWrapper}>
+              <Image
+                source={cardImages[item.id]}
+                style={{ width: 120, height: 168, borderRadius: 8 }}
+                resizeMode="contain"
+              />
+              {rarityIcon && (
+                <Image
+                  source={rarityIcon}
+                  style={getRarityIconStyle(item.rarity)}
+                  resizeMode="contain"
+                />
+              )}
+            </View>
+          )}
           {item.count > 0 && (
-            <View style={styles.countBadge}>
+            <View style={styles.countBadgeGrid}>
               <Text style={styles.countText}>{item.count}</Text>
             </View>
           )}
         </View>
+        <TouchableOpacity style={styles.removeButtonGrid} onPress={() => handleRemoveCard(item)}>
+          <Text style={styles.buttonText}>-</Text>
+        </TouchableOpacity>
       </View>
     );
   };
 
-  const renderSetItem = ({ item }) => {
-    return (
-      <View style={[styles.setContainer]}>
-        <Text style={[styles.setLabel, { color: currentPalette.text }]}>{item.setName}</Text>
-        <FlatList
-          data={item.cards}
-          renderItem={renderCardItem}
-          keyExtractor={(card) => card.id}
-          numColumns={3}
-          contentContainerStyle={styles.cardListContainer}
-          initialNumToRender={9} // Render 9 cards initially (3 rows)
-          maxToRenderPerBatch={9}   // Render in batches of 9 as user scrolls
-          windowSize={5}          // Render cards within 5x viewport height
-          removeClippedSubviews={true} // Enable aggressive view clipping
-          getItemLayout={(data, index) => ({length: 120, offset: 120 * index, index})} // Assuming cardItem height is around 120
-        />
+  const renderSelectedItem = ({ item }) => (
+    <View style={styles.cardItemRow}>
+      <View style={styles.cardInfoContainer}>
+        <Text style={[styles.cardIdText, { color: currentPalette.text }]}>{item.id}</Text>
+        <Text style={[styles.cardNameText, { color: currentPalette.text }]}>{item.name}</Text>
       </View>
-    )
-  };
+      <TouchableOpacity
+        style={[styles.removeButton, { backgroundColor: 'red', position: 'relative', left: 0, bottom: 0 }]}
+        onPress={() => handleRemoveCard(item)}
+      >
+        <Text style={styles.buttonText}>-</Text>
+      </TouchableOpacity>
+      {item.count > 0 && (
+        <View style={styles.countBadge}>
+          <Text style={styles.countText}>{item.count}</Text>
+        </View>
+      )}
+    </View>
+  );
 
+  const CARD_HEIGHT = 337; // altezza della card + padding/margin
+  const NUM_COLUMNS = 3;
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: (evt, gestureState) => false,
-      onMoveShouldSetPanResponder: (evt, gestureState) => {
-        return gestureState.dx > 30 && gestureState.dy < 30 && gestureState.dy > -30;
-      },
-      onPanResponderRelease: (evt, gestureState) => {
-        if (gestureState.dx > 100) {
-          onBack();
-        }
-      },
-    })
-  ).current;
-
-  const ListFooterComponent = () => {
-    if (!isFetchingMore) return null;
-    return (
-      <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-        <ActivityIndicator size="large" color={currentPalette.text} />
-      </View>
-    );
-  };
-
+  // Menu laterale per il filtro rarità (verticale)
+  const filterMenu = (
+    <View style={{
+      flex: 1,
+      backgroundColor: currentPalette.background,
+      paddingTop: 60,
+      paddingHorizontal: 20,
+    }}>
+      <ScrollView horizontal={false} contentContainerStyle={{ flexDirection: 'column', alignItems: 'center' }}>
+        {/* Pulsante per mostrare tutte le carte */}
+        <TouchableOpacity
+          style={{
+            padding: 14,
+            margin: 8,
+            borderRadius: 8,
+            borderWidth: selectedRarity === '' ? 2 : 0,
+            borderColor: selectedRarity === '' ? currentPalette.buttonBackground : 'transparent',
+            backgroundColor: selectedRarity === '' ? currentPalette.buttonBackground : 'transparent',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 60,
+            height: 60,
+          }}
+          onPress={() => {
+            setSelectedRarity('');
+            setIsSideMenuOpen(false);
+          }}
+        >
+          <Text style={{ fontSize: 18, color: currentPalette.text, fontWeight: 'bold' }}>All</Text>
+        </TouchableOpacity>
+        {visibleRarityOptions.map(opt => (
+          <TouchableOpacity
+            key={opt.value}
+            style={{
+              padding: 14,
+              margin: 8,
+              borderRadius: 8,
+              borderWidth: selectedRarity === opt.value ? 2 : 0,
+              borderColor: selectedRarity === opt.value ? currentPalette.buttonBackground : 'transparent',
+              backgroundColor: selectedRarity === opt.value ? currentPalette.buttonBackground : 'transparent',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 60,
+              height: 60,
+            }}
+            onPress={() => {
+              setSelectedRarity(opt.value);
+              setIsSideMenuOpen(false);
+            }}
+          >
+            <Image
+              source={opt.icon}
+              style={{ width: 36, height: 36, marginBottom: 2 }}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+      <TouchableOpacity
+        style={{
+          marginTop: 24,
+          alignSelf: 'center',
+          paddingHorizontal: 24,
+          paddingVertical: 10,
+          borderRadius: 5,
+          backgroundColor: currentPalette.buttonBackground,
+        }}
+        onPress={() => setIsSideMenuOpen(false)}
+      >
+        <Text style={{ color: currentPalette.buttonText, fontWeight: 'bold' }}>Close</Text>
+      </TouchableOpacity>
+    </View>
+  );
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: currentPalette.background, width: '100%' }]}
-      {...panResponder.panHandlers}
+    <SideMenu
+      menu={filterMenu}
+      isOpen={isSideMenuOpen}
+      onChange={setIsSideMenuOpen}
+      menuPosition="right" // Cambia in "left" per aprire da sinistra
+      openMenuOffset={110} // Larghezza del menu aperto (default 280)
+      hiddenMenuOffset={0} // Offset del menu nascosto
+      bounceBackOnOverdraw={false} // Disabilita effetto rimbalzo
+      disableGestures={false} // Disabilita swipe per aprire/chiudere
     >
-      <Text style={[styles.selectionText, { color: currentPalette.text }]}>
-        {currentSelection === 'have' ? 'My Cards' : 'I Want'}
-      </Text>
-
-      <TextInput
-        style={[styles.searchInput, { backgroundColor: currentPalette.inputBackground, borderColor: currentPalette.borderColor, color: currentPalette.text }]}
-        placeholder="Search for cards..."
-        placeholderTextColor={isDarkMode ? '#aaa' : '#888'}
-        value={searchText}
-        onChangeText={setSearchText}
-      />
-
-      {loading ? (
-        <Text style={[styles.text, { color: currentPalette.text }]}>Loading cards...</Text>
-      ) : error ? (
-        <Text style={[styles.errorText, { color: currentPalette.text }]}>Error: {error}</Text>
-      ) : (
-        <>
-          <Accordion title="All Cards" >
-            <FlatList
-              ref={flatListRef}
-              data={setsData}
-              renderItem={renderSetItem}
-              keyExtractor={(item, index) => index.toString()}
-              onEndReached={loadMoreSets}
-              onEndReachedThreshold={0.5}
-              ListFooterComponent={ListFooterComponent}
-              contentContainerStyle={styles.scrollViewContent}
-            />
-          </Accordion>
-
-          <Accordion title="Selected Cards">
-            <FlatList
-              data={selectedTradeCards}
-              renderItem={renderSelectedItem}
-              keyExtractor={(card) => card.id}
-              numColumns={3}
-              contentContainerStyle={styles.cardListContainer}
-            />
-            <Text style={{ color: currentPalette.text, margin: 10, textAlign: 'center' }}>
-              Total Selected Cards: {selectedTradeCards.reduce((sum, card) => sum + (card.count || 0), 0)}
-            </Text>
-            {cardError && <Text style={{ color: 'red', margin: 10, textAlign: 'center' }}>{cardError}</Text>}
-          </Accordion>
-        </>
-      )}
-
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={[styles.doneButtonOverlay, { backgroundColor: currentPalette.buttonBackground }]}
-          onPress={handleDoneSelecting}
-        >
-          <Text style={[styles.doneButtonText, { color: currentPalette.buttonText }]}>Save List</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.undoButton, { backgroundColor: currentPalette.buttonBackground }]}
-          onPress={onBack} // Navigate back to TradeScreen
-        >
-          <View style={{ width: 24, height: 24 }}>
-            <Undo2 color={currentPalette.buttonText} size={24} />
-          </View>
-        </TouchableOpacity>
-      </View>
-
-      <Modal
-        visible={isModalVisible}
-        transparent={true}
-        onRequestClose={closeModal}
-      >
-        <TouchableOpacity
-          style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}
-          activeOpacity={1}
-          onPress={closeModal}
-        >
-          <Animated.View style={[
-            styles.modalContent,
-            {
-              backgroundColor: currentPalette.cardBackground,
-              transform: [{
-                scale: animatedValue.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0.5, 1],
-                }),
-              }],
-            },
-          ]}>
-            {selectedCard && (
-              <FastImage
-                source={{ 
-                  uri: selectedCard.image + "/low.webp",
-                  priority: FastImage.priority.normal,
-                  cache: FastImage.cacheControl.immutable
-                }}
-                style={styles.fullSizeCardImage}
-                resizeMode={FastImage.resizeMode.contain}
-              />
+      <SafeAreaView style={[styles.container, { backgroundColor: currentPalette.background }]}>
+        <Text style={[styles.selectionText, { color: currentPalette.text }]}>
+          {selectionType === 'have' ? 'My Cards' : 'I Want'}
+        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: 10, marginBottom: 5 }}>
+          <Text style={{ color: currentPalette.text, marginRight: 8 }}>Set:</Text>
+          <FlatList
+            horizontal
+            data={sets}
+            keyExtractor={set => set.setName}
+            renderItem={({ item, index }) => (
+              <TouchableOpacity
+                style={[
+                  styles.setPickerButton,
+                  selectedSetIndex === index
+                    ? { backgroundColor: currentPalette.buttonBackground }
+                    : { backgroundColor: isDarkMode ? '#222' : '#eee' }
+                ]}
+                onPress={() => setSelectedSetIndex(index)}
+              >
+                <Text style={{
+                  color: selectedSetIndex === index
+                    ? currentPalette.buttonText
+                    : (isDarkMode ? '#ccc' : '#222'),
+                  fontWeight: selectedSetIndex === index ? 'bold' : 'normal'
+                }}>
+                  {item.setName}
+                </Text>
+              </TouchableOpacity>
             )}
-          </Animated.View>
-        </TouchableOpacity>
-      </Modal>
-    </SafeAreaView>
+            showsHorizontalScrollIndicator={false}
+          />
+          <View style={{ flex: 1 }} />
+          <TouchableOpacity
+            style={{
+              paddingHorizontal: 10,
+              paddingVertical: 6,
+              borderRadius: 5,
+              backgroundColor: showGrid ? currentPalette.buttonBackground : (isDarkMode ? '#222' : '#eee'),
+              marginLeft: 8,
+            }}
+            onPress={() => setShowGrid(!showGrid)}
+          >
+            <Text style={{
+              color: showGrid ? currentPalette.buttonText : (isDarkMode ? '#ccc' : '#222'),
+              fontWeight: showGrid ? 'bold' : 'normal'
+            }}>
+              {showGrid ? 'List' : 'Grid'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        {/* Barra di ricerca + filtro */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: 10 }}>
+          <TextInput
+            style={[
+              styles.searchInput,
+              {
+                backgroundColor: currentPalette.inputBackground,
+                borderColor: currentPalette.borderColor,
+                color: currentPalette.text,
+                flex: 1,
+                marginRight: 8,
+              }
+            ]}
+            placeholder="Search for cards..."
+            placeholderTextColor={isDarkMode ? '#aaa' : '#888'}
+            value={searchText}
+            onChangeText={setSearchText}
+          />
+          <TouchableOpacity
+            style={{
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+              borderRadius: 5,
+              backgroundColor: currentPalette.buttonBackground,
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+            onPress={() => setIsSideMenuOpen(true)}
+          >
+            <Text style={{ color: currentPalette.buttonText, fontWeight: 'bold' }}>Filter</Text>
+          </TouchableOpacity>
+        </View>
+
+        <Accordion title="Cards">
+          {loading ? (
+            <ActivityIndicator size="large" color={currentPalette.text} />
+          ) : (
+            <FlatList
+              data={filteredCards}
+              renderItem={showGrid ? renderCardGridItem : renderCardItem}
+              keyExtractor={(card) => card.id}
+              numColumns={showGrid ? 3 : 1}
+              key={showGrid ? 'grid' : 'list'} // <--- AGGIUNGI QUESTA RIGA
+              contentContainerStyle={[
+                showGrid ? styles.cardGridContainer : styles.cardListContainer,
+                { paddingBottom: 350 } // <--- aggiungi padding extra in fondo
+              ]}
+              initialNumToRender={showGrid ? 12 : 20}
+              maxToRenderPerBatch={showGrid ? 12 : 20}
+              windowSize={5}
+              removeClippedSubviews={true}
+              ListFooterComponent={<View style={{ height: 40 }} />} // <--- ulteriore sicurezza
+              getItemLayout={(data, index) => {
+                const row = Math.floor(index / NUM_COLUMNS);
+                return {
+                  length: CARD_HEIGHT,
+                  offset: CARD_HEIGHT * row,
+                  index,
+                };
+              }}
+            />
+          )}
+        </Accordion>
+        <Accordion title="Selected Cards">
+          <FlatList
+            data={selectedTradeCards}
+            renderItem={showGrid ? renderSelectedGridItem : renderSelectedItem}
+            keyExtractor={(card) => card.id}
+            numColumns={showGrid ? 3 : 1}
+            key={showGrid ? 'grid-selected' : 'list-selected'}
+            contentContainerStyle={[
+              showGrid ? styles.cardGridContainer : styles.cardListContainer,
+              { paddingBottom: 100 }
+            ]}
+            ListFooterComponent={<View style={{ height: 40 }} />}
+          />
+          <Text style={{ color: currentPalette.text, margin: 10, textAlign: 'center' }}>
+            Total Selected Cards: {selectedTradeCards.reduce((sum, card) => sum + (card.count || 0), 0)}
+          </Text>
+          {cardError && <Text style={{ color: 'red', margin: 10, textAlign: 'center' }}>{cardError}</Text>}
+        </Accordion>
+        <View style={[styles.buttonContainer, { backgroundColor: currentPalette.background }]}>
+          <TouchableOpacity
+            style={[styles.doneButtonOverlay, { backgroundColor: currentPalette.buttonBackground }]}
+            onPress={handleDoneSelecting}
+            disabled={loading}
+          >
+            <Text style={[styles.doneButtonText, { color: currentPalette.buttonText }]}>Save List</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.undoButton, { backgroundColor: currentPalette.buttonBackground }]}
+            onPress={onBack}
+          >
+            <View style={{ width: 24, height: 24 }}>
+              <Undo2 color={currentPalette.buttonText} size={24} />
+            </View>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    </SideMenu>
   );
 };
-
-const FetchCardDetails = React.memo(({ cardId, cache, currentPalette }) => {
-  const [cardDetails, setCardDetails] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    const fetchDetails = async () => {
-      try {
-        // Estrai il codice del set dalla cardId (ad esempio 'A2a' da 'A2a-001')
-        const setCodeId = cardId.split('-')[0];
-        
-        // Cerca il set corrispondente
-        const cardSet = sets.find(set => {
-          // Ottieni il nome del set dal codice
-          if (setCodeId === 'A1') return set.setName === "Genetic Apex";
-          if (setCodeId === 'A1a') return set.setName === "Mythical Island";
-          if (setCodeId === 'A2a') return set.setName === "Triumphant Light";
-          if (setCodeId === 'A2') return set.setName === "Space-Time Smackdown";
-          return false;
-        });
-        
-        if (cardSet) {
-          // Cerca la carta nel set
-          const card = cardSet.cards.find(c => c.id === cardId);
-          if (card && card.rarity) {
-            // La carta ha già tutti i dati necessari
-            cache.current[cardId] = card;
-            setCardDetails(card);
-            setLoading(false);
-            return;
-          }
-        }
-        
-        // Se la carta non è stata trovata o non ha rarità, procedi con la richiesta API
-        const cardDetailsUrl = `https://api.tcgdex.net/v2/en/cards/${cardId}`;
-        const cardDetailsResponse = await fetch(cardDetailsUrl);
-
-        if (!cardDetailsResponse.ok) {
-          setError(`Failed to fetch card details for ${cardId}`);
-          return;
-        }
-
-        const details = await cardDetailsResponse.json();
-        
-        // Determina la rarità della carta
-        let rarity = "diamond"; // Default value
-        // Per le carte dei nostri set, cerca la rarità nei file JSON
-        const setCodeDetails = cardId.split('-')[0];
-        // Cerca il set corrispondente
-        const relevantSet = sets.find(set => {
-          // Ottieni il nome del set dal codice
-          if (setCodeDetails === 'A1') return set.setName === "Genetic Apex";
-          if (setCodeDetails === 'A1a') return set.setName === "Mythical Island";
-          if (setCodeDetails === 'A2a') return set.setName === "Triumphant Light";
-          if (setCodeDetails === 'A2') return set.setName === "Space-Time Smackdown";
-          return false;
-        });
-        
-        if (relevantSet) {
-          const cardInSet = relevantSet.cards.find(c => c.id === cardId);
-          if (cardInSet && cardInSet.rarity) {
-            rarity = cardInSet.rarity;
-          }
-        }
-        
-        const updatedCard = {
-          id: details.id,
-          name: details.name,
-          image: details.image + "/low.webp",
-          rarity: rarity
-        };
-
-        // Update the cache
-        cache.current[cardId] = updatedCard;
-        setCardDetails(updatedCard);
-
-      } catch (err) {
-        setError("Error fetching card details: " + err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchDetails();
-  }, [cardId]);
-
-  if (loading) {
-    return <Text style={{ color: currentPalette.text }}>Loading details...</Text>;
-  }
-
-  if (error) {
-    return <Text style={{ color: 'red' }}>{error}</Text>;
-  }
-
-  if (!cardDetails) {
-    return null; // Should not happen, but good for type safety
-  }
-
-  return (
-    <FastImage
-      style={[styles.cardImage, { borderColor: currentPalette.borderColor }]}
-      source={{ 
-        uri: cardDetails.image,
-        priority: FastImage.priority.normal,
-        cache: FastImage.cacheControl.immutable
-      }}
-      resizeMode={FastImage.resizeMode.contain}
-    />
-  );
-});
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     width: '100%',
+  },
+  pickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 10,
+    marginBottom: 5,
+  },
+  setPickerButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 5,
+    marginRight: 6,
+    // backgroundColor impostato dinamicamente
   },
   searchInput: {
     padding: 10,
@@ -734,40 +623,36 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     borderWidth: 1,
   },
-  scrollViewContent: {
-    paddingBottom: 20,
-  },
-  setContainer: {
-    marginBottom: 20,
-  },
   setLabel: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 10,
-    marginBottom: 10,
+    marginBottom: 6,
   },
   cardListContainer: {
-    justifyContent: 'flex-start',
+    paddingBottom: 20,
   },
-  cardItem: {
-    width: '33.33%',
-    padding: 0,
-    height: 170, // Approximate height for getItemLayout
+  cardItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderColor: '#ddd',
   },
-  cardImageContainer: {
-    position: 'relative',
-    margin: 0,
+  cardInfoContainer: {
+    flex: 1,
+    flexDirection: 'column',
   },
-  cardImage: {
-    aspectRatio: 3 / 4,
-    borderRadius: 5,
-    borderWidth: 1,
-
+  cardIdText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  cardNameText: {
+    fontSize: 14,
   },
   selectButton: {
-    position: 'absolute',
-    bottom: 15,
-    right: 15,
+    marginLeft: 8,
     width: 30,
     height: 30,
     borderRadius: 15,
@@ -775,9 +660,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   removeButton: {
-    position: 'absolute',
-    bottom: 15,
-    left: 15,
+    marginLeft: 8,
     width: 30,
     height: 30,
     borderRadius: 15,
@@ -789,60 +672,8 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-  noImageText: {
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  text: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginTop: 20,
-  },
-  errorText: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: 20,
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    padding: 20,
-    borderRadius: 10,
-    width: '80%',
-    alignItems: 'center',
-  },
-  fullSizeCardImage: {
-    width: '100%',
-    height: undefined,
-    aspectRatio: 4 / 4,
-  },
-  doneButton: {
-    padding: 15,
-    margin: 10,
-    borderRadius: 5,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  doneButtonText: {
-    fontWeight: 'bold',
-  },
-  selectedButton: {
-    backgroundColor: 'red',
-  },
-  rarityText: {
-    fontSize: 12,
-    position: 'absolute',
-    top: 5,
-    left: 5,
-  },
   countBadge: {
-    position: 'absolute',
-    top: 5,
-    right: 5,
+    marginLeft: 8,
     backgroundColor: 'blue',
     borderRadius: 10,
     paddingHorizontal: 5,
@@ -861,10 +692,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     position: 'absolute',
-    bottom: 20,
-    left: 20,
-    right: 20,
-    zIndex: 10,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    padding: 16,
+    zIndex: 100,
   },
   doneButtonOverlay: {
     flex: 1,
@@ -887,6 +719,61 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginTop: 10,
     marginBottom: 5,
+  },
+  cardGridContainer: {
+    paddingHorizontal: 4,
+    paddingVertical: 8,
+    justifyContent: 'center',
+  },
+  cardGridItem: {
+    flexBasis: '35%', // Occupa circa un terzo della larghezza
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+    borderRadius: 2,
+    padding: 2,
+    margin: 1, // Margine ridotto per avvicinare le carte
+    minWidth: 0, // Permette il ridimensionamento
+    maxWidth: '33%',
+    position: 'relative',
+  },
+  cardImageWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 0,
+    position: 'relative', // aggiungi questa riga!
+  },
+  removeButtonGrid: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: 'red',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  countBadgeGrid: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    backgroundColor: 'blue',
+    borderRadius: 10,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    minWidth: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  rarityIcon: {
+    position: 'absolute',
+    left: 2,
+    bottom: 8,
+    width: 28,
+    height: 28,
+    zIndex: 3,
   },
 });
 
