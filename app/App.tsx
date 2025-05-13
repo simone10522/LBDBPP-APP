@@ -72,6 +72,7 @@ const toastConfig = {
 const App = () => {
   const { userId, user, initializeAuth } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
+  const [ownedCards, setOwnedCards] = useState(null); // Stato per le carte possedute
 
   async function requestUserPermission() {
     const authStatus = await messaging().requestPermission();
@@ -107,6 +108,24 @@ const App = () => {
       }
     } catch (error) {
       // Error updating push token
+    }
+  };
+
+  // Funzione per caricare le carte possedute
+  const fetchOwnedCardsFromSupabase = async () => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .from('cardpack')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+      if (error) throw error;
+      setOwnedCards(data); // Salva i dati nello stato
+      console.log("Carte possedute caricate da Supabase:", data); // <-- LOG QUI
+    } catch (error) {
+      setOwnedCards(null);
+      console.log("Errore caricamento carte possedute:", error); // <-- LOG ERRORE
     }
   };
 
@@ -165,29 +184,25 @@ const App = () => {
   useOnlineStatus();
   LogBox.ignoreLogs(['Setting a timer']);
 
+  // Effetto di bootstrap: SOLO una volta all'avvio
   useEffect(() => {
     async function initApp() {
-      await initializeAuth(); // Ripristina la sessione salvata
-
-      // Recupera manualmente la sessione e loggala
+      await initializeAuth();
       const { data: { session }, error } = await supabase.auth.getSession();
       if (error) {
         console.error("Errore nel recupero della sessione:", error);
       } else if (session) {
-        console.log("Auth state changed: SIGNED_IN", session); // Forza il log
+        console.log("Auth state changed: SIGNED_IN", session);
         useAuth.getState().setUser(session.user);
       } else {
         console.log("Nessuna sessione attiva trovata. Verifica i token salvati.");
       }
-      setIsLoading(false); // <-- Loading finito
+      setIsLoading(false);
     }
-
     initApp();
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("Auth state changed:", event, session); // Questo genera il log durante i cambiamenti di stato
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Auth state changed:", event, session);
       if (session) {
         useAuth.getState().setUser(session.user);
       } else {
@@ -198,7 +213,14 @@ const App = () => {
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, []); // <-- SOLO una volta
+
+  // Effetto per caricare le carte possedute quando cambia l'utente
+  useEffect(() => {
+    if (user) {
+      fetchOwnedCardsFromSupabase();
+    }
+  }, [user]);
 
   useEffect(() => {
     const unsubscribe = messaging().onMessage(async remoteMessage => {
