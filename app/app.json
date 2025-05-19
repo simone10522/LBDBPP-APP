@@ -37,11 +37,11 @@
     "owner": "lbdbpt",
     "extra": {
       "eas": {
-        "projectId": "ede4dcb3-9076-48c9-846e-6216b7eb740c"
+        "projectId": "ea0e1d8c-0c02-47c1-b395-8f5ee9026519"
       }
     },
     "android": {
-      "package": "com.lbdbpt.Poke-Tournaments"
+      "package": "com.lbdbpt.PocketTournaments"
     }
   }
 }
