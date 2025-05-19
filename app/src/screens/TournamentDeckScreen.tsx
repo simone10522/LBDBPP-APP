@@ -20,6 +20,7 @@ import { lightPalette, darkPalette } from '../context/themes';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import Icon from 'react-native-vector-icons/FontAwesome';
+import { useTranslation } from 'react-i18next';
 
 const DeckCard = React.memo(({ deckNumber, deckName, isSelected, onSelect, onEdit, onDelete, onView }) => {
   const { isDarkMode } = useAuth();
@@ -135,6 +136,7 @@ const TournamentDeckScreen = () => {
   const [fetchingDeckList, setFetchingDeckList] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [isDeckListModalVisible, setIsDeckListModalVisible] = useState(false);
+  const { t } = useTranslation();
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -142,7 +144,7 @@ const TournamentDeckScreen = () => {
       await Promise.all([fetchDeckCount(), fetchDeckNames()]);
     } catch (error) {
       console.error('Error refreshing:', error);
-      Alert.alert('Error', 'Failed to refresh deck list.');
+      Alert.alert(t('tournamentDeckScreen.error'), t('tournamentDeckScreen.refreshError'));
     } finally {
       setRefreshing(false);
     }
@@ -161,7 +163,7 @@ const TournamentDeckScreen = () => {
 
       if (error) {
         console.error('Error fetching profile:', error);
-        Alert.alert('Error', 'Failed to fetch deck count.');
+        Alert.alert(t('tournamentDeckScreen.error'), t('tournamentDeckScreen.fetchDeckCountError'));
         return;
       }
 
@@ -174,7 +176,7 @@ const TournamentDeckScreen = () => {
       setDeckCount(count);
     } catch (error) {
       console.error('Error fetching deck count:', error);
-      Alert.alert('Error', 'An unexpected error occurred while fetching deck count.');
+      Alert.alert(t('tournamentDeckScreen.error'), t('tournamentDeckScreen.unexpectedDeckCountError'));
     } finally {
       setLoading(false);
     }
@@ -193,7 +195,7 @@ const TournamentDeckScreen = () => {
 
       if (error) {
         console.error('Error fetching profile:', error);
-        Alert.alert('Error', 'Failed to fetch deck names.');
+        Alert.alert(t('tournamentDeckScreen.error'), t('tournamentDeckScreen.fetchDeckNamesError'));
         return;
       }
 
@@ -207,7 +209,7 @@ const TournamentDeckScreen = () => {
       setDeckNames(names);
     } catch (error) {
       console.error('Error fetching deck names:', error);
-      Alert.alert('Error', 'An unexpected error occurred while fetching deck names.');
+      Alert.alert(t('tournamentDeckScreen.error'), t('tournamentDeckScreen.unexpectedDeckNamesError'));
     } finally {
       setLoading(false);
     }
@@ -229,7 +231,7 @@ const TournamentDeckScreen = () => {
     }
 
     if (selectedDecks.length >= 2) {
-      Alert.alert('Attenzione', 'Puoi selezionare solo 2 deck per il torneo.');
+      Alert.alert(t('tournamentDeckScreen.attention'), t('tournamentDeckScreen.maxDecksError'));
       return;
     }
 
@@ -238,14 +240,13 @@ const TournamentDeckScreen = () => {
 
   const handleConfirmSelection = async () => {
     if (selectedDecks.length !== 2) {
-      Alert.alert('Attenzione', 'Devi selezionare esattamente 2 deck per il torneo.');
+      Alert.alert(t('tournamentDeckScreen.attention'), t('tournamentDeckScreen.exactDecksError'));
       return;
     }
 
     if (!user) return;
 
     try {
-      // Recupera i dati dei deck selezionati
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select(`DECK_LIST_${selectedDecks[0]}, DECK_LIST_${selectedDecks[1]}`)
@@ -254,11 +255,10 @@ const TournamentDeckScreen = () => {
 
       if (profileError) {
         console.error('Error fetching decks:', profileError);
-        Alert.alert('Errore', 'Impossibile recuperare i deck selezionati.');
+        Alert.alert(t('tournamentDeckScreen.error'), t('tournamentDeckScreen.fetchSelectedDecksError'));
         return;
       }
 
-      // Recupera l'ID del partecipante
       const { data: participant, error: participantError } = await supabase
         .from('tournament_participants')
         .select('id')
@@ -268,15 +268,13 @@ const TournamentDeckScreen = () => {
 
       if (participantError) {
         console.error('Error fetching participant:', participantError);
-        Alert.alert('Errore', 'Impossibile trovare il partecipante al torneo.');
+        Alert.alert(t('tournamentDeckScreen.error'), t('tournamentDeckScreen.fetchParticipantError'));
         return;
       }
 
-      // Prepara i dati dei deck
       const deck1Data = profile[`DECK_LIST_${selectedDecks[0]}`];
       const deck2Data = profile[`DECK_LIST_${selectedDecks[1]}`];
 
-      // Aggiorna la tabella tournament_participants
       const { error: updateError } = await supabase
         .from('tournament_participants')
         .update({
@@ -287,26 +285,26 @@ const TournamentDeckScreen = () => {
 
       if (updateError) {
         console.error('Error updating tournament participants:', updateError);
-        Alert.alert('Errore', 'Impossibile salvare i deck selezionati.');
+        Alert.alert(t('tournamentDeckScreen.error'), t('tournamentDeckScreen.saveDecksError'));
         return;
       }
 
-      Alert.alert('Successo', 'Deck selezionati e salvati con successo!');
+      Alert.alert(t('tournamentDeckScreen.success'), t('tournamentDeckScreen.saveDecksSuccess'));
       navigation.goBack();
     } catch (error) {
       console.error('Error saving decks:', error);
-      Alert.alert('Errore', 'Si è verificato un errore imprevisto durante il salvataggio dei deck.');
+      Alert.alert(t('tournamentDeckScreen.error'), t('tournamentDeckScreen.unexpectedSaveDecksError'));
     }
   };
 
   const handleDeleteDeck = async (deckNumber) => {
     Alert.alert(
-      'Confirm Deletion',
-      `Are you sure you want to delete ${deckNames[deckNumber] || `Deck #${deckNumber}`}?`,
+      t('tournamentDeckScreen.confirmDeletion'),
+      t('tournamentDeckScreen.confirmDeletionMessage', { deckName: deckNames[deckNumber] || `Deck #${deckNumber}` }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('tournamentDeckScreen.cancel'), style: 'cancel' },
         {
-          text: 'Delete',
+          text: t('tournamentDeckScreen.delete'),
           onPress: async () => {
             if (!user) return;
             try {
@@ -318,16 +316,16 @@ const TournamentDeckScreen = () => {
 
               if (error) {
                 console.error('Error deleting deck:', error);
-                Alert.alert('Error', 'Failed to delete the deck.');
+                Alert.alert(t('tournamentDeckScreen.error'), t('tournamentDeckScreen.deleteDeckError'));
                 return;
               }
               await fetchDeckCount();
               await fetchDeckNames();
               setSelectedDecks(selectedDecks.filter(d => d !== deckNumber));
-              Alert.alert('Success', `${deckNames[deckNumber] || `Deck #${deckNumber}`} has been deleted.`);
+              Alert.alert(t('tournamentDeckScreen.success'), t('tournamentDeckScreen.deleteDeckSuccess', { deckName: deckNames[deckNumber] || `Deck #${deckNumber}` }));
             } catch (error) {
               console.error('Error deleting deck:', error);
-              Alert.alert('Error', 'An unexpected error occurred.');
+              Alert.alert(t('tournamentDeckScreen.error'), t('tournamentDeckScreen.unexpectedError'));
             }
           },
         },
@@ -352,7 +350,7 @@ const TournamentDeckScreen = () => {
 
       if (error) {
         console.error('Error fetching deck list:', error);
-        Alert.alert('Error', 'Failed to fetch deck list.');
+        Alert.alert(t('tournamentDeckScreen.error'), t('tournamentDeckScreen.fetchDeckListError'));
         return;
       }
 
@@ -377,7 +375,7 @@ const TournamentDeckScreen = () => {
       }
     } catch (error) {
       console.error('Error fetching deck list:', error);
-      Alert.alert('Error', 'An unexpected error occurred while fetching deck list.');
+      Alert.alert(t('tournamentDeckScreen.error'), t('tournamentDeckScreen.unexpectedFetchDeckListError'));
     } finally {
       setFetchingDeckList(false);
     }
@@ -385,11 +383,11 @@ const TournamentDeckScreen = () => {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-      <Text style={[styles.title, { color: theme.text }]}>Seleziona i Deck per il Torneo</Text>
+      <Text style={[styles.title, { color: theme.text }]}>{t('tournamentDeckScreen.selectDecks')}</Text>
       
       <View style={styles.selectionIndicator}>
         <Text style={[styles.selectionText, { color: theme.text }]}>
-          Deck selezionati: {selectedDecks.length}/2
+          {t('tournamentDeckScreen.selectedDecks', { count: selectedDecks.length })}
         </Text>
       </View>
 
@@ -421,7 +419,7 @@ const TournamentDeckScreen = () => {
               />
             ))
           ) : (
-            <Text style={[styles.noDecksText, { color: theme.text }]}>No decks saved yet.</Text>
+            <Text style={[styles.noDecksText, { color: theme.text }]}>{t('tournamentDeckScreen.noDecks')}</Text>
           )}
         </ScrollView>
       )}
@@ -431,7 +429,7 @@ const TournamentDeckScreen = () => {
           style={[styles.confirmButton, { backgroundColor: theme.primary }]}
           onPress={handleConfirmSelection}
         >
-          <Text style={styles.confirmButtonText}>Conferma Selezione</Text>
+          <Text style={styles.confirmButtonText}>{t('tournamentDeckScreen.confirmSelection')}</Text>
         </TouchableOpacity>
       )}
 

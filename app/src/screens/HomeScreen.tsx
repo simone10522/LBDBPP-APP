@@ -16,10 +16,11 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import TournamentList from '../components/TournamentList';
-// No need to import AsyncStorage
-import { lightPalette, darkPalette } from '../context/themes'; // Import palettes
+import { lightPalette, darkPalette } from '../context/themes';
 import BannerAdComponent from '../components/BannerAd';
 import { TestIds } from 'react-native-google-mobile-ads';
+import { useTranslation } from 'react-i18next';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface Tournament {
   id: string;
@@ -27,13 +28,13 @@ interface Tournament {
   description: string;
   status: 'draft' | 'in_progress' | 'completed';
   created_at: string;
-  created_at: string;
   created_by: string;
   max_players: number | null;
 }
 
 const HomeScreen = () => {
   const navigation = useNavigation();
+  const { t, i18n } = useTranslation();
   const { user, setUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [username, setUsername] = useState('');
@@ -53,13 +54,9 @@ const HomeScreen = () => {
   const logoTopPosition = useRef(new Animated.Value(-Dimensions.get('window').width)).current;
   const logoBottomPosition = useRef(new Animated.Value(Dimensions.get('window').width)).current;
 
-  const { isDarkMode } = useAuth(); // Get isDarkMode from useAuth
+  const { isDarkMode } = useAuth();
 
-  // No need for useEffect to load theme
-
-  const theme = isDarkMode ? darkPalette : lightPalette; // Determine the theme
-
-  // ... (rest of your component, using the theme object as before) ...
+  const theme = isDarkMode ? darkPalette : lightPalette;
 
   const fetchUserData = useCallback(async () => {
     setLoading(true);
@@ -90,7 +87,7 @@ const HomeScreen = () => {
   }, [user]);
 
   const fetchUserTournaments = useCallback(async () => {
-    if (!user?.id) {  // Changed this line to explicitly check for user.id
+    if (!user?.id) {
       setUserTournaments([]);
       return;
     }
@@ -217,6 +214,7 @@ const HomeScreen = () => {
       useNativeDriver: true,
     }).start();
   };
+
   const handleSearchChange = (text: string) => {
     setSearchTerm(text);
     filterTournaments(allTournaments, text);
@@ -226,12 +224,25 @@ const HomeScreen = () => {
     setIsCardMinimized(!isCardMinimized);
   };
 
+  const toggleLanguage = async () => {
+    const newLang = i18n.language === 'en' ? 'it' : 'en';
+    await i18n.changeLanguage(newLang);
+    await AsyncStorage.setItem('appLanguage', newLang);
+  };
+
   return (
     <View style={[styles.backgroundImage, { backgroundColor: theme.background }]}>
+      {/* Language Switch Button */}
+      <TouchableOpacity
+        style={{ position: 'absolute', top: 10, right: 10, zIndex: 100 }}
+        onPress={toggleLanguage}
+      >
+        <Text style={{ color: theme.primary }}>{i18n.language === 'en' ? 'IT' : 'EN'}</Text>
+      </TouchableOpacity>
       <View style={[styles.container]}>
         <ScrollView
           style={styles.scrollView}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.text} />} // Apply theme to refreshControl
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.text} />}
           contentContainerStyle={{ flexGrow: 1 }}
         >
           <Animated.Image
@@ -247,10 +258,12 @@ const HomeScreen = () => {
 
           <View style={styles.header} />
           <View style={styles.yourTournamentsSection}>
-            <Text style={[styles.yourTournamentsTitle, { color: theme.text }]}>Your Tournaments</Text>
+            <Text style={[styles.yourTournamentsTitle, { color: theme.text }]}>
+              {t('yourTournamentsTitle')}
+            </Text>
             {!user && (
               <Text style={[styles.noTournamentsText, { color: theme.text }]}>
-                No Tournaments Available, Login now!
+                {t('noTournamentsText')}
               </Text>
             )}
             {user && (
@@ -276,7 +289,7 @@ const HomeScreen = () => {
               onPressOut={() => resetButton(loginButtonScale)}
             >
               <Animated.Text style={[styles.loginButtonText, { transform: [{ scale: loginButtonScale }], color: theme.buttonText }]}>
-                Login
+                {t('login')}
               </Animated.Text>
             </TouchableOpacity>
           ) : (
@@ -287,7 +300,7 @@ const HomeScreen = () => {
               onPressOut={() => resetButton(createButtonScale)}
             >
               <Animated.Text style={[styles.createButtonText, { transform: [{ scale: createButtonScale }], color: theme.buttonText }]}>
-                Create Tournament
+                {t('createTournament')}
               </Animated.Text>
             </TouchableOpacity>
           )}
@@ -304,13 +317,12 @@ const styles = StyleSheet.create({
   backgroundImage: {
     flex: 1,
     resizeMode: 'cover',
-    backgroundColor: 'transparent', // set background color here
+    backgroundColor: 'transparent',
   },
   container: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    // backgroundColor: 'rgba(0,0,0,0.5)', // Removed grey overlay
   },
   scrollView: {
     flex: 1,
@@ -444,7 +456,7 @@ const styles = StyleSheet.create({
   bannerAdContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingBottom: 10, // Add some padding to separate from buttons
+    paddingBottom: 10,
   },
 });
 

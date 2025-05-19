@@ -11,6 +11,7 @@ import { lightPalette, darkPalette } from '../context/themes';
 import Accordion from '../components/Accordion';
 import { fetchUnreadMatchNotifications } from '../utils/notificationUtils';
 import { appEvents, EVENTS } from '../utils/eventEmitter';
+import { useTranslation } from 'react-i18next';
 
 interface Tournament {
     id: string;
@@ -73,6 +74,7 @@ export default function TournamentDetailsScreen() {
     const [unreadMatches, setUnreadMatches] = useState(0);
 
     const theme = isDarkMode ? darkPalette : lightPalette;
+    const { t } = useTranslation();
 
     const showModalAnimation = () => {
         Animated.spring(modalAnimation, {
@@ -600,7 +602,7 @@ export default function TournamentDetailsScreen() {
     if (loading) {
         return (
             <View style={[styles.container, { paddingTop, backgroundColor: theme.background }]}>
-                <Text style={[styles.loadingText, { color: theme.text }]}>Loading...</Text>
+                <Text style={[styles.loadingText, { color: theme.text }]}>{t('tournamentDetails.loading')}</Text>
             </View>
         );
     }
@@ -663,7 +665,7 @@ export default function TournamentDetailsScreen() {
             >
                 {error && (
                     <View style={styles.errorContainer}>
-                        <Text style={[styles.error, { color: theme.error }]}>{error}</Text>
+                        <Text style={[styles.error, { color: theme.error }]}>{t('tournamentDetails.error', { error })}</Text>
                     </View>
                 )}
 
@@ -688,7 +690,7 @@ export default function TournamentDetailsScreen() {
                                 <View style={styles.infoItem}>
                                     <Trophy size={20} color={theme.text} />
                                     <Text style={[styles.infoText, { color: theme.text }]}>
-                                        Best of {tournament.best_of}
+                                        {t('tournamentDetails.bestOf', { value: tournament.best_of })}
                                     </Text>
                                 </View>
                             </View>
@@ -700,7 +702,7 @@ export default function TournamentDetailsScreen() {
                                                         tournament.status === 'in_progress' ? '#e67e22' : '#7f8c8d'
                                     }]}>
                                         <Text style={styles.statusText}>
-                                            {tournament.status.replace('_', ' ').toUpperCase()}
+                                            {t(`tournamentDetails.status.${tournament.status}`)}
                                         </Text>
                                     </View>
                                 </View>
@@ -710,7 +712,7 @@ export default function TournamentDetailsScreen() {
                                         style={[styles.messageButton, { backgroundColor: theme.buttonBackground }]}
                                     >
                                         <Text style={[styles.messageButtonText, { color: theme.buttonText }]}>
-                                            Message {tournament.creatorUsername || 'Creator'}
+                                            {t('tournamentDetails.messageCreator', { creator: tournament.creatorUsername || 'Creator' })}
                                         </Text>
                                     </TouchableOpacity>
                                 )}
@@ -723,7 +725,7 @@ export default function TournamentDetailsScreen() {
                                         style={[styles.iconButton, { backgroundColor: theme.buttonBackground }]}
                                     >
                                         <Edit2 size={20} color={theme.buttonText} />
-                                        <Text style={[styles.iconButtonText, { color: theme.buttonText }]}>Edit</Text>
+                                        <Text style={[styles.iconButtonText, { color: theme.buttonText }]}>{t('tournamentDetails.edit')}</Text>
                                     </TouchableOpacity>
 
                                     <TouchableOpacity
@@ -731,7 +733,7 @@ export default function TournamentDetailsScreen() {
                                         style={[styles.iconButton, { backgroundColor: theme.error }]}
                                     >
                                         <Trash2 size={20} color={theme.buttonText} />
-                                        <Text style={[styles.iconButtonText, { color: theme.buttonText }]}>Delete</Text>
+                                        <Text style={[styles.iconButtonText, { color: theme.buttonText }]}>{t('tournamentDetails.delete')}</Text>
                                     </TouchableOpacity>
                                 </View>
                             )}
@@ -741,7 +743,7 @@ export default function TournamentDetailsScreen() {
                             {tournament.status !== 'draft' && (
                                 <View style={styles.section}>
                                     <View style={styles.sectionHeader}>
-                                        <Text style={[styles.sectionTitle, { color: theme.text }]}>Rounds</Text>
+                                        <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('tournamentDetails.rounds')}</Text>
                                         {canGenerateNextRound && (
                                             <TouchableOpacity 
                                                 onPress={() => {
@@ -758,7 +760,7 @@ export default function TournamentDetailsScreen() {
                                                 disabled={currentRoundIncomplete}
                                             >
                                                 <Text style={[styles.generateButtonText, { color: theme.buttonText }]}>
-                                                    Genera Round {currentRound + 1}
+                                                    {t('tournamentDetails.generateRound', { round: currentRound + 1 })}
                                                 </Text>
                                             </TouchableOpacity>
                                         )}
@@ -769,7 +771,7 @@ export default function TournamentDetailsScreen() {
                                         .map(([round, roundMatches]) => (
                                             <Accordion 
                                                 key={round} 
-                                                title={`Round ${round}`}
+                                                title={`${t('tournamentDetails.round')} ${round}`}
                                                 theme={theme}
                                                 onOpen={() => {
                                                     console.log('Accordion onOpen callback triggered');
@@ -798,7 +800,7 @@ export default function TournamentDetailsScreen() {
                                 style={[styles.actionButton, { backgroundColor: theme.buttonBackground }]}
                             >
                                 <Users size={30} color={theme.buttonText} />
-                                <Text style={[styles.actionButtonText, { color: theme.buttonText }]}>Players</Text>
+                                <Text style={[styles.actionButtonText, { color: theme.buttonText }]}>{t('tournamentDetails.players')}</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity 
@@ -810,7 +812,7 @@ export default function TournamentDetailsScreen() {
                             >
                                 <Trophy size={30} color={theme.buttonText} />
                                 <Text style={[styles.actionButtonText, { color: theme.buttonText }]}>
-                                    {tournament.format === 'knockout' ? 'Bracket' : 'Leaderboard'}
+                                    {tournament.format === 'knockout' ? t('tournamentDetails.bracket') : t('tournamentDetails.leaderboard')}
                                 </Text>
                             </TouchableOpacity>
 
@@ -823,7 +825,7 @@ export default function TournamentDetailsScreen() {
                                         source={require('../../assets/deck.png')} 
                                         style={styles.deckIcon} 
                                     />
-                                    <Text style={[styles.actionButtonText, { color: theme.buttonText }]}>Manage Decks</Text>
+                                    <Text style={[styles.actionButtonText, { color: theme.buttonText }]}>{t('tournamentDetails.manageDecks')}</Text>
                                 </TouchableOpacity>
                             )}
                         </View>
@@ -835,7 +837,7 @@ export default function TournamentDetailsScreen() {
                                         onPress={handleStartTournament}
                                         style={[styles.startButton, { backgroundColor: '#2ecc71' }]}
                                     >
-                                        <Text style={styles.startButtonText}>Start Tournament</Text>
+                                        <Text style={styles.startButtonText}>{t('tournamentDetails.startTournament')}</Text>
                                     </TouchableOpacity>
                                 )}
                                 {isParticipating ? (
@@ -843,7 +845,7 @@ export default function TournamentDetailsScreen() {
                                         onPress={handleLeaveTournament}
                                         style={[styles.leaveButton, { backgroundColor: '#e74c3c' }]}
                                     >
-                                        <Text style={styles.leaveButtonText}>Leave</Text>
+                                        <Text style={styles.leaveButtonText}>{t('tournamentDetails.leave')}</Text>
                                     </TouchableOpacity>
                                 ) : (
                                     (maxPlayers === null || participants.length < maxPlayers) && (
@@ -851,7 +853,7 @@ export default function TournamentDetailsScreen() {
                                             onPress={handleJoinTournament}
                                             style={[styles.joinButton, { backgroundColor: '#2ecc71' }]}
                                         >
-                                            <Text style={styles.joinButtonText}>Join</Text>
+                                            <Text style={styles.joinButtonText}>{t('tournamentDetails.join')}</Text>
                                         </TouchableOpacity>
                                     )
                                 )}
@@ -861,16 +863,16 @@ export default function TournamentDetailsScreen() {
                         {tournament.status === 'completed' && winner && (
                             <View style={[styles.winnerCard, { backgroundColor: theme.cardBackground }]}>
                                 <Crown size={40} color="#FFD700" />
-                                <Text style={[styles.winnerTitle, { color: theme.text }]}>Vincitore</Text>
+                                <Text style={[styles.winnerTitle, { color: theme.text }]}>{t('tournamentDetails.winner')}</Text>
                                 <Text style={[styles.winnerName, { color: theme.text }]}>{winner.username}</Text>
                                 <Text style={[styles.winnerPoints, { color: theme.secondaryText }]}>
-                                    {winner.points} punti
+                                    {winner.points} {t('tournamentDetails.points')}
                                 </Text>
                             </View>
                         )}
                     </>
                 ) : (
-                    <Text style={[styles.errorText, { color: theme.error }]}>Torneo non trovato.</Text>
+                    <Text style={[styles.errorText, { color: theme.error }]}>{t('tournamentDetails.notFound')}</Text>
                 )}
             </ScrollView>
 
@@ -899,7 +901,7 @@ export default function TournamentDetailsScreen() {
                         ]}
                     >
                         <Text style={[styles.modalTitle, { color: theme.text }]}>
-                            Insert Tournament Password
+                            {t('tournamentDetails.insertPassword')}
                         </Text>
                         <TextInput
                             style={[styles.passwordInput, { 
@@ -909,13 +911,13 @@ export default function TournamentDetailsScreen() {
                             }]}
                             value={password}
                             onChangeText={setPassword}
-                            placeholder="Password"
+                            placeholder={t('tournamentDetails.password')}
                             placeholderTextColor={theme.secondaryText}
                             secureTextEntry
                         />
                         {passwordError && (
                             <Text style={[styles.errorText, { color: theme.error }]}>
-                                {passwordError}
+                                {t('tournamentDetails.passwordError')}
                             </Text>
                         )}
                         <View style={styles.modalButtons}>
@@ -930,13 +932,13 @@ export default function TournamentDetailsScreen() {
                                     }, 200);
                                 }}
                             >
-                                <Text style={styles.modalButtonText}>Cancel</Text>
+                                <Text style={styles.modalButtonText}>{t('tournamentDetails.cancel')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity 
                                 style={[styles.modalButton, { backgroundColor: '#2ecc71' }]}
                                 onPress={() => joinTournament(password)}
                             >
-                                <Text style={styles.modalButtonText}>Confirm</Text>
+                                <Text style={styles.modalButtonText}>{t('tournamentDetails.confirm')}</Text>
                             </TouchableOpacity>
                         </View>
                     </Animated.View>

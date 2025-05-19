@@ -37,6 +37,29 @@ import LoadingScreen from './src/screens/LoadingScreen';
 import { useAuth, useOnlineStatus } from './src/hooks/useAuth';
 import { supabase } from './src/lib/supabase';
 
+import i18n from 'i18next';
+import { initReactI18next } from 'react-i18next';
+
+// Importa i file di traduzione
+import it from './src/locales/it.json';
+import en from './src/locales/en.json';
+
+i18n
+  .use(initReactI18next)
+  .init({
+    resources: {
+      it: { translation: it },
+      en: { translation: en },
+    },
+    lng: 'it', // lingua di default
+    fallbackLng: 'it',
+    interpolation: {
+      escapeValue: false,
+    },
+  });
+
+console.log('Lingua corrente:', i18n.language);
+
 const Stack = createNativeStackNavigator();
 
 const toastConfig = {

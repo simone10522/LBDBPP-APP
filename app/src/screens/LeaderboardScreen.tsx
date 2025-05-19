@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { FontAwesome } from '@expo/vector-icons';
 import { lightPalette, darkPalette } from '../context/themes'; // Importa i temi
+import { useTranslation } from 'react-i18next';
 
 interface TournamentParticipant {
   id: string;
@@ -25,7 +26,7 @@ const LeaderboardScreen = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const theme = isDarkMode ? darkPalette : lightPalette; // Determina il tema corrente
-
+  const { t } = useTranslation();
 
   const fetchLeaderboard = useCallback(async () => {
     setLoading(true);
@@ -92,19 +93,19 @@ const LeaderboardScreen = () => {
 
 
   if (loading) {
-    return <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}><Text style={{ color: theme.text }}>Caricamento...</Text></SafeAreaView>;
+    return <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}><Text style={{ color: theme.text }}>{t('loading')}</Text></SafeAreaView>;
   }
 
   return (
   <SafeAreaView style={ {flex:1, backgroundColor: theme.background }}>
     <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
-      <Text style={[styles.title, { color: theme.text }]}>Leaderboard</Text>
+      <Text style={[styles.title, { color: theme.text }]}>{t('leaderboard.title')}</Text>
       <View style={[styles.headerRow, { borderBottomColor: theme.borderColor }]}>
-        <Text style={[styles.headerCell, { flex: 1, textAlign: 'center', color: theme.text }]}>Pos</Text>
-        <Text style={[styles.headerCell, { flex: 2, textAlign: 'center', color: theme.text }]}>Player</Text>
-        <Text style={[styles.headerCell, { color: theme.text }]}>P</Text>
-        <Text style={[styles.headerCell, { color: theme.text }]}>W</Text>
-        <Text style={[styles.headerCell, { color: theme.text }]}>L</Text>
+        <Text style={[styles.headerCell, { flex: 1, textAlign: 'center', color: theme.text }]}>{t('leaderboard.position')}</Text>
+        <Text style={[styles.headerCell, { flex: 2, textAlign: 'center', color: theme.text }]}>{t('leaderboard.player')}</Text>
+        <Text style={[styles.headerCell, { color: theme.text }]}>{t('leaderboard.points')}</Text>
+        <Text style={[styles.headerCell, { color: theme.text }]}>{t('leaderboard.wins')}</Text>
+        <Text style={[styles.headerCell, { color: theme.text }]}>{t('leaderboard.losses')}</Text>
       </View>
       {sortedParticipants.map((participant, index) => (
         <View key={participant.id} style={[styles.row, user?.id === participant.participant_id ? styles.currentUserRow : {},

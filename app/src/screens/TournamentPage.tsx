@@ -15,6 +15,7 @@ import { useAuth } from '../hooks/useAuth'; // Import useAuth hook
 import { lightPalette, darkPalette } from '../context/themes'; // Import lightPalette and darkPalette
 import { useFocusEffect } from '@react-navigation/native'; // Import useFocusEffect
 import BannerAdComponent from '../components/BannerAd';
+import { useTranslation } from 'react-i18next'; // Import useTranslation
 
 interface Tournament {
   id: string;
@@ -35,6 +36,7 @@ const TournamentPage = () => {
   const [allTournaments, setAllTournaments] = useState<Tournament[]>([]);
   const [isCardMinimized, setIsCardMinimized] = useState(false);
   const { isDarkMode } = useAuth(); // Use useAuth hook to get isDarkMode
+  const { t } = useTranslation(); // Use useTranslation hook
 
   const theme = isDarkMode ? darkPalette : lightPalette; // Determine current theme
 
@@ -110,12 +112,14 @@ const TournamentPage = () => {
         <TournamentList
           tournaments={tournaments}
           loading={loading}
-          error={error}
+          error={error ? t('tournamentPage.error', { error }) : null}
           onRefresh={onRefresh}
           searchTerm={searchTerm}
           handleSearchChange={handleSearchChange}
           isCardMinimized={isCardMinimized}
           toggleCardSize={toggleCardSize}
+          noTournamentsText={t('tournamentPage.noTournaments')}
+          searchPlaceholder={t('tournamentPage.searchPlaceholder')}
         />
       </ScrollView>
       <View style={styles.bannerAdContainer}>

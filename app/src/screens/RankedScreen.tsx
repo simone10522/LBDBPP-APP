@@ -1,4 +1,3 @@
-//No changes needed, just for context
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, RefreshControl, Alert } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
@@ -15,14 +14,14 @@ const RankedScreen = () => {
   const theme = isDarkMode ? darkPalette : lightPalette;
   const [isInQueue, setIsInQueue] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
-  const [buttonText, setButtonText] = useState('Ricerca Classificata');
+  const [buttonText, setButtonText] = useState('ranked_search_button_text');
   const [searchDuration, setSearchDuration] = useState(0);
   const timerRef = useRef(null);
   const [isButtonVisible, setIsButtonVisible] = useState(true);
   const [isCancelButtonVisible, setIsCancelButtonVisible] = useState(false);
   const searchIntervalRef = useRef(null);
   const navigation = useNavigation();
-  const [animatedText, setAnimatedText] = useState('Ricerca in corso');
+  const [animatedText, setAnimatedText] = useState('ranked_searching_text');
   const [refreshing, setRefreshing] = useState(false);
   const [playerCount, setPlayerCount] = useState(0);
   const [matchId, setMatchId] = useState(null);
@@ -39,24 +38,24 @@ const RankedScreen = () => {
   useEffect(() => {
     let interval;
     if (isSearching) {
-      setButtonText('Ricerca in corso');
+      setButtonText('ranked_searching_text');
       interval = setInterval(() => {
         setAnimatedText((prevText) => {
-          if (prevText === 'Ricerca in corso') {
-            return 'Ricerca in corso.';
-          } else if (prevText === 'Ricerca in corso.') {
-            return 'Ricerca in corso..';
-          } else if (prevText === 'Ricerca in corso..') {
-            return 'Ricerca in corso...';
+          if (prevText === 'ranked_searching_text') {
+            return 'ranked_searching_text_dot';
+          } else if (prevText === 'ranked_searching_text_dot') {
+            return 'ranked_searching_text_double_dot';
+          } else if (prevText === 'ranked_searching_text_double_dot') {
+            return 'ranked_searching_text_triple_dot';
           } else {
-            return 'Ricerca in corso';
+            return 'ranked_searching_text';
           }
         });
       }, 500);
     } else {
-      setButtonText('Ricerca Classificata');
+      setButtonText('ranked_search_button_text');
       clearInterval(interval);
-      setAnimatedText('Ricerca in corso');
+      setAnimatedText('ranked_searching_text');
     }
 
     return () => clearInterval(interval);
@@ -91,8 +90,8 @@ const RankedScreen = () => {
     setIsButtonVisible(true);
     setIsCancelButtonVisible(false);
     setIsInQueue(false);
-    setAnimatedText('Ricerca in corso');
-    setButtonText('Ricerca Classificata');
+    setAnimatedText('ranked_searching_text');
+    setButtonText('ranked_search_button_text');
 
     try {
       const { error: deleteError } = await supabase
@@ -423,15 +422,15 @@ const RankedScreen = () => {
       const blurListener = navigation.addListener('blur', () => {
         if (isSearching) {
           Alert.alert(
-            "Interruzione Ricerca",
-            "Se cambi pagina, la ricerca verrà interrotta. Vuoi continuare?",
+            "ranked_search_interruption_title",
+            "ranked_search_interruption_message",
             [
               {
-                text: "Annulla",
+                text: "ranked_search_interruption_cancel",
                 style: "cancel"
               },
               {
-                text: "OK",
+                text: "ranked_search_interruption_confirm",
                 onPress: () => {
                   handleCancelSearch(); // Call handleCancelSearch when the user confirms
                 }
@@ -461,17 +460,17 @@ const RankedScreen = () => {
           />
         }
       >
-        <Text style={[styles.playerCountText, { color: theme.text }]}>Giocatori in coda: {playerCount}</Text>
+        <Text style={[styles.playerCountText, { color: theme.text }]}>ranked_queue_player_count: {playerCount}</Text>
         {isSearching ? (
           <View style={styles.animationContainer}>
             <RankedSearchAnimation isDarkMode={isDarkMode} />
             <Text style={[styles.searchingText, { color: theme.text }]}>{animatedText}</Text>
             <Text style={[styles.searchDurationText, { color: theme.text }]}>
-              Tempo di ricerca: {searchDuration} secondi
+              ranked_search_duration: {searchDuration} ranked_search_duration_seconds
             </Text>
             {isCancelButtonVisible && (
               <TouchableOpacity style={styles.cancelButton} onPress={handleCancelSearch}>
-                <Text style={styles.cancelButtonText}>Annulla Ricerca</Text>
+                <Text style={styles.cancelButtonText}>ranked_search_cancel_button_text</Text>
               </TouchableOpacity>
             )}
           </View>

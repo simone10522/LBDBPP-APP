@@ -4,8 +4,9 @@ import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { lightPalette, darkPalette } from '../context/themes'; // Import theme palettes
-import { Ionicons } from '@expo/vector-icons'; // Import Ionicons for the eye icon
+import { lightPalette, darkPalette } from '../context/themes';
+import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next'; // <-- aggiungi questa riga
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -16,6 +17,7 @@ export default function LoginScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const { setUser, isDarkMode, setIsDarkMode } = useAuth(); // Use global state
   const screenHeight = Dimensions.get('window').height;
+  const { t, i18n } = useTranslation(); // <-- aggiungi questa riga
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -57,6 +59,13 @@ export default function LoginScreen() {
     }
   };
 
+  // Funzione per cambiare lingua
+  const toggleLanguage = async () => {
+    const newLang = i18n.language === 'en' ? 'it' : 'en';
+    await i18n.changeLanguage(newLang);
+    await AsyncStorage.setItem('appLanguage', newLang);
+  };
+
   const theme = isDarkMode ? darkPalette : lightPalette;
 
   return (
@@ -70,8 +79,17 @@ export default function LoginScreen() {
       }],
       backgroundColor: theme.background,
     }]}>
+      {/* Switch lingua */}
+      <View style={styles.languageSwitchContainer}>
+        <Text style={{ color: theme.text }}>{t('Select Language')}</Text>
+        <TouchableOpacity onPress={toggleLanguage} style={styles.languageButton}>
+          <Text style={{ color: theme.primary }}>
+            {i18n.language === 'en' ? 'IT' : 'EN'}
+          </Text>
+        </TouchableOpacity>
+      </View>
       <View style={styles.switchContainer}>
-        <Text style={{ color: theme.text }}>{isDarkMode ? 'Dark Mode' : 'Light Mode'}</Text>
+        <Text style={{ color: theme.text }}>{isDarkMode ? t('profile.darkMode') : 'Light Mode'}</Text>
         <Switch
           trackColor={{ false: '#767577', true: '#81b0ff' }}
           thumbColor={isDarkMode ? '#f5dd4b' : '#f4f3f4'}
@@ -103,9 +121,9 @@ export default function LoginScreen() {
       <View style={styles.passwordContainer}>
         <TextInput
           style={[styles.input, { backgroundColor: theme.inputBackground, color: theme.text, borderColor: theme.borderColor }]}
-          placeholder="Password"
+          placeholder={t('profile.enterUsername')}
           placeholderTextColor="#AAAAAA"
-          secureTextEntry={!showPassword} // Toggle secureTextEntry based on showPassword
+          secureTextEntry={!showPassword}
           value={password}
           onChangeText={setPassword}
           required
@@ -118,13 +136,13 @@ export default function LoginScreen() {
         style={styles.forgotPasswordButton} 
         onPress={() => Linking.openURL('https://pocket-tournament.netlify.app/reset-password')}
       >
-        <Text style={[styles.forgotPasswordText, { color: theme.primary }]}>Forgot Password?</Text>
+        <Text style={[styles.forgotPasswordText, { color: theme.primary }]}>{t('Forgot Password?')}</Text>
       </TouchableOpacity>
       <TouchableOpacity style={[styles.button, { backgroundColor: theme.buttonBackground }]} onPress={handleLogin}>
-        <Text style={[styles.buttonText, { color: theme.buttonText }]}>Log In</Text>
+        <Text style={[styles.buttonText, { color: theme.buttonText }]}>{t('login')}</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.registerButton} onPress={() => navigation.navigate('Register')}>
-        <Text style={[styles.registerButtonText, { color: theme.primary }]}>Don't have an account yet? Register now!</Text>
+        <Text style={[styles.registerButtonText, { color: theme.primary }]}>{t("Don't have an account yet? Register now!")}</Text>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -216,5 +234,20 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     borderWidth: 1,
     borderColor: '#f5c6cb',
+  },
+  languageSwitchContainer: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  languageButton: {
+    marginLeft: 8,
+    padding: 6,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#4a90e2',
+    backgroundColor: 'transparent',
   },
 });

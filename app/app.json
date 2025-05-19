@@ -1,35 +1,47 @@
 {
   "assetBundlePatterns": [
-      "**/*"
-    ],
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.example.lbdbpp"
+    "**/*"
+  ],
+  "ios": {
+    "supportsTablet": true,
+    "bundleIdentifier": "com.example.lbdbpp"
+  },
+  "android": {
+    "adaptiveIcon": {
+      "foregroundImage": "./assets/adaptive-icon.png",
+      "backgroundColor": "#969696"
     },
-    "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#969696",
-      },
-      "softwareKeyboardLayoutMode": "pan",
-      "package": "com.example.lbdbpp",
-      "versionCode": 1
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
-
-    "experiments": {
-      "turboModules": false
-    },
-	 "react-native-google-mobile-ads": {
+    "softwareKeyboardLayoutMode": "pan",
+    "package": "com.example.lbdbpp",
+    "versionCode": 1
+  },
+  "web": {
+    "favicon": "./assets/favicon.png"
+  },
+  "experiments": {
+    "turboModules": false
+  },
+  "react-native-google-mobile-ads": {
     "android_app_id": "ca-app-pub-3518274030390186~7173130626"
   },
+  "extra": {
+    "eas": {
+      "projectId": "c382d6da-ecee-4deb-9045-74b7ff0c5207"
+    },
+    "supabaseUrl": "https://pmgibubmmyjadiltkmax.supabase.co",
+    "supabaseKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBtZ2lidWJtbXlqYWRpbHRrbWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU5MjQ0ODksImV4cCI6MjA1MTUwMDQ4OX0.YTmPshWZBxX1zeKncOAgakpf_p7Pv26GS-c4E9ut8e0"
+  },
+  "expo": {
+    "name": "NomeApp",
+    "slug": "nomeapp",
+    "owner": "lbdbpt",
     "extra": {
       "eas": {
-        "projectId": "c382d6da-ecee-4deb-9045-74b7ff0c5207"
-      },
-      "supabaseUrl": "https://pmgibubmmyjadiltkmax.supabase.co",
-      "supabaseKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBtZ2lidWJtbXlqYWRpbHRrbWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU5MjQ0ODksImV4cCI6MjA1MTUwMDQ4OX0.YTmPshWZBxX1zeKncOAgakpf_p7Pv26GS-c4E9ut8e0"
+        "projectId": "ede4dcb3-9076-48c9-846e-6216b7eb740c"
+      }
+    },
+    "android": {
+      "package": "com.lbdbpt.nomeapp"
     }
   }
+}

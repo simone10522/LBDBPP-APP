@@ -15,6 +15,8 @@ import * as FileSystem from 'expo-file-system';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { Ionicons, Entypo } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
+import { useTranslation } from 'react-i18next';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ProfileScreen = () => {
   const { user, setUser, isDarkMode, setIsDarkMode } = useAuth();
@@ -29,6 +31,8 @@ const ProfileScreen = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [urlInput, setUrlInput] = useState('');
   const [friendCodeError, setFriendCodeError] = useState('');
+  const { t, i18n } = useTranslation();
+  const [langMenuVisible, setLangMenuVisible] = useState(false);
 
   const theme = isDarkMode ? darkPalette : lightPalette;
 
@@ -40,7 +44,6 @@ const ProfileScreen = () => {
     if (user) {
       setLoading(true);
       try {
-        // Prima verifica se il profilo esiste
         const { data: existingProfile, error: selectError } = await supabase
           .from('profiles')
           .select('username, profile_image, match_password')
@@ -48,7 +51,6 @@ const ProfileScreen = () => {
           .single();
 
         if (selectError && selectError.code === 'PGRST116') {
-          // Profilo non trovato, creane uno nuovo
           const { data: newProfile, error: insertError } = await supabase
             .from('profiles')
             .insert([{
@@ -91,7 +93,7 @@ const ProfileScreen = () => {
   const validateFriendCode = (code: string) => {
     const numbersOnly = code.replace(/[^\d]/g, '');
     if (numbersOnly.length !== 16) {
-      setFriendCodeError('Friend code must be exactly 16 numbers');
+      setFriendCodeError(t('profile.friendCodeError'));
       return false;
     }
     setFriendCodeError('');
@@ -102,8 +104,8 @@ const ProfileScreen = () => {
     if (matchPassword && !validateFriendCode(matchPassword)) {
       Toast.show({
         type: 'error',
-        text1: 'Invalid Friend Code',
-        text2: 'Please enter exactly 16 numbers'
+        text1: t('profile.invalidFriendCode'),
+        text2: t('profile.friendCodeError')
       });
       return;
     }
@@ -122,14 +124,14 @@ const ProfileScreen = () => {
         setError(updateError.message);
         Toast.show({
           type: 'error',
-          text1: 'Error',
+          text1: t('profile.error'),
           text2: updateError.message
         });
       } else {
         Toast.show({
           type: 'success',
-          text1: 'Success',
-          text2: 'Profile updated successfully!'
+          text1: t('profile.success'),
+          text2: t('profile.profileUpdated')
         });
       }
     } catch (error: any) {
@@ -137,7 +139,7 @@ const ProfileScreen = () => {
       setError(error.message);
       Toast.show({
         type: 'error',
-        text1: 'Error',
+        text1: t('profile.error'),
         text2: error.message
       });
     } finally {
@@ -169,10 +171,9 @@ const ProfileScreen = () => {
       }
 
       if (responseData.success) {
-        // Return the direct image URL
         return responseData.data.url;
       } else {
-        throw new Error(responseData.error?.message || 'ImgBB upload failed');
+        throw new Error(responseData.error?.message || t('profile.imgBBUploadFailed'));
       }
     } catch (error) {
       console.error('Error uploading to ImgBB:', error);
@@ -206,8 +207,8 @@ const ProfileScreen = () => {
       if (status !== 'granted') {
         Toast.show({
           type: 'error',
-          text1: 'Permission needed',
-          text2: 'Please grant camera roll permissions to upload a profile picture.'
+          text1: t('profile.permissionNeeded'),
+          text2: t('profile.cameraRollPermission')
         });
         return;
       }
@@ -230,7 +231,7 @@ const ProfileScreen = () => {
           
           const fileInfo = await FileSystem.getInfoAsync(optimizedUri);
           if (!fileInfo.exists) {
-            throw new Error('File does not exist');
+            throw new Error(t('profile.fileNotExist'));
           }
           
           const imageUrl = await uploadToImgBB(optimizedUri);
@@ -245,22 +246,22 @@ const ProfileScreen = () => {
           if (updateError) {
             Toast.show({
               type: 'error',
-              text1: 'Error',
-              text2: 'Failed to update profile image'
+              text1: t('profile.error'),
+              text2: t('profile.updateImageFailed')
             });
           } else {
             Toast.show({
               type: 'success',
-              text1: 'Success',
-              text2: 'Profile image updated successfully'
+              text1: t('profile.success'),
+              text2: t('profile.imageUpdated')
             });
           }
         } catch (error) {
           console.error('Error uploading image:', error);
           Toast.show({
             type: 'error',
-            text1: 'Error',
-            text2: 'Failed to upload image. Please try again.'
+            text1: t('profile.error'),
+            text2: t('profile.uploadImageFailed')
           });
         } finally {
           setLoading(false);
@@ -270,8 +271,8 @@ const ProfileScreen = () => {
       console.error('Error picking image:', error);
       Toast.show({
         type: 'error',
-        text1: 'Error',
-        text2: 'Failed to pick image. Please try again.'
+        text1: t('profile.error'),
+        text2: t('profile.pickImageFailed')
       });
     }
   };
@@ -333,8 +334,8 @@ const ProfileScreen = () => {
       if (finalStatus !== 'granted') {
         Toast.show({
           type: 'error',
-          text1: 'Error',
-          text2: 'Failed to get push token for push notification!'
+          text1: t('profile.error'),
+          text2: t('profile.pushTokenFailed')
         });
         return null;
       }
@@ -344,8 +345,8 @@ const ProfileScreen = () => {
     } else {
       Toast.show({
         type: 'error',
-        text1: 'Error',
-        text2: 'Must use physical device for Push Notifications'
+        text1: t('profile.error'),
+        text2: t('profile.physicalDeviceRequired')
       });
       return null;
     }
@@ -371,22 +372,22 @@ const ProfileScreen = () => {
             setError(updateError.message);
             Toast.show({
               type: 'error',
-              text1: 'Error',
-              text2: 'Failed to enable push token.'
+              text1: t('profile.error'),
+              text2: t('profile.enablePushTokenFailed')
             });
           } else {
             console.log("Push token enabled successfully");
             Toast.show({
               type: 'success',
-              text1: 'Success',
-              text2: 'Push token enabled successfully!'
+              text1: t('profile.success'),
+              text2: t('profile.pushTokenEnabled')
             });
           }
         } else {
           Toast.show({
             type: 'error',
-            text1: 'Error',
-            text2: 'Failed to get push token.'
+            text1: t('profile.error'),
+            text2: t('profile.pushTokenFailed')
           });
         }
       } else {
@@ -400,15 +401,15 @@ const ProfileScreen = () => {
           setError(updateError.message);
           Toast.show({
             type: 'error',
-            text1: 'Error',
-            text2: 'Failed to disable push token.'
+            text1: t('profile.error'),
+            text2: t('profile.disablePushTokenFailed')
           });
         } else {
           console.log("Push token disabled successfully");
           Toast.show({
             type: 'success',
-            text1: 'Success',
-            text2: 'Push token disabled successfully!'
+            text1: t('profile.success'),
+            text2: t('profile.pushTokenDisabled')
           });
         }
       }
@@ -418,8 +419,8 @@ const ProfileScreen = () => {
       setError(error.message);
       Toast.show({
         type: 'error',
-        text1: 'Error',
-        text2: 'An error occurred while toggling push notifications.'
+        text1: t('profile.error'),
+        text2: t('profile.pushTokenToggleError')
       });
     } finally {
       setLoading(false);
@@ -442,15 +443,15 @@ const ProfileScreen = () => {
       if (updateError) {
         Toast.show({
           type: 'error',
-          text1: 'Error',
-          text2: 'Failed to update profile image'
+          text1: t('profile.error'),
+          text2: t('profile.updateImageFailed')
         });
       } else {
         setProfileImage(urlInput);
         Toast.show({
           type: 'success',
-          text1: 'Success',
-          text2: 'Profile image updated successfully'
+          text1: t('profile.success'),
+          text2: t('profile.imageUpdated')
         });
         setModalVisible(false);
       }
@@ -458,16 +459,67 @@ const ProfileScreen = () => {
       console.error('Error updating profile image:', error);
       Toast.show({
         type: 'error',
-        text1: 'Error',
-        text2: 'Failed to update profile image'
+        text1: t('profile.error'),
+        text2: t('profile.updateImageFailed')
       });
     } finally {
       setLoading(false);
     }
   };
 
+  const toggleLanguage = async () => {
+    const newLang = i18n.language === 'en' ? 'it' : 'en';
+    await i18n.changeLanguage(newLang);
+    await AsyncStorage.setItem('appLanguage', newLang);
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+      <TouchableOpacity
+        style={styles.menuButton}
+        onPress={toggleLanguage}
+        accessibilityLabel={t('profile.languageMenu')}
+      >
+        <Text style={{ color: theme.text }}>{i18n.language === 'en' ? 'IT' : 'EN'}</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.menuButton}
+        onPress={() => setLangMenuVisible(true)}
+        accessibilityLabel={t('profile.openLanguageMenu')}
+      >
+        <Ionicons name="menu" size={28} color={theme.text} />
+      </TouchableOpacity>
+
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={langMenuVisible}
+        onRequestClose={() => setLangMenuVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.sideMenuOverlay}
+          activeOpacity={1}
+          onPressOut={() => setLangMenuVisible(false)}
+        >
+          <View style={[styles.sideMenu, { backgroundColor: theme.background }]}>
+            <Text style={[styles.sideMenuTitle, { color: theme.text }]}>{t('profile.selectLanguage')}</Text>
+            <TouchableOpacity
+              style={styles.langButton}
+              onPress={() => { i18n.changeLanguage('it'); setLangMenuVisible(false); }}
+            >
+              <Text style={{ color: theme.text }}>Italiano</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.langButton}
+              onPress={() => { i18n.changeLanguage('en'); setLangMenuVisible(false); }}
+            >
+              <Text style={{ color: theme.text }}>English</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
       <Modal
         animationType="slide"
         transparent={true}
@@ -476,12 +528,14 @@ const ProfileScreen = () => {
       >
         <View style={styles.modalContainer}>
           <View style={[styles.modalContent, { backgroundColor: theme.background }]}>
-            <Text style={[styles.modalTitle, { color: theme.text }]}>Enter Image URL</Text>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>
+              {t('profile.enterImageUrl')}
+            </Text>
             <TextInput
               style={[styles.input, { backgroundColor: theme.inputBackground, color: theme.text, borderColor: theme.inputBorder }]}
               value={urlInput}
               onChangeText={setUrlInput}
-              placeholder="Enter image URL"
+              placeholder={t('profile.enterImageUrl')}
               placeholderTextColor={theme.placeholderText}
             />
             <View style={styles.modalButtons}>
@@ -490,13 +544,13 @@ const ProfileScreen = () => {
                 onPress={handleUrlSubmit}
                 disabled={loading}
               >
-                <Text style={[styles.buttonText, { color: theme.buttonText }]}>Save</Text>
+                <Text style={[styles.buttonText, { color: theme.buttonText }]}>{t('profile.save')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.button, { backgroundColor: theme.error, flex: 1, marginLeft: 10 }]}
                 onPress={() => setModalVisible(false)}
               >
-                <Text style={[styles.buttonText, { color: theme.buttonText }]}>Cancel</Text>
+                <Text style={[styles.buttonText, { color: theme.buttonText }]}>{t('profile.cancel')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -530,19 +584,19 @@ const ProfileScreen = () => {
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={[styles.label, { color: theme.text }]}>Username</Text>
+          <Text style={[styles.label, { color: theme.text }]}>{t('profile.username')}</Text>
           <TextInput
             style={[styles.input, { backgroundColor: theme.inputBackground, color: theme.text, borderColor: theme.inputBorder }]}
             value={username}
             onChangeText={setUsername}
-            placeholder="Enter your username"
+            placeholder={t('profile.enterUsername')}
             placeholderTextColor={theme.placeholderText}
-            accessibilityLabel="Username Input"
+            accessibilityLabel={t('profile.usernameInput')}
           />
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={[styles.label, { color: theme.text }]}>Friend Code</Text>
+          <Text style={[styles.label, { color: theme.text }]}>{t('profile.friendCode')}</Text>
           <TextInput
             style={[
               styles.input,
@@ -556,11 +610,11 @@ const ProfileScreen = () => {
                 validateFriendCode(numbersOnly);
               }
             }}
-            placeholder="Enter friend code (16 numbers)"
+            placeholder={t('profile.enterFriendCode')}
             placeholderTextColor={theme.placeholderText}
             keyboardType="numeric"
             maxLength={16}
-            accessibilityLabel="Friend Code Input"
+            accessibilityLabel={t('profile.friendCodeInput')}
           />
           {friendCodeError ? (
             <Text style={[styles.errorText, { color: theme.error }]}>{friendCodeError}</Text>
@@ -568,22 +622,22 @@ const ProfileScreen = () => {
         </View>
 
         <View style={styles.switchContainer}>
-          <Text style={[styles.label, { color: theme.text }]}>Dark Mode</Text>
+          <Text style={[styles.label, { color: theme.text }]}>{t('profile.darkMode')}</Text>
           <Switch
             trackColor={{ false: theme.switchTrackFalse, true: theme.switchTrackTrue }}
             thumbColor={isDarkMode ? theme.switchThumbTrue : theme.switchThumbFalse}
             onValueChange={toggleTheme}
             value={isDarkMode}
-            accessibilityLabel="Dark Mode Switch"
+            accessibilityLabel={t('profile.darkModeSwitch')}
           />
         </View>
 
         <TouchableOpacity
           style={[styles.button, { backgroundColor: theme.buttonBackground }]}
           onPress={goToDecklistscreen}
-          accessibilityLabel="Go to My Deck"
+          accessibilityLabel={t('profile.goToMyDeck')}
         >
-          <Text style={[styles.buttonText, { color: theme.buttonText }]}>My Deck</Text>
+          <Text style={[styles.buttonText, { color: theme.buttonText }]}>{t('profile.myDeck')}</Text>
         </TouchableOpacity>
 
         <View style={styles.buttonContainer}>
@@ -591,17 +645,19 @@ const ProfileScreen = () => {
             style={[styles.button, { backgroundColor: theme.buttonBackground }]}
             onPress={handleSaveProfile}
             disabled={loading}
-            accessibilityLabel="Save Profile"
+            accessibilityLabel={t('profile.saveProfile')}
           >
-            <Text style={[styles.buttonText, { color: theme.buttonText }]}>{loading ? 'Saving...' : 'Save Profile'}</Text>
+            <Text style={[styles.buttonText, { color: theme.buttonText }]}>
+              {loading ? t('profile.savingProfile') : t('profile.saveProfile')}
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.button, { backgroundColor: theme.error }]}
             onPress={handleLogout}
-            accessibilityLabel="Logout"
+            accessibilityLabel={t('profile.logout')}
           >
-            <Text style={[styles.buttonText, { color: theme.buttonText }]}>Logout</Text>
+            <Text style={[styles.buttonText, { color: theme.buttonText }]}>{t('profile.logout')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -729,6 +785,45 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 20,
+  },
+  menuButton: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    zIndex: 10,
+    backgroundColor: 'rgba(92,92,92,0.8)',
+    borderRadius: 25,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sideMenuOverlay: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  sideMenu: {
+    width: 220,
+    paddingTop: 40,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    borderTopRightRadius: 20,
+    borderBottomRightRadius: 20,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    shadowOffset: { width: 2, height: 0 },
+  },
+  sideMenuTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 20,
+  },
+  langButton: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#444',
   },
 });
 

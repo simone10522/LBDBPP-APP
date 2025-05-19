@@ -18,6 +18,7 @@ import { useNavigation } from '@react-navigation/native';
 import BannerAdComponent from '../components/BannerAd';
 import Toast from 'react-native-toast-message';
 import InterstitialAdComponent from '../components/InterstitialAd';
+import { useTranslation } from 'react-i18next';
 
 const loadCardData = () => {
   const allCards = {};
@@ -78,6 +79,7 @@ const TradeScreen = () => {
   const [friendCodeInput, setFriendCodeInput] = useState('');
   const [pendingSelectionType, setPendingSelectionType] = useState<'have' | 'want' | null>(null);
   const [showAd, setShowAd] = useState(false);
+  const { t } = useTranslation();
 
   const handleAdClosed = () => {
     setShowAd(false);
@@ -256,7 +258,7 @@ const TradeScreen = () => {
     await Clipboard.setStringAsync(text);
     Toast.show({
       type: 'success',
-      text1: 'The friend code has been copied to your clipboard.',
+      text1: t('tradeScreen.copyFriendCode'),
     });
   };
 
@@ -298,12 +300,12 @@ const TradeScreen = () => {
       if (otherPushToken) {
         const myCards = isUser1 ? tradeMatch.user1_cards : tradeMatch.user2_cards;
         const otherCards = isUser1 ? tradeMatch.user2_cards : tradeMatch.user1_cards;
-        const myCardName = myCards.length > 0 ? getCardName(myCards[0].id) : 'Unknown Card';
-        const otherCardName = otherCards.length > 0 ? getCardName(otherCards[0].id) : 'Unknown Card';
+        const myCardName = myCards.length > 0 ? getCardName(myCards[0].id) : t('tradeScreen.unknownCard');
+        const otherCardName = otherCards.length > 0 ? getCardName(otherCards[0].id) : t('tradeScreen.unknownCard');
         
         const notificationMessage = tradeMatch[otherColumn] === 'ok' 
-          ? `Trade Confirmed! Both players have accepted the trade.`
-          : `Trade Request! Player ${userProfiles[userId]?.username} wants ${otherCardName} for ${myCardName}.`;
+          ? t('tradeScreen.tradeConfirmed')
+          : t('tradeScreen.tradeRequest', { username: userProfiles[userId]?.username, otherCardName, myCardName });
 
         await fetch('https://lbdb-server-production.up.railway.app/send-notification', {
           method: 'POST',
@@ -332,8 +334,8 @@ const TradeScreen = () => {
       fetchTradeMatches();
       Toast.show({
         type: 'success',
-        text1: tradeMatch[otherColumn] === 'ok' ? 'Trade Confirmed!' : 'Trade Request Sent',
-        text2: tradeMatch[otherColumn] === 'ok' ? 'Both players have accepted.' : 'Waiting for other player...',
+        text1: tradeMatch[otherColumn] === 'ok' ? t('tradeScreen.tradeConfirmed') : t('tradeScreen.tradeRequestSent'),
+        text2: tradeMatch[otherColumn] === 'ok' ? t('tradeScreen.bothPlayersAccepted') : t('tradeScreen.waitingForOtherPlayer'),
       });
 
     } catch (err) {
@@ -423,7 +425,7 @@ const TradeScreen = () => {
 
     } catch (error) {
       console.error('Error during trade completion:', error);
-      setError('Failed to complete trade');
+      setError(t('tradeScreen.failedToCompleteTrade'));
     } finally {
       setLoading(false);
     }
@@ -439,19 +441,19 @@ const TradeScreen = () => {
 
       if (error) {
         console.error('Error canceling trade:', error);
-        setError('Failed to cancel trade');
+        setError(t('tradeScreen.failedToCancelTrade'));
         return;
       }
 
       fetchTradeMatches();
       Toast.show({
         type: 'success',
-        text1: 'Trade Canceled',
-        text2: 'The trade has been canceled successfully.',
+        text1: t('tradeScreen.tradeCanceled'),
+        text2: t('tradeScreen.tradeCanceledSuccessfully'),
       });
     } catch (error) {
       console.error('Error in handleCancelTrade:', error);
-      setError('Failed to cancel trade');
+      setError(t('tradeScreen.failedToCancelTrade'));
     } finally {
       setLoading(false);
     }
@@ -521,8 +523,8 @@ const TradeScreen = () => {
     if (code.length !== 16) {
       Toast.show({
         type: 'error',
-        text1: 'Invalid Friend Code',
-        text2: 'Friend Code must be exactly 16 numbers.'
+        text1: t('tradeScreen.invalidFriendCode'),
+        text2: t('tradeScreen.friendCodeMustBe16Numbers')
       });
       return;
     }
@@ -535,20 +537,20 @@ const TradeScreen = () => {
       if (error) {
         Toast.show({
           type: 'error',
-          text1: 'Error',
+          text1: t('tradeScreen.error'),
           text2: error.message
         });
         return;
       }
       Toast.show({
         type: 'success',
-        text1: 'Friend Code set successfully!'
+        text1: t('tradeScreen.friendCodeSetSuccessfully')
       });
     } catch (err: any) {
       Toast.show({
         type: 'error',
-        text1: 'Error',
-        text2: err.message || 'Failed to update Friend Code'
+        text1: t('tradeScreen.error'),
+        text2: err.message || t('tradeScreen.failedToUpdateFriendCode')
       });
     } finally {
       setLoading(false);
@@ -630,12 +632,12 @@ const TradeScreen = () => {
 
     const user1Cards = item.user1_id === userId ? item.user1_cards : item.user2_cards;
     const user2Cards = item.user1_id === userId ? item.user2_cards : item.user1_cards;
-    const otherUsername = userProfiles[otherUserId]?.username || 'Unknown User';
+    const otherUsername = userProfiles[otherUserId]?.username || t('tradeScreen.tradeWithUser', { username: 'Unknown User' });
     const otherUserMatchPassword = userProfiles[otherUserId]?.matchPassword || 'N/A';
     const otherUserStatus = userProfiles[otherUserId]?.status || 'offline';
 
-    const user1CardName = user1Cards.length > 0 ? getCardName(user1Cards[0].id) : 'No Card';
-    const user2CardName = user2Cards.length > 0 ? getCardName(user2Cards[0].id) : 'No Card';
+    const user1CardName = user1Cards.length > 0 ? getCardName(user1Cards[0].id) : t('tradeScreen.noCard');
+    const user2CardName = user2Cards.length > 0 ? getCardName(user2Cards[0].id) : t('tradeScreen.noCard');
     const accordionTitle = `${user1CardName} ➔ ${user2CardName} - Status: ${item.status}`;
 
     const handleAccept = async (tradeMatchId) => {
@@ -650,10 +652,10 @@ const TradeScreen = () => {
     return (
       <Accordion title={accordionTitle} status={otherUserStatus}>
         <View style={[styles.matchItem, { backgroundColor: theme.cardBackground }]}>
-          <Text style={[styles.matchText, { color: theme.text }]}>Trade with: {otherUsername}</Text>
+          <Text style={[styles.matchText, { color: theme.text }]}>{t('tradeScreen.tradeWithUser', { username: otherUsername })}</Text>
           <View style={styles.cardColumnsContainer}>
             <View style={styles.cardColumn}>
-              <Text style={[styles.columnTitle, { color: theme.text }]}>I Have:</Text>
+              <Text style={[styles.columnTitle, { color: theme.text }]}>{t('tradeScreen.iHave')}</Text>
               {user1Cards.map((card) => (
                 <Image
                   key={card.id}
@@ -667,7 +669,7 @@ const TradeScreen = () => {
               <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text} />
             </View>
             <View style={styles.cardColumn}>
-              <Text style={[styles.columnTitle, { color: theme.text }]}>I Want:</Text>
+              <Text style={[styles.columnTitle, { color: theme.text }]}>{t('tradeScreen.iWant')}</Text>
               {user2Cards.map((card) => (
                 <Image
                   key={card.id}
@@ -679,7 +681,7 @@ const TradeScreen = () => {
           </View>
           {showTradeCompleted && (
             <View style={styles.matchPasswordContainer}>
-              <Text style={[styles.matchPasswordLabel, { color: theme.text }]}>Friend Code:</Text>
+              <Text style={[styles.matchPasswordLabel, { color: theme.text }]}>{t('tradeScreen.friendCode')}:</Text>
               <View style={styles.passwordRow}>
                 <Text style={[styles.matchPasswordText, { color: theme.text }]}>{otherUserMatchPassword}</Text>
                 <TouchableOpacity onPress={() => copyToClipboard(otherUserMatchPassword)}>
@@ -695,7 +697,7 @@ const TradeScreen = () => {
                 onPress={() => handleTradeCompleted(item.id)}
               >
                 <Text style={[styles.completedButtonText, { color: theme.text }]}>
-                  Trade Completed
+                  {t('tradeScreen.tradeCompleted')}
                 </Text>
               </TouchableOpacity>
             ) : (
@@ -724,13 +726,20 @@ const TradeScreen = () => {
     );
   };
 
-  const renderOfferSection = ({ title, cards, onPress }) => (
-    <TouchableOpacity onPress={onPress} style={{ flex: 1 }}>
-      <View style={[styles.offerSection, { backgroundColor: theme.cardBackground }]}>
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>{title}</Text>
-      </View>
-    </TouchableOpacity>
-  );
+  const renderOfferSection = ({ title, cards, onPress }) => {
+    let translationKey = '';
+    if (title === 'I Have') translationKey = 'iHave';
+    else if (title === 'I Want') translationKey = 'iWant';
+    else translationKey = title; // fallback
+
+    return (
+      <TouchableOpacity onPress={onPress} style={{ flex: 1 }}>
+        <View style={[styles.offerSection, { backgroundColor: theme.cardBackground }]}>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>{t(`tradeScreen.${translationKey}`)}</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   const renderItem = ({ item }) => {
     if (item.type === 'offer') {
@@ -768,7 +777,7 @@ const TradeScreen = () => {
     return (
       <View style={[styles.container, { backgroundColor: theme.background, justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color={theme.text} />
-        <Text style={{ color: theme.text, marginTop: 10 }}>Loading...</Text>
+        <Text style={{ color: theme.text, marginTop: 10 }}>{t('tradeScreen.loading')}</Text>
       </View>
     );
   }
@@ -776,7 +785,7 @@ const TradeScreen = () => {
   if (!userId) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background, justifyContent: 'center', alignItems: 'center' }]}>
-        <Text style={{ color: theme.text }}>Please log in to view trades.</Text>
+        <Text style={{ color: theme.text }}>{t('tradeScreen.logInToViewTrades')}</Text>
       </View>
     );
   }
@@ -795,13 +804,13 @@ const TradeScreen = () => {
         <View style={styles.modalContainer}>
           <View style={[styles.modalContent, { backgroundColor: theme.background }]}>
             <Text style={[styles.modalTitle, { color: theme.text }]}>
-              Your Friend Code hasn't been set yet. You need it to trade cards.
+              {t('tradeScreen.yourFriendCodeNotSet')}
             </Text>
             <TextInput
               style={[styles.input, { backgroundColor: theme.inputBackground, color: theme.text, borderColor: theme.inputBorder }]}
               value={friendCodeInput}
               onChangeText={setFriendCodeInput}
-              placeholder="Enter Friend Code (16 numbers)"
+              placeholder={t('tradeScreen.enterFriendCode')}
               placeholderTextColor={theme.placeholderText}
               keyboardType="numeric"
               maxLength={16}
@@ -812,13 +821,13 @@ const TradeScreen = () => {
                 onPress={handleFriendCodeSubmit}
                 disabled={loading}
               >
-                <Text style={[styles.buttonText, { color: theme.buttonText }]}>Save</Text>
+                <Text style={[styles.buttonText, { color: theme.buttonText }]}>{t('tradeScreen.save')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.button, { backgroundColor: theme.error, flex: 1, marginLeft: 10 }]}
                 onPress={handleFriendCodeCancel}
               >
-                <Text style={[styles.buttonText, { color: theme.buttonText }]}>Cancel</Text>
+                <Text style={[styles.buttonText, { color: theme.buttonText }]}>{t('tradeScreen.cancel')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -827,8 +836,8 @@ const TradeScreen = () => {
 
       <View style={styles.toggleContainer}>
         <View style={styles.tradeHeader}>
-          <Text style={[styles.tradeInProgress, { color: theme.text }]}>Available Trade</Text>
-          <Text style={[styles.filter, { color: theme.text }]}>Online Only</Text>
+          <Text style={[styles.tradeInProgress, { color: theme.text }]}>{t('tradeScreen.availableTrade')}</Text>
+          <Text style={[styles.filter, { color: theme.text }]}>{t('tradeScreen.onlineOnly')}</Text>
           <Switch
             trackColor={{ false: '#767577', true: '#81b0ff' }}
             thumbColor={showOnlineOnly ? '#f5dd4b' : '#f4f3f4'}
@@ -853,7 +862,7 @@ const TradeScreen = () => {
           const [otherUserId, trades] = item;
           return (
             <Accordion
-              title={`Scambi disponibili con ${userProfiles[otherUserId]?.username || otherUserId}`}
+              title={t('tradeScreen.availableTrade') + ' ' + (userProfiles[otherUserId]?.username || otherUserId)}
               showStatusIndicator={true}
               status={userProfiles[otherUserId]?.status}
             >
@@ -865,8 +874,8 @@ const TradeScreen = () => {
             </Accordion>
           );
         }}
-        ListEmptyComponent={<Text style={{ color: theme.text }}>No trade matches found.</Text>}
-        ListFooterComponent={error && <Text style={{ color: 'red' }}>Error: {error}</Text>}
+        ListEmptyComponent={<Text style={{ color: theme.text }}>{t('tradeScreen.noTradeMatches')}</Text>}
+        ListFooterComponent={error && <Text style={{ color: 'red' }}>{t('tradeScreen.error')}: {error}</Text>}
       />
       <View style={styles.bannerAdContainer}>
         <BannerAdComponent />
@@ -950,7 +959,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     marginTop: 20,
     marginBottom: 20,
-    marginLeft: 50,
+    marginLeft: 10,
   },
   matchList: {
     width: '100%',
