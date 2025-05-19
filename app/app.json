@@ -32,8 +32,8 @@
     "supabaseKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBtZ2lidWJtbXlqYWRpbHRrbWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU5MjQ0ODksImV4cCI6MjA1MTUwMDQ4OX0.YTmPshWZBxX1zeKncOAgakpf_p7Pv26GS-c4E9ut8e0"
   },
   "expo": {
-    "name": "NomeApp",
-    "slug": "nomeapp",
+    "name": "Poke-Tournaments",
+    "slug": "Poke-Tournaments",
     "owner": "lbdbpt",
     "extra": {
       "eas": {
@@ -41,7 +41,7 @@
       }
     },
     "android": {
-      "package": "com.lbdbpt.nomeapp"
+      "package": "com.lbdbpt.Poke-Tournaments"
     }
   }
 }
